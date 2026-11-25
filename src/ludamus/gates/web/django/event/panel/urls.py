@@ -30,6 +30,7 @@ from ludamus.gates.web.django.event.panel.views import (
     proposal_edit,
     proposals,
     session_fields,
+    tickets,
     time_slots,
     timetable,
     tracks,
@@ -186,6 +187,36 @@ urlpatterns = [
         name="discount-rule-delete",
     ),
     path(
+        "event/<slug:slug>/tickets/",
+        tickets.EventTicketsPageView.as_view(),
+        name="tickets",
+    ),
+    path(
+        "event/<slug:slug>/tickets/create/",
+        tickets.TicketTypeCreatePageView.as_view(),
+        name="ticket-type-create",
+    ),
+    path(
+        "event/<slug:slug>/tickets/<int:pk>/edit/",
+        tickets.TicketTypeEditPageView.as_view(),
+        name="ticket-type-edit",
+    ),
+    path(
+        "event/<slug:slug>/tickets/<int:pk>/do/archive",
+        tickets.TicketTypeArchiveActionView.as_view(),
+        name="ticket-type-archive",
+    ),
+    path(
+        "event/<slug:slug>/tickets/<int:pk>/do/restore",
+        tickets.TicketTypeRestoreActionView.as_view(),
+        name="ticket-type-restore",
+    ),
+    path(
+        "event/<slug:slug>/tickets/orders/<int:pk>/do/refund",
+        tickets.TicketOrderRefundActionView.as_view(),
+        name="ticket-order-refund",
+    ),
+    path(
         "event/<slug:slug>/settings/display/",
         event_settings.EventDisplaySettingsPageView.as_view(),
         name="event-display-settings",
@@ -264,22 +295,22 @@ urlpatterns = [
         name="space-move-to-root",
     ),
     path(
-        "event/<slug:slug>/cfp/time-slots/",
+        "event/<slug:slug>/settings/availability/",
         time_slots.TimeSlotsPageView.as_view(),
         name="time-slots",
     ),
     path(
-        "event/<slug:slug>/cfp/time-slots/create/",
+        "event/<slug:slug>/settings/availability/create/",
         time_slots.TimeSlotCreatePageView.as_view(),
         name="time-slot-create",
     ),
     path(
-        "event/<slug:slug>/cfp/time-slots/<int:pk>/edit/",
+        "event/<slug:slug>/settings/availability/<int:pk>/edit/",
         time_slots.TimeSlotEditPageView.as_view(),
         name="time-slot-edit",
     ),
     path(
-        "event/<slug:slug>/cfp/time-slots/<int:pk>/do/delete",
+        "event/<slug:slug>/settings/availability/<int:pk>/do/delete",
         time_slots.TimeSlotDeleteActionView.as_view(),
         name="time-slot-delete",
     ),

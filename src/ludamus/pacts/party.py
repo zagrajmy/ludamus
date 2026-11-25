@@ -79,6 +79,11 @@ class PartiesOverviewDTO(BaseModel):
     invites: list[PartyInviteDTO]
 
 
+class PartyCountsDTO(BaseModel):
+    parties: int
+    pending_invites: int
+
+
 class EnrollmentPartyChoiceDTO(BaseModel):
     # A selector pill on the enroll page. The label is derived in the template
     # from the structured fields (name, else "Your party" for the viewer's own
@@ -200,6 +205,8 @@ class PartyRepositoryProtocol(Protocol):
     @staticmethod
     def overview(viewer_pk: int) -> PartiesOverviewDTO: ...
     @staticmethod
+    def counts(viewer_pk: int) -> PartyCountsDTO: ...
+    @staticmethod
     def read_for_viewer(*, party_pk: int, viewer_pk: int) -> PartyDTO | None: ...
     @staticmethod
     def create(*, leader_pk: int, name: str, enrolls_together: bool) -> int: ...
@@ -264,6 +271,7 @@ class PartyNotifierProtocol(Protocol):
 
 class PartyServiceProtocol(Protocol):
     def overview(self, viewer_pk: int) -> PartiesOverviewDTO: ...
+    def counts(self, viewer_pk: int) -> PartyCountsDTO: ...
     def create(self, *, leader_pk: int, name: str, enrolls_together: bool) -> int: ...
     def set_enrolls_together(
         self, *, leader_pk: int, party_pk: int, enrolls_together: bool

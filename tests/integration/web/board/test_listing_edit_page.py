@@ -1,12 +1,20 @@
 from datetime import UTC, datetime
 from http import HTTPStatus
+from unittest.mock import patch
 
 from django.contrib.messages import constants
 from django.urls import reverse
 
-from ludamus.links.db.django.models import ListingResponse, Notification
+from ludamus.links.db.django.models import (
+    ListingResponse,
+    Notification,
+    Party,
+    PartyMembership,
+)
+from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.listing import ListingContact, ListingResponseStatus
 from ludamus.pacts.notifications import NotificationKind
+from ludamus.pacts.party import PartyMembershipStatus
 from tests.integration.conftest import ListingFactory, UserFactory
 from tests.integration.utils import (
     FormErrorsMatcher,
@@ -76,6 +84,22 @@ class TestListingEditPageView:
             "Board games",
         )
 
+    def test_post_a_party_that_vanishes_mid_request_is_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        listing = ListingFactory(sphere=sphere, author=active_user, title="Before")
+        party = Party.objects.create(leader=active_user, name="Wtorki")
+
+        with patch(
+            "ludamus.mills.listing.ListingService._check_party",
+            side_effect=NotFoundError,
+        ):
+            response = authenticated_client.post(_url(listing), _post(party=party.pk))
+
+        assert_response_404(response)
+        listing.refresh_from_db()
+        assert (listing.title, listing.party) == ("Before", None)
+
     def test_post_tells_waiting_responders_it_changed(
         self, authenticated_client, active_user, sphere
     ):
@@ -95,6 +119,24 @@ class TestListingEditPageView:
         assert list(Notification.objects.values_list("recipient", "kind", "title")) == [
             (waiting.user_id, NotificationKind.LISTING_CHANGED, "New title has changed")
         ]
+
+    def test_post_skips_a_responder_who_joined_the_shown_party_by_link(
+        self, authenticated_client, active_user, sphere
+    ):
+        responder = UserFactory()
+        party = Party.objects.create(leader=active_user, name="Wtorki")
+        for member in (active_user, responder):
+            PartyMembership.objects.create(
+                party=party, member=member, status=PartyMembershipStatus.ACTIVE
+            )
+        listing = ListingFactory(sphere=sphere, author=active_user, party=party)
+        ListingResponse.objects.create(
+            listing=listing, user=responder, contact=ListingContact.EMAIL
+        )
+
+        authenticated_client.post(_url(listing), _post(party=str(party.pk)))
+
+        assert not Notification.objects.exists()
 
     def test_someone_elses_listing_is_not_found_and_unchanged(
         self, authenticated_client, sphere

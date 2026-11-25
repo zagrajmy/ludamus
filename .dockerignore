@@ -13,6 +13,7 @@
 !package.json
 !aube-workspace.yaml
 !aube-lock.yaml
+!patches/*.patch
 !tests/e2e/package.json
 !workers/parley/package.json
 # npmrc carries fetch-retry settings that harden the frontend install

@@ -43,6 +43,7 @@ from ludamus.pacts.party import (
     SelectedEnrollmentPartyDTO,
 )
 from ludamus.pacts.sessions import PROGRAMME_DAYS, SessionDTO
+from ludamus.pacts.tickets import EventShopDTO
 from ludamus.pacts.timetable import AgendaItemDTO
 from ludamus.pacts.user import UserDTO
 from ludamus.pacts.venues import NO_LOCATION, LocationData
@@ -175,6 +176,9 @@ def event_page_context(event, *, url, access=ENROLLMENT_SHUT, **overrides):
         "total_enrolled": 0,
         "user_enrolled_sessions": [],
         "event_banned": False,
+        "ticket_shop": EventShopDTO(
+            offers=[], accepting_payments=False, viewer_ticket_count=0
+        ),
         "link_preview": LinkPreview(description=markdown_summary(event.description)),
         "google_calendar_url": google_calendar_url(
             event, page_url=f"http://testserver{url}"

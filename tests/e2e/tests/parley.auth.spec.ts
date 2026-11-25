@@ -223,7 +223,9 @@ test("With storage refused, the chat window still opens and moves", async ({ pag
   await page.goto("/");
   await launcherOf(page).click();
   const panel = panelOf(page);
-  const grip = (await panel.locator("header").first().boundingBox())!;
+  const header = panel.locator("header").first();
+  await expect(header).toBeVisible();
+  const grip = (await header.boundingBox())!;
   await page.mouse.move(grip.x + 120, grip.y + 20);
   await page.mouse.down();
   await page.mouse.move(grip.x - 2000, grip.y - 2000, { steps: 6 });

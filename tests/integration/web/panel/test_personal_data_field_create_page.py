@@ -45,7 +45,10 @@ class TestPersonalDataFieldCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/personal-data-field-create.html",
-            context_data={**panel_context(event, active_nav="cfp"), "form": ANY},
+            context_data={
+                **panel_context(event, active_nav="session-config"),
+                "form": ANY,
+            },
         )
         assert response.context["current_event"].pk == event.pk
 
@@ -123,7 +126,10 @@ class TestPersonalDataFieldCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="panel/personal-data-field-create.html",
-            context_data={**panel_context(event, active_nav="cfp"), "form": ANY},
+            context_data={
+                **panel_context(event, active_nav="session-config"),
+                "form": ANY,
+            },
         )
         assert not PersonalDataField.objects.filter(event=event).exists()
 
@@ -321,7 +327,7 @@ class TestPersonalDataFieldCreatePageView:
             HTTPStatus.OK,
             template_name="panel/personal-data-field-create.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "form": FormErrorsMatcher(
                     is_required=["A checkbox cannot be required."],
                     __all__=["A checkbox cannot be required."],
@@ -347,7 +353,7 @@ class TestPersonalDataFieldCreatePageView:
             HTTPStatus.OK,
             template_name="panel/personal-data-field-create.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "form": FormErrorsMatcher(
                     options=["Add at least one option, or allow custom values."]
                 ),

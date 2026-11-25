@@ -91,11 +91,11 @@ kanban
     [Feature flag system]@{ assigned: 'agent-readiness' }
     [Migrate to HTMX]@{ assigned: 'frontend', ticket: 10 }
     [Venues rework]@{ assigned: 'panel', ticket: 155 }
-    [GLIMPSE strangler: adapters → layered tree]@{ assigned: 'GLIMPSE' }
-    [UoW → Services: request.di.uow → request.services]@{
+    [✅ GLIMPSE strangler: adapters → layered tree]@{ assigned: 'GLIMPSE' }
+    [✅ UoW → Services: request.di.uow → request.services]@{
       assigned: 'GLIMPSE'
     }
-    [Legacy module split: legacy.py → per-subdomain]@{ assigned: 'GLIMPSE' }
+    [✅ Legacy module split: legacy.py → per-subdomain]@{ assigned: 'GLIMPSE' }
     [links/db/django layout - split fat repositories]@{ assigned: 'GLIMPSE' }
     [Panel object-scope authorization - close IDOR holes]@{
       assigned: 'GLIMPSE'

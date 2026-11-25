@@ -57,6 +57,7 @@ RUN mise trust && mise install
 # though --filter + --no-optional keep their deps out of the image. Independent of the
 # Python deps, so it lives in base and is built once for both stages.
 COPY --chown=appuser:appuser .npmrc aube-workspace.yaml aube-lock.yaml package.json ./
+COPY --chown=appuser:appuser patches ./patches
 COPY --chown=appuser:appuser tests/e2e/package.json ./tests/e2e/
 COPY --chown=appuser:appuser workers/parley/package.json ./workers/parley/
 COPY --chown=appuser:appuser src/ludamus/client/package.json ./src/ludamus/client/

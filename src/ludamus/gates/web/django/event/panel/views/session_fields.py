@@ -40,7 +40,7 @@ class SessionFieldsPageView(EventPanelMixin, View):
         """
         context = self.panel_context()
 
-        context["active_nav"] = "cfp"
+        context["active_nav"] = "session-config"
         context["active_tab"] = "session"
         context["tab_urls"] = cfp_tab_urls(slug)
         summaries = self.request.services.session_fields.list_summaries(
@@ -64,7 +64,7 @@ class SessionFieldCreatePageView(EventPanelMixin, View):
         """
         context = self.panel_context()
 
-        context["active_nav"] = "cfp"
+        context["active_nav"] = "session-config"
         context["form"] = SessionFieldForm(
             initial={"max_length": DEFAULT_FIELD_MAX_LENGTH}
         )
@@ -87,7 +87,7 @@ class SessionFieldCreatePageView(EventPanelMixin, View):
 
         form = SessionFieldForm(self.request.POST)
         if not form.is_valid():
-            context["active_nav"] = "cfp"
+            context["active_nav"] = "session-config"
             context["form"] = form
             context["categories"] = (
                 self.request.services.session_fields.list_categories(
@@ -140,7 +140,7 @@ class SessionFieldEditPageView(EventPanelMixin, View):
             messages.error(self.request, _("Session field not found."))
             return redirect("panel:session-fields", slug=slug)
 
-        context["active_nav"] = "cfp"
+        context["active_nav"] = "session-config"
         context["field"] = field
         initial = {
             "name": field.name,
@@ -187,7 +187,7 @@ class SessionFieldEditPageView(EventPanelMixin, View):
         data["field_type"] = field.field_type
         form = SessionFieldForm(data)
         if not form.is_valid():
-            context["active_nav"] = "cfp"
+            context["active_nav"] = "session-config"
             context["field"] = field
             context["form"] = form
             context["categories"] = (
