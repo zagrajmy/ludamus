@@ -12,9 +12,8 @@ from ludamus.mills.printing import (
 )
 from ludamus.pacts.printing import PrintablesReminderDTO, PrintOptionDTO, PrintQueryDTO
 from ludamus.pacts.timetable import AgendaItemDTO
-from ludamus.pacts.tracks import TrackDTO
 from ludamus.pacts.venues import SpaceDTO
-from tests.unit.factories import FakeTransaction, event_dto
+from tests.unit.factories import FakeTransaction, event_dto, track_dto
 
 
 def _event():
@@ -768,9 +767,7 @@ class TestBuildDoorCards:
 class TestListTracks:
     def test_public_tracks_become_print_options(self):
         service = _service(
-            spaces=[],
-            items=[],
-            tracks=[TrackDTO.model_construct(pk=5, name="Larp", slug="larp")],
+            spaces=[], items=[], tracks=[track_dto(pk=5, name="Larp", slug="larp")]
         )
 
         assert service.list_tracks(1) == [

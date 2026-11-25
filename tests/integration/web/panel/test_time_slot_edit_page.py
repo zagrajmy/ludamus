@@ -17,7 +17,7 @@ from tests.integration.web.panel.helpers import (
 
 
 class TestTimeSlotEditPageView:
-    """Tests for /panel/event/<slug>/cfp/time-slots/<pk>/edit/ page."""
+    """Tests for /panel/event/<slug>/settings/availability/<pk>/edit/ page."""
 
     @staticmethod
     def get_url(event, time_slot):
@@ -47,7 +47,7 @@ class TestTimeSlotEditPageView:
             HTTPStatus.OK,
             template_name="panel/time-slot-edit.html",
             context_data={
-                "active_nav": "cfp",
+                "active_nav": "settings",
                 "form": ANY,
                 "time_slot": TimeSlotDTO.model_validate(time_slot),
                 "events": [EventDTO.model_validate(event)],
@@ -80,8 +80,8 @@ class TestTimeSlotEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Time slot updated successfully.")],
-            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+            messages=[(messages.SUCCESS, "Availability window updated successfully.")],
+            url=f"/panel/event/{event.slug}/settings/availability/",
         )
         time_slot.refresh_from_db()
         tz = get_current_timezone()
@@ -123,8 +123,8 @@ class TestTimeSlotEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Time slot updated successfully.")],
-            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+            messages=[(messages.SUCCESS, "Availability window updated successfully.")],
+            url=f"/panel/event/{event.slug}/settings/availability/",
         )
         slot.refresh_from_db()
         expected_date = event.start_time.date()
@@ -146,7 +146,7 @@ class TestTimeSlotEditPageView:
             HTTPStatus.OK,
             template_name="panel/time-slot-edit.html",
             context_data={
-                "active_nav": "cfp",
+                "active_nav": "settings",
                 "form": ANY,
                 "time_slot": TimeSlotDTO.model_validate(time_slot),
                 "events": [EventDTO.model_validate(event)],
@@ -192,8 +192,8 @@ class TestTimeSlotEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Time slot not found.")],
-            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+            messages=[(messages.ERROR, "Availability window not found.")],
+            url=f"/panel/event/{event.slug}/settings/availability/",
         )
 
     def test_post_redirects_on_invalid_pk(self, panel_client, event):
@@ -206,8 +206,8 @@ class TestTimeSlotEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Time slot not found.")],
-            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+            messages=[(messages.ERROR, "Availability window not found.")],
+            url=f"/panel/event/{event.slug}/settings/availability/",
         )
 
     def test_post_widens_event_start_for_slot_before_event(
@@ -229,9 +229,12 @@ class TestTimeSlotEditPageView:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (messages.SUCCESS, "Time slot updated. The event dates now cover it.")
+                (
+                    messages.SUCCESS,
+                    "Availability window updated. The event dates now cover it.",
+                )
             ],
-            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+            url=f"/panel/event/{event.slug}/settings/availability/",
         )
         time_slot.refresh_from_db()
         event.refresh_from_db()
@@ -258,7 +261,7 @@ class TestTimeSlotEditPageView:
             HTTPStatus.OK,
             template_name="panel/time-slot-edit.html",
             context_data={
-                "active_nav": "cfp",
+                "active_nav": "settings",
                 "form": ANY,
                 "time_slot": TimeSlotDTO.model_validate(time_slot),
                 "events": [EventDTO.model_validate(event)],
@@ -275,7 +278,7 @@ class TestTimeSlotEditPageView:
             },
         )
         assert (
-            "The time slot starts before the event is published. "
+            "The availability window starts before the event is published. "
             "Move the publication time in the event settings first."
             in response.context["form"].non_field_errors()
         )
@@ -305,7 +308,7 @@ class TestTimeSlotEditPageView:
             HTTPStatus.OK,
             template_name="panel/time-slot-edit.html",
             context_data={
-                "active_nav": "cfp",
+                "active_nav": "settings",
                 "form": ANY,
                 "time_slot": TimeSlotDTO.model_validate(time_slot),
                 "events": [EventDTO.model_validate(event)],
@@ -322,7 +325,7 @@ class TestTimeSlotEditPageView:
             },
         )
         assert (
-            "Time slot overlaps with an existing slot." in response.context[
+            "Availability window overlaps with an existing one." in response.context[
                 "form"
             ].non_field_errors()
         )
@@ -346,8 +349,8 @@ class TestTimeSlotEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Time slot updated successfully.")],
-            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+            messages=[(messages.SUCCESS, "Availability window updated successfully.")],
+            url=f"/panel/event/{event.slug}/settings/availability/",
         )
 
     def test_post_widens_event_around_multi_day_slot(
@@ -370,9 +373,12 @@ class TestTimeSlotEditPageView:
             response,
             HTTPStatus.FOUND,
             messages=[
-                (messages.SUCCESS, "Time slot updated. The event dates now cover it.")
+                (
+                    messages.SUCCESS,
+                    "Availability window updated. The event dates now cover it.",
+                )
             ],
-            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+            url=f"/panel/event/{event.slug}/settings/availability/",
         )
         time_slot.refresh_from_db()
         event.refresh_from_db()
@@ -390,6 +396,6 @@ class TestTimeSlotEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Time slot not found.")],
-            url=f"/panel/event/{event.slug}/cfp/time-slots/",
+            messages=[(messages.ERROR, "Availability window not found.")],
+            url=f"/panel/event/{event.slug}/settings/availability/",
         )

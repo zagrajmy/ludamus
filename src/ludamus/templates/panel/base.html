@@ -101,8 +101,8 @@ floating UI for the same corner.{% endcomment %}
                         {% sidebar_link url="panel:event-index" slug=current_event.slug icon="home" label=t_dashboard key="index" %}
                         {% translate "Program" as t_program %}
                         {% sidebar_cat key="program" label=t_program %}
-                            {% translate "Call for Proposals" as t_cfp %}
-                            {% sidebar_link url="panel:cfp" slug=current_event.slug icon="rectangle-stack" label=t_cfp key="cfp" %}
+                            {% translate "Session configuration" as t_cfp %}
+                            {% sidebar_link url="panel:cfp" slug=current_event.slug icon="rectangle-stack" label=t_cfp key="session-config" %}
                             {% translate "Proposals" as t_proposals %}
                             {% sidebar_link url="panel:proposals" slug=current_event.slug icon="document-text" label=t_proposals key="proposals" %}
                             {% translate "Facilitators" as t_facilitators %}
