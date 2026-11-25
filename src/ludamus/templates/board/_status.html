@@ -3,6 +3,9 @@
 {% if listing.status == "draft" %}
     {% translate "Draft" as status_label %}
     {% include "components/feed_tag.html" with label=status_label tone="quiet" only %}
+{% elif listing.status == "closed" and listing.party_formed %}
+    {% translate "Party formed" context "listing status" as status_label %}
+    {% include "components/feed_tag.html" with label=status_label tone="quiet" only %}
 {% elif listing.status == "closed" %}
     {% translate "Ended" context "listing status" as status_label %}
     {% include "components/feed_tag.html" with label=status_label tone="quiet" only %}

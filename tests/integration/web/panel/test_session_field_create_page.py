@@ -48,7 +48,7 @@ class TestSessionFieldCreatePageView:
             HTTPStatus.OK,
             template_name="panel/session-field-create.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "categories": [],
                 "form": ANY,
                 "required_category_pks": set(),
@@ -130,7 +130,7 @@ class TestSessionFieldCreatePageView:
             HTTPStatus.OK,
             template_name="panel/session-field-create.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "categories": [],
                 "form": ANY,
                 "required_category_pks": set(),
@@ -369,7 +369,7 @@ class TestSessionFieldCreatePageView:
             HTTPStatus.OK,
             template_name="panel/session-field-create.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "categories": [],
                 "form": FormErrorsMatcher(
                     options=["Add at least one option, or allow custom values."]

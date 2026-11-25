@@ -582,6 +582,37 @@ class TestTabShellBody:
             )
 
 
+class TestBottomSheet:
+    def test_renders_every_hook_the_script_needs(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% bottom_sheet id="s" title=title close_url="/back/" open=True %}'
+            "Hello"
+            "{% end_bottom_sheet %}"
+        )
+        html = tpl.render(Context({"title": "<b>Section</b>"}))
+        for hook in (
+            "data-bottom-sheet\n",
+            'data-height="half"',
+            "data-open",
+            'aria-labelledby="s-title"',
+            "data-bottom-sheet-handle",
+            '<h2 id="s-title"',
+            "data-bottom-sheet-title>&lt;b&gt;Section&lt;/b&gt;</h2>",
+            'href="/back/"',
+            "data-bottom-sheet-close",
+            "data-bottom-sheet-backdrop",
+            "Hello",
+        ):
+            assert hook in html
+
+    def test_requires_title_and_close_url(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="requires title, close_url"):
+            Template(
+                '{% load tessera %}{% bottom_sheet id="s" %}{% end_bottom_sheet %}'
+            )
+
+
 ICON_TOGGLE_ICONS = 2
 SWITCHER_SEGMENTS = 3
 

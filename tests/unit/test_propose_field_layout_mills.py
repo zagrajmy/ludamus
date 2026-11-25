@@ -1,18 +1,11 @@
 import json
 from datetime import UTC, date, datetime
+from typing import TYPE_CHECKING
 
 from ludamus.mills.propose.field_layout import ImportFieldLayoutService
 from ludamus.mills.propose.mapping import dedup_ident
 from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.facilitators import FacilitatorDTO
-from ludamus.pacts.fields import (
-    OrganizerFieldDTO,
-    PersonalDataFieldValueData,
-    SessionFieldValueData,
-    SessionFieldValueDTO,
-)
-from ludamus.pacts.integrations import EventIntegrationDTO
 from ludamus.pacts.propose import (
     ApplyFieldLayoutResult,
     AvailabilitySpec,
@@ -24,8 +17,25 @@ from ludamus.pacts.propose import (
     QuestionTarget,
     ValueDelta,
 )
-from ludamus.pacts.sessions import SessionDTO, SessionUpdateData
-from tests.unit.factories import FakeTransaction
+from tests.unit.factories import (
+    FakeTransaction,
+    event_integration_dto,
+    facilitator_dto,
+    organizer_field_dto,
+    session_dto,
+    session_field_value_dto,
+)
+
+if TYPE_CHECKING:
+    from ludamus.pacts.facilitators import FacilitatorDTO
+    from ludamus.pacts.fields import (
+        OrganizerFieldDTO,
+        PersonalDataFieldValueData,
+        SessionFieldValueData,
+        SessionFieldValueDTO,
+    )
+    from ludamus.pacts.integrations import EventIntegrationDTO
+    from ludamus.pacts.sessions import SessionDTO, SessionUpdateData
 
 EVENT_ID = 4
 INTEGRATION_PK = 3
@@ -65,7 +75,7 @@ _FULL_ROW = {
 
 class _Integrations:
     def __init__(self) -> None:
-        self.integration = EventIntegrationDTO.model_construct(
+        self.integration = event_integration_dto(
             pk=INTEGRATION_PK, settings_json=_SETTINGS.model_dump_json()
         )
 
@@ -89,7 +99,7 @@ class _Sessions:
         self.updates.update(data)
 
     def read_facilitators(self, session_id: int) -> list[FacilitatorDTO]:
-        return [FacilitatorDTO.model_construct(pk=pk) for pk in self.facilitator_ids]
+        return [facilitator_dto(pk=pk) for pk in self.facilitator_ids]
 
     def set_facilitators(self, session_id: int, facilitator_ids: list[int]) -> None:
         self.facilitator_ids = facilitator_ids
@@ -108,9 +118,7 @@ class _Sessions:
 
     def read_field_values(self, session_id: int) -> list[SessionFieldValueDTO]:
         return [
-            SessionFieldValueDTO.model_construct(
-                field_id=value["field_id"], value=value["value"]
-            )
+            session_field_value_dto(field_id=value["field_id"], value=value["value"])
             for value in self.field_values
         ]
 
@@ -134,14 +142,12 @@ class _Fields:
     def read_by_slug(self, event_id: int, slug: str) -> OrganizerFieldDTO:
         if (event_id, slug) not in self.by_slug:
             raise NotFoundError
-        return OrganizerFieldDTO.model_construct(
-            pk=self.by_slug[event_id, slug], slug=slug
-        )
+        return organizer_field_dto(pk=self.by_slug[event_id, slug], slug=slug)
 
     def create(self, event_id: int, data) -> OrganizerFieldDTO:
         pk = 10 + len(self.by_slug)
         self.by_slug[event_id, data["slug"]] = pk
-        return OrganizerFieldDTO.model_construct(pk=pk, slug=data["slug"])
+        return organizer_field_dto(pk=pk, slug=data["slug"])
 
     def delete_orphans_for_event(self, event_id: int) -> int:
         return 0
@@ -202,7 +208,7 @@ class _Facilitators:
 
     def create(self, data) -> FacilitatorDTO:
         self.created.append(data)
-        return FacilitatorDTO.model_construct(pk=50, slug=data["slug"])
+        return facilitator_dto(pk=50, slug=data["slug"])
 
 
 class _LogEntries:
@@ -237,7 +243,7 @@ def _session(**fields) -> SessionDTO:
         "participants_limit": 0,
         "category_id": None,
     }
-    return SessionDTO.model_construct(pk=SESSION_ID, **{**defaults, **fields})
+    return session_dto(pk=SESSION_ID, **{**defaults, **fields})
 
 
 def _repos(**overrides) -> ImportRepos:

@@ -95,7 +95,7 @@ def _render(
     form: ProposalCategoryForm,
 ) -> TemplateResponse:
     context.update(
-        active_nav="cfp",
+        active_nav="session-config",
         category=page.category,
         form=form,
         available_session_fields=page.available_session_fields,
