@@ -42,7 +42,7 @@ class TestCFPPageView:
             HTTPStatus.OK,
             template_name="panel/cfp.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "active_tab": "types",
                 "tab_urls": cfp_tab_urls(event),
                 "categories": [],
@@ -73,7 +73,7 @@ class TestCFPPageView:
             HTTPStatus.OK,
             template_name="panel/cfp.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "active_tab": "types",
                 "tab_urls": cfp_tab_urls(event),
                 "categories": [
@@ -116,7 +116,7 @@ class TestCFPPageView:
             HTTPStatus.OK,
             template_name="panel/cfp.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "active_tab": "types",
                 "tab_urls": cfp_tab_urls(event),
                 "categories": [],
@@ -221,7 +221,7 @@ class TestCFPPageView:
             context_data={
                 **panel_context(
                     event,
-                    active_nav="cfp",
+                    active_nav="session-config",
                     hosts_count=1,
                     pending_proposals=1,
                     total_proposals=1,
@@ -247,7 +247,7 @@ class TestCFPPageView:
             HTTPStatus.OK,
             template_name="panel/cfp.html",
             context_data={
-                **panel_context(event, active_nav="cfp"),
+                **panel_context(event, active_nav="session-config"),
                 "active_tab": "types",
                 "tab_urls": cfp_tab_urls(event),
                 "categories": [
@@ -311,7 +311,7 @@ class TestCFPPageView:
             context_data={
                 **panel_context(
                     event,
-                    active_nav="cfp",
+                    active_nav="session-config",
                     hosts_count=1,
                     pending_proposals=1 + 1,
                     total_proposals=1 + 1 + 1,
@@ -386,7 +386,7 @@ class TestCFPPageView:
             context_data={
                 **panel_context(
                     event,
-                    active_nav="cfp",
+                    active_nav="session-config",
                     hosts_count=1,
                     pending_proposals=1 + 1,
                     total_proposals=1 + 1 + 1,

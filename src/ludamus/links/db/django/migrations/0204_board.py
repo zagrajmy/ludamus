@@ -7,7 +7,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0202_ticket_sales")]
+    dependencies = [("db_main", "0203_listing_party")]
 
     operations = [
         migrations.CreateModel(

@@ -388,7 +388,7 @@ MEDIA_URL_IS_LOCAL = media_url_is_local(MEDIA_URL)
 
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
-# URL prefixes that skip APP_MIDDLEWARE (UoW injection, context setup)
+# URL prefixes that skip APP_MIDDLEWARE (request context setup)
 MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
     STATIC_URL,
     "/admin/",

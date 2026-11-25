@@ -39,10 +39,8 @@ description — run it rather than trusting a hardcoded list here. Most used:
   for UI; don't hand-roll components.
 - Tailwind = component look. Partials in `templates/components/`;
   `extra_class` for page layout only. No utility copy-paste into CSS.
-- For any user-facing UI work (pages, forms, tables, modals, empty/error states,
-  copy), use the `product-design` skill (`.claude/skills/product-design/`)
-  _before_ building — it routes to the component catalog, reachable-states
-  checklist, Polish copy rules, and a verification checklist.
+- User-facing UI work (pages, forms, tables, modals, empty/error states, copy)
+  starts with the `product-design` skill (`.claude/skills/product-design/`).
 - No single-line files.
 - Tailwind is here to lower CSS output size. Prefer Tailwind over CSS files.
 
@@ -55,14 +53,15 @@ happy path + one edge case tested.
 
 ## Debt metrics (tingle)
 
-`tingle.toml` counts debt (suppression comments, `Any`, files still touching
-`request.di.uow`, legacy and old-subdomain files, …). `tingle stat --diff` /
+`tingle.toml` counts debt (suppression comments, `Any`, legacy and
+old-subdomain files, …). `tingle stat --diff` /
 `tingle report --diff` show what your branch adds vs `main`.
 
-`tingle check` (in `mise run lint` / `check`) fails when the branch's metrics
-grow on net — paying debt in one offsets taking it on in another. Read the
-added occurrences it prints and remove what you can. A justified addition is
-fine; say so in the PR. Don't game a counter to keep a number flat.
+`tingle check` (`mise run lint:tingle`; `mise run check` does not run it)
+fails when the branch's metrics grow on net — paying debt in one offsets
+taking it on in another. Read the added occurrences it prints and remove what
+you can. A justified addition is fine; say so in the PR. Don't game a counter
+to keep a number flat.
 
 ## Frontend debt (fallow)
 
@@ -70,7 +69,7 @@ fine; say so in the PR. Don't game a counter to keep a number flat.
 duplication or complexity beyond `src/ludamus/client/fallow-baselines/`. Fix
 what it names rather than re-baselining; after paying findings down, run
 `mise run fallow:baseline` so they cannot come back. A new Vite input outside
-`src/*.ts` also goes in `entry` in `.fallowrc.json`.
+`src/*.ts` also goes in `entry` in `src/ludamus/client/.fallowrc.json`.
 
 ## Friction (Frog)
 
@@ -149,7 +148,7 @@ constructor, and own transactional boundaries.
   state in Python; assert rendered HTML in `tests/e2e`. Don't add
   `assert_response(contains=...)` on markup, and drop such assertions from
   tests you touch — the e2e run covers them, and the coverage reports combine.
-- NEVER add noqa/type ignore/pylint comments or directives without explicit
+- Don't add noqa/type ignore/pylint comments or directives without explicit
   per-case approval.
 - `test` / `tested` is reserved for pytest; production names use `check` /
   `validation` / `verification`.

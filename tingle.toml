@@ -167,12 +167,6 @@ ranges = ["config"]
 # refactoring
 
 [[metrics]]
-name = "request-di-uow-files"
-type = "regex_spread"
-group = "refactoring"
-pattern = 'request\.di\.uow'
-
-[[metrics]]
 name = "legacy-files"
 type = "file_count"
 group = "refactoring"
@@ -217,13 +211,6 @@ type = "regex_count"
 group = "refactoring"
 pattern = '#\s*("ludamus\.|\[\[tool\.importlinter)'
 ranges = ["config"]
-
-[[metrics]]
-name = "adapter-imports-in-gates"
-type = "regex_count"
-group = "refactoring"
-pattern = 'from ludamus\.adapters'
-ranges = ["gates"]
 
 [[metrics]]
 name = "todo-comments"
