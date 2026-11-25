@@ -5577,7 +5577,6 @@ msgstr "Skopiuj do schowka"
 
 #: src/ludamus/gates/web/django/templatetags/tessera/dialog_close_button.py
 #: src/ludamus/templates/components/bottom-sheet.html
-#: src/ludamus/templates/event/parts/session-modal.html
 #: src/ludamus/templates/user/user/_email_verify_modal.html
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "Close"
@@ -9381,7 +9380,8 @@ msgid "Who should be in this session?"
 msgstr "Kto ma być w tym punkcie programu?"
 
 #: src/ludamus/templates/event/enroll_select.html
-#: src/ludamus/templates/event/parts/_session_participants_panel.html
+#: src/ludamus/templates/event/parts/_roster_confirmed_row.html
+#: src/ludamus/templates/event/parts/_roster_waiting_row.html
 msgid "You"
 msgstr "Ty"
 
@@ -9819,6 +9819,10 @@ msgstr "Edytuj integrację"
 msgid "Save"
 msgstr "Zapisz"
 
+#: src/ludamus/templates/event/parts/_roster_waiting_row.html
+msgid "Waiting list position"
+msgstr "Pozycja na liście oczekujących"
+
 #: src/ludamus/templates/event/parts/_session_participants_panel.html
 msgid "Enrolled"
 msgstr "Zapisany"
@@ -9826,10 +9830,6 @@ msgstr "Zapisany"
 #: src/ludamus/templates/event/parts/_session_participants_panel.html
 msgid "Waiting List"
 msgstr "Lista oczekujących"
-
-#: src/ludamus/templates/event/parts/_session_participants_panel.html
-msgid "Waiting list position"
-msgstr "Pozycja na liście oczekujących"
 
 #: src/ludamus/templates/event/parts/_session_participants_panel.html
 msgid "No one on the waiting list."

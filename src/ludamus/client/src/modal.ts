@@ -19,6 +19,7 @@
  */
 
 import { restoreCarriedSearchParams } from "./url-state";
+import { numberWaitingPositions } from "./waiting-positions";
 
 interface NavigateEvent {
   canIntercept: boolean;
@@ -397,20 +398,6 @@ const lazyModalContainer = (source: LazyModalSource): HTMLElement | null =>
 const lazyModalUrl = (source: LazyModalSource, id: string): string | null => {
   const template = lazyModalContainer(source)?.getAttribute(source.urlAttr);
   return template ? source.urlFor(template, id.slice(source.prefix.length)) : null;
-};
-
-const numberWaitingPositions = (root: ParentNode): void => {
-  for (const pane of root.querySelectorAll<HTMLElement>(".tab-panel")) {
-    let position = 1;
-    for (const badge of pane.querySelectorAll<HTMLElement>(
-      "[data-waiting-list-row] [data-waiting-position]",
-    )) {
-      const n = position++;
-      badge.textContent = String(n);
-      const label = badge.dataset.positionLabel;
-      if (label) badge.setAttribute("aria-label", `${label} ${n}`);
-    }
-  }
 };
 
 // Tabs, click-outside and Escape are delegated on document, so injected modals

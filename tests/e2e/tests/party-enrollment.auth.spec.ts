@@ -85,7 +85,11 @@ test.describe("Signing a companion up", () => {
     });
 
     await leave(page, "Two Chair Tale");
-    await expect(await roster(page, "Two Chair Tale")).toHaveText("No participants enrolled yet.");
+    // Visible text only: the empty groups stay in the panel, hidden, so the
+    // modal can show an enroll before the server answers.
+    await expect(await roster(page, "Two Chair Tale")).toHaveText("No participants enrolled yet.", {
+      useInnerText: true,
+    });
   });
 
   test("with one chair left the companion waits, and is told so before saving", async ({
