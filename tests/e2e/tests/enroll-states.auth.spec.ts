@@ -80,5 +80,67 @@ test.describe("Ways into a session while enrollment is open", () => {
 
     await expect(footer.getByText("On the waiting list")).toBeVisible();
     await expect(footer.getByRole("button", { name: "Leave", exact: true })).toBeVisible();
+    const tab = dialog.getByRole("tab", { name: /Participants/ });
+    await expect(tab).toHaveAccessibleName("Participants 1 +1");
+    await tab.click();
+    await expect(dialog.getByRole("heading", { name: "Waiting List", exact: true })).toBeVisible();
+    await expect(dialog.getByText("You", { exact: true })).toBeVisible();
+  });
+});
+
+// The enroll view, which the one-click footer posts to.
+const ENROLL_POST = "**/session/*/enrollment/";
+
+test.describe("The participants tab answers an Enroll click at once", () => {
+  test.afterEach(async ({ page }) => {
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+    await release(page, "Seat Available Demo");
+  });
+
+  test("lists you before the server answers, and keeps you once it does", async ({ page }) => {
+    const { dialog, footer } = await openModal(page, "Seat Available Demo");
+    let answer = (): void => {};
+    const held = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    await page.route(ENROLL_POST, async (route) => {
+      if (route.request().method() !== "POST") return route.fallback();
+      await held;
+      return route.continue();
+    });
+    const tab = dialog.getByRole("tab", { name: /Participants/ });
+    await expect(tab).toHaveAccessibleName("Participants 0");
+
+    await footer.getByRole("button", { name: "Enroll", exact: true }).click();
+
+    // The request is still held here: only the client can have done this.
+    await expect(tab).toHaveAccessibleName("Participants 1");
+    await tab.click();
+    await expect(dialog.getByRole("heading", { name: "Enrolled (1/5)" })).toBeVisible();
+    await expect(dialog.getByText("You", { exact: true })).toBeVisible();
+    await expect(dialog.getByText("No participants enrolled yet.")).toBeHidden();
+    await expect(footer.getByText("You're enrolled")).toHaveCount(0);
+
+    answer();
+
+    await expect(footer.getByText("You're enrolled")).toBeVisible();
+    await expect(tab).toHaveAccessibleName("Participants 1");
+    await expect(dialog.getByText("You", { exact: true })).toBeVisible();
+  });
+
+  test("takes you back out when the enroll never reaches the server", async ({ page }) => {
+    const { dialog, footer } = await openModal(page, "Seat Available Demo");
+    await page.route(ENROLL_POST, (route) =>
+      route.request().method() === "POST" ? route.abort() : route.fallback(),
+    );
+    const tab = dialog.getByRole("tab", { name: /Participants/ });
+
+    await footer.getByRole("button", { name: "Enroll", exact: true }).click();
+
+    await expect(tab).toHaveAccessibleName("Participants 0");
+    await tab.click();
+    await expect(dialog.getByText("No participants enrolled yet.")).toBeVisible();
+    await expect(dialog.getByText("You", { exact: true })).toHaveCount(0);
+    await expect(footer.getByRole("button", { name: "Enroll", exact: true })).toBeVisible();
   });
 });
