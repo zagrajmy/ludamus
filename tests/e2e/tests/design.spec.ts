@@ -52,13 +52,17 @@ test.describe("Design system page", () => {
     const toasts = page.getByRole("region", { name: "Notifications" }).locator("[data-flash]");
     await expect(toasts).toHaveCount(2);
     await expect(toasts.first()).toHaveAttribute("data-flash-mounted", "true");
+    // HACK: measured with boundingBox, not evaluateAll. Playwright's Firefox
+    // crashes the page when evaluateAll runs on this region's toasts while
+    // they are on screen, whatever the function does.
     await expect
-      .poll(() =>
-        toasts.evaluateAll((elements) => {
-          const [front, back] = elements.map((element) => element.getBoundingClientRect());
-          return back.top - front.top < front.height;
-        }),
-      )
+      .poll(async () => {
+        const [front, back] = await Promise.all([
+          toasts.nth(0).boundingBox(),
+          toasts.nth(1).boundingBox(),
+        ]);
+        return front !== null && back !== null && back.y - front.y < front.height;
+      })
       .toBe(true);
 
     await playground.getByRole("button", { name: "Dismiss all" }).click();
