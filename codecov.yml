@@ -1,3 +1,14 @@
+# Statuses stay quiet until the CI aggregator has uploaded the full Python
+# report and every client shard, then runs send-notifications. Codecov
+# otherwise posts codecov/patch on the first upload it processes, which is a
+# single e2e shard, and that partial figure is the one that sticks.
+# require_ci_to_pass is off so an advisory job cannot cancel that status
+# after the required test jobs have already passed.
+codecov:
+  require_ci_to_pass: false
+  notify:
+    manual_trigger: true
+
 # Patch-coverage floor for PR diffs.
 #
 # A few panel templates share a
