@@ -20,10 +20,11 @@ permissions:
 jobs:
   cla:
     runs-on: ubuntu-latest
-    # Only the signing phrase, never every comment on every issue.
+    # Signing phrase or recheck only — never every comment on every issue.
     if: >
       github.event_name == 'pull_request_target' ||
-      contains(github.event.comment.body, 'I have read the CLA Document')
+      contains(github.event.comment.body, 'I have read the CLA Document') ||
+      contains(github.event.comment.body, 'recheck')
     steps:
       - uses: contributor-assistant/github-action@v2.6.1
         env:
@@ -39,9 +40,10 @@ jobs:
           path-to-signatures: signatures/v1/cla.json
           # Maintainers hold the copyright already; bots cannot agree to
           # anything. Not "Claude": an author GitHub cannot link is matched by
-          # its free-text name, which anyone can set. Cloud sessions author
-          # as their human instead (see .claude/hooks/session-start.sh).
-          allowlist: fancysnake,hasparus,lprasol,*[bot]
+          # its free-text name, which anyone can set. Claude Code cloud
+          # sessions author as their human (see .claude/hooks/session-start.sh).
+          # Cursor Cloud Agents commit as cursoragent.
+          allowlist: fancysnake,hasparus,lprasol,cursoragent,*[bot]
           custom-notsigned-prcomment: >
             Thanks for the pull request. Before it can be merged, please read
             our [Contributor License Agreement](https://github.com/zagrajmy/ludamus/blob/main/CLA.md)
