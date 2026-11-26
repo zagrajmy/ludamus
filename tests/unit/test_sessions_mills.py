@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
+from ludamus.mills.proposal_acceptance import ProposalAcceptanceService
 from ludamus.mills.sessions import (
-    ProposalAcceptanceService,
     ProposalStatusService,
     SessionConfirmationService,
     SessionContentEditService,

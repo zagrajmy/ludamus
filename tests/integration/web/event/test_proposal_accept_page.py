@@ -980,7 +980,7 @@ class TestProposalAcceptPageView:
         assert AgendaItem.objects.filter(session=pending_session).count() == 1
         assert not ScheduleChangeLog.objects.filter(session=pending_session).exists()
         assert not Notification.objects.exists()
-        assert mail.outbox == []
+        assert not mail.outbox
 
     def test_an_accepted_session_at_another_time_is_moved_without_a_new_notice(
         self,
@@ -1036,7 +1036,7 @@ class TestProposalAcceptPageView:
         assert logs[1].new_start_time == start
         assert logs[1].new_space_id == space.pk
         assert not Notification.objects.exists()
-        assert mail.outbox == []
+        assert not mail.outbox
 
     def test_posting_the_accept_form_twice_does_not_500(
         self,
