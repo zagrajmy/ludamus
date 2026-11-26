@@ -636,6 +636,36 @@ class TestPartySelector:
             ),
         )
 
+    def test_unnamed_foreign_party_is_offered_under_its_leader(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        friend = UserFactory(username="friend", name="Frida Friend")
+        crew = Party.objects.create(leader=friend, name="")
+        _join(crew, friend)
+        _join(crew, active_user)
+
+        response = authenticated_client.get(_url(agenda_item), {"party": "none"})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="event/enroll_select.html",
+            context_data=enroll_page_context(
+                viewer=active_user,
+                agenda_item=agenda_item,
+                party_choices=[
+                    EnrollmentPartyChoiceDTO(
+                        pk=crew.pk,
+                        name="",
+                        leader_name="Frida Friend",
+                        is_own_led=False,
+                        enrolls_together=True,
+                    )
+                ],
+                offers_party_choice=True,
+            ),
+        )
+
     def test_foreign_party_lists_only_self(
         self, authenticated_client, active_user, companion, agenda_item
     ):
