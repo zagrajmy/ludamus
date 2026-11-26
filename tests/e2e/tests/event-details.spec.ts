@@ -149,7 +149,7 @@ test.describe("Event detail page", () => {
         document
           .getAnimations()
           .some((a) => (a.effect as KeyframeEffect | null)?.pseudoElement === pseudo),
-      pseudoOf("tabs"),
+      pseudoOf("desc-label"),
     );
 
     const delays = await page.evaluate(() => {
@@ -171,15 +171,13 @@ test.describe("Event detail page", () => {
     // The footer travels with the sheet (see the nesting test below), so it has
     // nothing to wait for; the labels the title flies past do.
     expect(delays[pseudoOf("footer")]).toBe(0);
-    expect(delays[pseudoOf("tabs")]).toBeGreaterThan(0);
-    expect(delays[pseudoOf("desc-label")]).toBeGreaterThan(delays[pseudoOf("tabs")]);
+    expect(delays[pseudoOf("desc-label")]).toBeGreaterThan(0);
   });
 
-  // The tab bar exists only in the modal, so it has no old geometry and a
-  // new-only group renders at final layout for the whole morph — it would sit
-  // there while the sheet is still a fraction of its final width. Nesting puts it
-  // under the container's transform and clip.
-  test("the modal tab bar morphs nested inside the sheet", async ({ page }) => {
+  // Morph groups that exist on both card and modal must fly free so they can
+  // travel between the two layouts. The footer is paired to a card-side anchor
+  // instead (below), so nesting it would fight that.
+  test("shared morph groups fly free between card and modal", async ({ page }) => {
     const supportsNesting = await page.evaluate(() =>
       CSS.supports("view-transition-group", "nearest"),
     );
@@ -198,12 +196,7 @@ test.describe("Event detail page", () => {
       ),
     );
 
-    expect(groups.tabs).toBe("nearest");
-    // Nesting fixes where a group is drawn, not where it starts from. The footer
-    // is paired instead (below), and nesting it too would fight that.
     expect(groups.footer).toBe("normal");
-    // These have counterparts on the card, so they have to fly free to travel
-    // between the two layouts.
     expect(groups.title).toBe("normal");
     expect(groups.host).toBe("normal");
   });

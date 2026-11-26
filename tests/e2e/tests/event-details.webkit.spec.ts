@@ -254,9 +254,7 @@ test.describe("Event detail page on a phone", () => {
     // The modal is fetched on open (lazy-loaded), so it only exists in the DOM
     // once visible — inject the long description here, not before the click.
     await page.evaluate((id) => {
-      const description = document.querySelector(
-        `#session-${id} [data-session-description]`,
-      );
+      const description = document.querySelector(`#session-${id} [data-session-description]`);
       if (!description) throw new Error("Missing session description");
       description.innerHTML = Array.from(
         { length: 28 },

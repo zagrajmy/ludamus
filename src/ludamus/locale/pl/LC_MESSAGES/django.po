@@ -9184,7 +9184,6 @@ msgid "Rooms"
 msgstr "Sale"
 
 #: src/ludamus/templates/event/_session_card.html
-#: src/ludamus/templates/event/parts/_session_roster.html
 #, python-format
 msgid "%(counter)s participant enrolled"
 msgid_plural "%(counter)s participants enrolled"
@@ -9286,6 +9285,7 @@ msgid "Host"
 msgstr "Prowadzący"
 
 #: src/ludamus/templates/event/anonymous_enroll.html
+#: src/ludamus/templates/event/parts/_session_roster.html
 #: src/ludamus/templates/landing/spotkanie.html
 #: src/ludamus/templates/landing/zapisy_grupowe.html
 msgid "Participants"
@@ -9368,6 +9368,8 @@ msgid "Who should be in this session?"
 msgstr "Kto ma być w tym punkcie programu?"
 
 #: src/ludamus/templates/event/enroll_select.html
+#: src/ludamus/templates/event/parts/_roster_confirmed_row.html
+#: src/ludamus/templates/event/parts/_roster_waiting_row.html
 msgid "You"
 msgstr "Ty"
 
@@ -9804,6 +9806,26 @@ msgstr "Edytuj integrację"
 #: src/ludamus/templates/user/user/edit.html
 msgid "Save"
 msgstr "Zapisz"
+
+#: src/ludamus/templates/event/parts/_roster_waiting_row.html
+msgid "Waiting list position"
+msgstr "Pozycja na liście oczekujących"
+
+#: src/ludamus/templates/event/parts/_session_roster.html
+msgid "Enrolled"
+msgstr "Zapisany"
+
+#: src/ludamus/templates/event/parts/_session_roster.html
+msgid "Waiting List"
+msgstr "Lista oczekujących"
+
+#: src/ludamus/templates/event/parts/_session_roster.html
+msgid "No one on the waiting list."
+msgstr "Nikt nie czeka na liście oczekujących."
+
+#: src/ludamus/templates/event/parts/_session_roster.html
+msgid "No participants enrolled yet."
+msgstr "Brak zapisanych uczestników."
 
 #: src/ludamus/templates/event/parts/print_header.html
 msgid "QR code linking to the full schedule"
@@ -16753,21 +16775,6 @@ msgid ""
 msgstr ""
 "Bilety kupione na wydarzenia w tej sferze pojawią się tutaj, gotowe do "
 "pokazania przy wejściu."
-
-#~ msgid "Waiting list position"
-#~ msgstr "Pozycja na liście oczekujących"
-
-#~ msgid "Enrolled"
-#~ msgstr "Zapisany"
-
-#~ msgid "Waiting List"
-#~ msgstr "Lista oczekujących"
-
-#~ msgid "No one on the waiting list."
-#~ msgstr "Nikt nie czeka na liście oczekujących."
-
-#~ msgid "No participants enrolled yet."
-#~ msgstr "Brak zapisanych uczestników."
 
 #~ msgid "Information"
 #~ msgstr "Informacje"

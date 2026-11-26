@@ -100,6 +100,12 @@ test.describe("Signing a companion up", () => {
     await expect(split.getByRole("img", { name: HOST })).toBeVisible();
     // Waiting is a count next to the seats, not a face in the stack.
     await expect(split.getByRole("img", { name: COMPANION })).toHaveCount(0);
+    await split.getByRole("button", { name: "Participants" }).click();
+    const roster = split.getByRole("dialog", { name: "Participants" });
+    await expect(roster.getByRole("heading", { name: /Enrolled/ })).toBeVisible();
+    await expect(roster.getByText(HOST, { exact: true })).toBeVisible();
+    await expect(roster.getByRole("heading", { name: "Waiting List" })).toBeVisible();
+    await expect(roster.getByText(COMPANION, { exact: true })).toBeVisible();
     await attachArtifacts(testInfo, {
       name: "party-enrollment-waiting",
       region: page.getByRole("dialog", { name: "Last Chair Saga" }),
@@ -108,8 +114,11 @@ test.describe("Signing a companion up", () => {
 
     await leave(page, "Last Chair Saga");
     const regularOnly = await openSession(page, "Last Chair Saga");
-    await expect(regularOnly.locator("[data-roster]")).toContainText("1/2");
-    await expect(regularOnly.locator("[data-roster]")).not.toContainText("waiting");
+    const seats = regularOnly.getByRole("button", { name: "Participants" });
+    await expect(seats).toContainText("1/2");
+    // The popover always holds the "Waiting List" copy; the trigger is what
+    // must stop saying anyone is waiting once the companion has left.
+    await expect(seats).not.toContainText("waiting");
     await expect(regularOnly.getByRole("img", { name: COMPANION })).toHaveCount(0);
   });
 });

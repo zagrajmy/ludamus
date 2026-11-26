@@ -19,6 +19,7 @@
  */
 
 import { restoreCarriedSearchParams } from "./url-state";
+import { numberWaitingPositions } from "./waiting-positions";
 
 interface NavigateEvent {
   canIntercept: boolean;
@@ -411,6 +412,7 @@ const wireCloseButtons = (root: ParentNode): void => {
 
 const wireInjectedModal = (dialog: HTMLElement): void => {
   wireCloseButtons(dialog);
+  numberWaitingPositions(dialog);
   htmx.process(dialog);
 };
 

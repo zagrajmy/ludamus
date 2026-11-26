@@ -1,50 +1,110 @@
 {% load i18n tessera %}
-{# Capacity and who holds a seat, as one fact on the session body. The #}
-{# footer's enroll / waitlist / cancel forms swap only themselves, so #}
-{# session-roster.ts updates this stack and the numbers at once. #}
-<span class="inline-flex items-center gap-2 min-w-0"
+{# Faces (at most four) and the seat fraction share the host row. Opening #}
+{# the stack shows every enrolled and waiting person, the same lists the #}
+{# old Participants tab held. The footer's enroll / waitlist / cancel forms #}
+{# swap only themselves, so session-roster.ts updates the stack, the numbers, #}
+{# and the popover lists at once. #}
+<span class="relative shrink-0"
       data-roster="{{ data.session.pk }}"
       data-roster-enrolled="{{ data.enrolled_count }}"
       data-roster-waiting="{{ data.waiting_count }}"
       data-roster-status="{% if data.user_enrolled %}confirmed{% elif data.user_waiting %}waiting{% endif %}">
-    <span class="flex -space-x-2"
-          data-roster-stack
-          role="list"
-          aria-label="{% blocktranslate count counter=data.enrolled_count %}{{ counter }} participant enrolled{% plural %}{{ counter }} participants enrolled{% endblocktranslate %}"
-          {% if not data.enrolled_count %}hidden{% endif %}>
-        {% for participation in data.session_participations|dictsort:"creation_time" %}
-            {% if participation.status == "confirmed" %}
-                <span class="relative shrink-0"
-                      role="listitem"
-                      {% if current_user and participation.user.pk == current_user.pk %}data-roster-self{% endif %}>
-                    {% include "components/avatar.html" with user=participation.user size="size-7" danger_ring=participation.is_shadowbanned %}
-                </span>
-            {% endif %}
-        {% endfor %}
-    </span>
-    {% if current_user %}
-        <template data-roster-self-template>
-            <span class="relative shrink-0" role="listitem" data-roster-self>
-                {% include "components/avatar.html" with user=current_user size="size-7" danger_ring=False %}
-            </span>
-        </template>
-    {% endif %}
-    {% if data.takes_enrollment %}
-        <span data-roster-empty-icon
+    <button type="button"
+            class="inline-flex items-center gap-2 min-w-0 rounded-lg cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            popovertarget="roster-popover-{{ data.session.pk }}"
+            aria-haspopup="dialog"
+            aria-label="{% translate "Participants" %}">
+        <span class="flex -space-x-2"
+              data-roster-stack
               aria-hidden="true"
-              {% if data.enrolled_count %}hidden{% endif %}>{% icon "users" class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}</span>
-        <span class="sr-only">{% translate "Capacity" %}:</span>
-        <span class="font-medium tabular-nums {% if data.is_full %}text-coral-700 dark:text-coral-400{% else %}text-teal-700 dark:text-teal-400{% endif %}">
-            <span data-roster-count>{{ data.enrolled_count }}</span>/<span data-roster-limit>{{ data.effective_participants_limit }}</span>
+              {% if not data.enrolled_count %}hidden{% endif %}>
+            {% for participation in data.session_participations|dictsort:"status"|slice:":4" %}
+                {% if participation.status == "confirmed" %}
+                    <span class="relative shrink-0"
+                          {% if current_user and participation.user.pk == current_user.pk %}data-roster-self{% endif %}>
+                        {% include "components/avatar.html" with user=participation.user size="size-7" danger_ring=participation.is_shadowbanned %}
+                    </span>
+                {% endif %}
+            {% endfor %}
         </span>
-        <span class="inline-flex items-center gap-1.5"
-              data-roster-waiting-block
-              {% if not data.waiting_count %}hidden{% endif %}>
-            <span class="text-foreground-muted/70" aria-hidden="true">·</span>
-            <span class="text-warning-text">
-                <span data-roster-waiting-count>{{ data.waiting_count }}</span>
-                {% translate "waiting" %}
+        {% if current_user %}
+            <template data-roster-self-template data-roster-kind="stack">
+                <span class="relative shrink-0" data-roster-self>
+                    {% include "components/avatar.html" with user=current_user size="size-7" danger_ring=False %}
+                </span>
+            </template>
+        {% endif %}
+        {% if data.takes_enrollment %}
+            <span data-roster-empty-icon
+                  aria-hidden="true"
+                  {% if data.enrolled_count %}hidden{% endif %}>{% icon "users" class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}</span>
+            <span class="sr-only">{% translate "Capacity" %}:</span>
+            <span class="font-medium tabular-nums {% if data.is_full %}text-coral-700 dark:text-coral-400{% else %}text-teal-700 dark:text-teal-400{% endif %}">
+                <span data-roster-count>{{ data.enrolled_count }}</span>/<span data-roster-limit>{{ data.effective_participants_limit }}</span>
             </span>
-        </span>
-    {% endif %}
+            <span class="inline-flex items-center gap-1.5"
+                  data-roster-waiting-block
+                  {% if not data.waiting_count %}hidden{% endif %}>
+                <span class="text-foreground-muted/70" aria-hidden="true">·</span>
+                <span class="text-warning-text">
+                    <span data-roster-waiting-count>{{ data.waiting_count }}</span>
+                    {% translate "waiting" %}
+                </span>
+            </span>
+        {% endif %}
+    </button>
+    <div id="roster-popover-{{ data.session.pk }}"
+         popover="auto"
+         role="dialog"
+         aria-label="{% translate "Participants" %}"
+         data-roster-popover
+         class="m-0 border-0 bg-transparent p-0 text-inherit overflow-visible">
+        <div class="w-80 max-w-[calc(100vw-2rem)] max-h-96 overflow-y-auto rounded-xl border border-border bg-bg-secondary p-4 shadow-(--shadow-elevated)">
+            <section data-roster-group="confirmed"
+                     {% if not data.enrolled_count %}hidden{% endif %}>
+                <h3 class="font-semibold mb-3 text-foreground-secondary">
+                    {% translate "Enrolled" %} (<span data-roster-count>{{ data.enrolled_count }}</span>{% if data.takes_enrollment %}/<span data-roster-limit>{{ data.effective_participants_limit }}</span>{% endif %})
+                </h3>
+                <div class="space-y-2 mb-4" data-roster-list>
+                    {% for participation in data.session_participations|dictsort:"creation_time" %}
+                        {% if participation.status == "confirmed" %}
+                            {% include "event/parts/_roster_confirmed_row.html" with user=participation.user danger_ring=participation.is_shadowbanned current_user=current_user only %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% if current_user %}
+                    <template data-roster-self-template data-roster-kind="confirmed">
+                        {% include "event/parts/_roster_confirmed_row.html" with user=current_user danger_ring=False current_user=current_user only %}
+                    </template>
+                {% endif %}
+            </section>
+            <section data-roster-group="waiting"
+                     {% if not data.waiting_count %}hidden{% endif %}>
+                <h3 class="font-semibold mb-3 text-foreground-secondary">{% translate "Waiting List" %}</h3>
+                <div class="space-y-2" data-roster-list>
+                    {% for participation in data.session_participations|dictsort:"creation_time" %}
+                        {% if participation.status == "waiting" %}
+                            {% include "event/parts/_roster_waiting_row.html" with user=participation.user joined_label=participation.creation_time|date:"M j, G:i" current_user=current_user only %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% if current_user %}
+                    {% now "M j, G:i" as joined_now %}
+                    <template data-roster-self-template data-roster-kind="waiting">
+                        {% include "event/parts/_roster_waiting_row.html" with user=current_user joined_label=joined_now current_user=current_user only %}
+                    </template>
+                {% endif %}
+            </section>
+            <div class="text-center py-2 text-foreground-muted"
+                 data-roster-empty="waiting"
+                 {% if data.waiting_count or not data.enrolled_count %}hidden{% endif %}>
+                <p class="text-sm">{% translate "No one on the waiting list." %}</p>
+            </div>
+            <div class="flex items-center justify-center p-4 border-2 border-dashed border-border rounded-xl"
+                 data-roster-empty="all"
+                 {% if data.waiting_count or data.enrolled_count %}hidden{% endif %}>
+                <span class="text-sm text-foreground-muted">{% translate "No participants enrolled yet." %}</span>
+            </div>
+        </div>
+    </div>
 </span>
