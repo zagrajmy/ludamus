@@ -1,3 +1,4 @@
+import itertools
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -72,7 +73,8 @@ class FakeSites:
             SPHERE_ID: sphere_dto(
                 pk=SPHERE_ID,
                 encounters_policy=policy,
-                site=SiteDTO(domain="sphere.example.com", name="Sphere", pk=1),
+                name="Sphere",
+                site=SiteDTO(domain="sphere.example.com", name="Site", pk=1),
             )
         }
 
@@ -185,18 +187,24 @@ class FakeCache:
 
 class FakeRSVPs:
     def __init__(self, signups=()):
-        # (encounter_id, user_id) pairs
-        self.signups = list(signups)
+        self.rows = []
+        self._pks = itertools.count(1)
+        for encounter_id, user_id in signups:
+            self.create(encounter_id, user_id)
+
+    @property
+    def signups(self):
+        return [(row.encounter_id, row.user_id) for row in self.rows]
 
     def create(self, encounter_id, user_id):
-        self.signups.append((encounter_id, user_id))
+        row = encounter_rsvp_dto(
+            pk=next(self._pks), encounter_id=encounter_id, user_id=user_id
+        )
+        self.rows.append(row)
+        return row
 
     def list_by_encounter(self, encounter_id):
-        return [
-            encounter_rsvp_dto(encounter_id=enc, user_id=user_id)
-            for enc, user_id in self.signups
-            if enc == encounter_id
-        ]
+        return [row for row in self.rows if row.encounter_id == encounter_id]
 
     def count_by_encounter(self, encounter_id):
         return len(self.list_by_encounter(encounter_id))
@@ -209,7 +217,7 @@ class FakeRSVPs:
         return (encounter_id, user_id) in self.signups
 
     def delete_by_user(self, encounter_id, user_id):
-        self.signups.remove((encounter_id, user_id))
+        del self.rows[self.signups.index((encounter_id, user_id))]
 
 
 class FakeInvitees:

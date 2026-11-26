@@ -24,7 +24,7 @@ from ludamus.pacts.mcp import (
     OrganizerGrant,
     ToolScope,
 )
-from tests.unit.factories import event_dto, user_dto
+from tests.unit.factories import FakeUsers, event_dto, user_dto
 
 CLIENT_ID = "https://client.example/oauth/metadata.json"
 LOOPBACK_REDIRECT = "http://127.0.0.1/callback"
@@ -128,14 +128,6 @@ class FakeSpheres:
         return self._events[sphere_id]
 
 
-class FakeUsers:
-    def __init__(self, *, superuser):
-        self._users = {USER_SLUG: user_dto(slug=USER_SLUG, is_superuser=superuser)}
-
-    def read(self, slug):
-        return self._users[slug]
-
-
 class _Deps:
     def __init__(
         self, *, document=None, stored=None, superuser=True, manager=True, events=()
@@ -146,7 +138,7 @@ class _Deps:
             fetcher=self.fetcher,
             codes=self.codes,
             spheres=FakeSpheres(manager=manager, events=events),
-            users=FakeUsers(superuser=superuser),
+            users=FakeUsers(user_dto(slug=USER_SLUG, is_superuser=superuser)),
         )
 
     def redeem(self, code):
