@@ -399,6 +399,40 @@ class TestLoginCallbackActionView:
 
         assert User.objects.get(username=username).name == expected_name
 
+    @pytest.mark.parametrize(
+        ("redirect_to", "expected_url"),
+        (
+            (None, "http://testserver/crowd/profile/?next=%2F"),
+            (
+                "https://www.testserver/a/b/c",
+                "https://www.testserver/crowd/profile/?next=%2F",
+            ),
+        ),
+    )
+    def test_nameless_account_is_sent_to_complete_profile(
+        self,
+        authenticate,
+        client,
+        complete_user_factory,
+        workos_id,
+        redirect_to,
+        expected_url,
+    ):
+        username = f"workos|{workos_id}"
+        complete_user_factory(username=username, slug="me", name="", email="")
+        authenticate.return_value = authenticate_response(workos_id, email="")
+
+        response = client.get(
+            self.URL, {"state": _valid_state(redirect_to), "code": "abc"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=expected_url,
+            messages=[(messages.SUCCESS, "Please complete your profile.")],
+        )
+
     def test_ok_create_strips_duplicate_email(
         self, authenticate, client, complete_user_factory, workos_id
     ):
