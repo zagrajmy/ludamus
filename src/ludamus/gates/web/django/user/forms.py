@@ -81,7 +81,7 @@ class PartyEnrollsTogetherForm(forms.Form):
     )
 
 
-class PartyCreateForm(PartyEnrollsTogetherForm, PartyNameForm):
+class PartyCreateForm(PartyNameForm):
     pass
 
 

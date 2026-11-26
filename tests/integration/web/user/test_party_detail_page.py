@@ -122,7 +122,7 @@ class TestPartyDetailPageView:
             template_name=TEMPLATE,
             contains=[
                 "Leave party",
-                "Allow direct enrollment",
+                "Allow direct signup",
                 "Add companion",
                 "Invite a member",
             ],

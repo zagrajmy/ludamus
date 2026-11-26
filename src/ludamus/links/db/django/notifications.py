@@ -330,15 +330,21 @@ class DjangoUserNotifier:
     @staticmethod
     def notify_party_invited(notification: PartyInviteNotification) -> None:
         with speaking_to(notification.recipient_user_id) as recipient:
+            if notification.enrolls_together:
+                body = _(
+                    "Join to enroll in sessions together. We ask before each "
+                    "signup unless you allow the leader to sign you up directly."
+                )
+            else:
+                body = _(
+                    "Join the party to play together. This does not let anyone "
+                    "enroll you in sessions."
+                )
             DjangoUserNotifier._invite_to_party(
                 recipient=recipient,
                 actor_name=notification.actor_name,
                 party_name=notification.party_name,
-                body=_(
-                    "Join the party to enroll in events together — you move up "
-                    "waiting lists as one group. You decide about every enrollment "
-                    "unless you say otherwise."
-                ),
+                body=body,
             )
 
     @staticmethod
@@ -351,9 +357,9 @@ class DjangoUserNotifier:
                 actor_name=notification.author_name,
                 party_name=notification.party_name,
                 body=_(
-                    "You showed interest in %(listing)s. Accept the invitation to "
-                    "join the party, and you and the author see each other's "
-                    "contact."
+                    "You showed interest in %(listing)s. Accept to join the party "
+                    "and share contact. Session signups still need your OK unless "
+                    "you allow direct enrollment."
                 )
                 % {"listing": notification.listing_title},
             )

@@ -72,6 +72,7 @@ class PartyInviteDTO(BaseModel):
     party_pk: int
     party_name: str
     leader_name: str
+    enrolls_together: bool
 
 
 class PartiesOverviewDTO(BaseModel):
@@ -157,6 +158,7 @@ class PartyInviteNotification(BaseModel):
     recipient_user_id: int
     party_name: str
     actor_name: str
+    enrolls_together: bool
 
 
 class PartyEnrolledNotification(BaseModel):
@@ -199,6 +201,7 @@ class PartyJoinResult(BaseModel):
 class PartyActionContextDTO(BaseModel):
     name: str
     actor_name: str
+    enrolls_together: bool
 
 
 class PartyRepositoryProtocol(Protocol):

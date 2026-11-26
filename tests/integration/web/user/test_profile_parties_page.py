@@ -103,7 +103,6 @@ def _base_context(**overrides):
         "can_add_companion": True,
         "create_companion_form": ANY,
         "party_form": ANY,
-        "play_party_form": ANY,
         "profile_active_tab": "parties",
     }
     context.update(overrides)
@@ -194,6 +193,7 @@ class TestPartiesPageView:
                         party_pk=party.pk,
                         party_name="Ekipa",
                         leader_name="Frida Friend",
+                        enrolls_together=True,
                     )
                 ]
             ),
@@ -226,6 +226,7 @@ class TestPartiesPageView:
                         party_pk=party.pk,
                         party_name="",
                         leader_name="Frida Friend",
+                        enrolls_together=True,
                     )
                 ]
             ),
@@ -300,7 +301,7 @@ class TestPartyCreateActionView:
     ):
         response = authenticated_client.post(
             reverse("web:crowd:parties-create"),
-            data={"name": "Wtorkowa ekipa", "enrolls_together": "True"},
+            data={"name": "Wtorkowa ekipa"},
         )
 
         party = Party.objects.get(name="Wtorkowa ekipa")
@@ -311,40 +312,13 @@ class TestPartyCreateActionView:
             messages=[(messages.SUCCESS, "Party created.")],
         )
         assert party.leader_id == active_user.pk
+        assert party.enrolls_together is True
         membership = party.memberships.get()
         assert membership.member_id == active_user.pk
         assert membership.status == PartyMembershipStatus.ACTIVE
 
-    @pytest.mark.parametrize(
-        ("button_value", "enrolls_together"), (("True", True), ("False", False))
-    )
-    def test_post_takes_the_setting_from_the_chosen_button(
-        self, authenticated_client, button_value, enrolls_together
-    ):
-        authenticated_client.post(
-            reverse("web:crowd:parties-create"),
-            data={"name": "Ekipa", "enrolls_together": button_value},
-        )
-
-        assert Party.objects.get().enrolls_together is enrolls_together
-
     def test_post_requires_name(self, authenticated_client):
-        response = authenticated_client.post(
-            reverse("web:crowd:parties-create"), data={"enrolls_together": "True"}
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url=URL,
-            messages=[(messages.ERROR, CREATE_FAILED)],
-        )
-        assert not Party.objects.exists()
-
-    def test_post_requires_the_setting(self, authenticated_client):
-        response = authenticated_client.post(
-            reverse("web:crowd:parties-create"), data={"name": "Ekipa"}
-        )
+        response = authenticated_client.post(reverse("web:crowd:parties-create"))
 
         assert_response(
             response,

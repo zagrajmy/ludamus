@@ -66,7 +66,7 @@ class PartyCreateActionView(LoginRequiredMixin, View):
             party_pk = request.services.parties.create(
                 leader_pk=request.context.current_user_id,
                 name=form.cleaned_data["name"],
-                enrolls_together=form.cleaned_data["enrolls_together"],
+                enrolls_together=True,
             )
             messages.success(request, _("Party created."))
             return redirect("web:crowd:party-detail", pk=party_pk)
@@ -297,9 +297,11 @@ class PartyConsentActionView(LoginRequiredMixin, View):
             user_pk=request.context.current_user_id, party_pk=pk, mode=mode
         ):
             if mode == PartyConsentMode.ACCEPT_BY_DEFAULT:
-                messages.success(request, _("The leader can now enroll you directly."))
+                messages.success(
+                    request, _("The leader can now sign you up without asking.")
+                )
             else:
-                messages.success(request, _("Enrollments now wait for your approval."))
+                messages.success(request, _("We ask before each signup again."))
         else:
             messages.error(request, _("Could not change this setting."))
         return redirect("web:crowd:party-detail", pk=pk)

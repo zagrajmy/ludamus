@@ -206,8 +206,10 @@ def _service(parties, notifier=None, chat=None):
     )
 
 
-def _lead():
-    return PartyActionContextDTO(name="Ekipa", actor_name="Lena")
+def _lead(*, enrolls_together=True):
+    return PartyActionContextDTO(
+        name="Ekipa", actor_name="Lena", enrolls_together=enrolls_together
+    )
 
 
 def _invitee(pk=INVITEE_PK, email="ann@example.com"):
@@ -410,9 +412,9 @@ class TestInvite:
         assert notifier.invited == [
             PartyInviteNotification(
                 recipient_user_id=INVITEE_PK,
-                recipient_email="ann@example.com",
                 party_name="Ekipa",
                 actor_name="Lena",
+                enrolls_together=True,
             )
         ]
 

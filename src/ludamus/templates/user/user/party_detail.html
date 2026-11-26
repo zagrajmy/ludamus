@@ -102,17 +102,17 @@
                                     {# The leader sees each member's consent up front, so the enroll page holds no surprises. #}
                                     <p class="text-xs text-foreground-muted">
                                         {% if member.consent_mode == "accept_by_default" %}
-                                            {% translate "direct enrollment allowed" %}
+                                            {% translate "direct signup allowed" %}
                                         {% else %}
-                                            {% translate "asks for approval before enrolling" %}
+                                            {% translate "must approve each signup" %}
                                         {% endif %}
                                     </p>
                                 {% elif member.user_pk == request.user.pk %}
                                     <p class="text-xs text-foreground-muted">
                                         {% if member.consent_mode == "accept_invites" %}
-                                            {% translate "Asks before enrolling you" %}
+                                            {% translate "We ask before each signup" %}
                                         {% else %}
-                                            {% translate "Enrolls you directly" %}
+                                            {% translate "Can sign you up without asking" %}
                                         {% endif %}
                                     </p>
                                 {% endif %}
@@ -152,11 +152,11 @@
                                     {% if member.consent_mode == "accept_invites" %}
                                         <input type="hidden" name="mode" value="accept_by_default">
                                         <button type="submit"
-                                                class="btn btn-secondary px-3 py-2 text-sm rounded-xl">{% translate "Allow direct enrollment" %}</button>
+                                                class="btn btn-secondary px-3 py-2 text-sm rounded-xl">{% translate "Allow direct signup" %}</button>
                                     {% else %}
                                         <input type="hidden" name="mode" value="accept_invites">
                                         <button type="submit"
-                                                class="btn btn-secondary px-3 py-2 text-sm rounded-xl">{% translate "Require my approval" %}</button>
+                                                class="btn btn-secondary px-3 py-2 text-sm rounded-xl">{% translate "Ask me before each signup" %}</button>
                                     {% endif %}
                                 </form>
                             {% elif party.is_leader and not member.is_leader %}
@@ -344,7 +344,7 @@
                 <h5 class="font-semibold">{% translate "Enrolling together" %}</h5>
                 {% if not party.enrolls_together %}
                     <p class="mt-1 text-sm text-foreground-muted">
-                        {% translate "This party is for playing. Turn this on to sign up for sessions together." %}
+                        {% translate "Off: members stay a play group. Turn on so the party can sign up for sessions together — each person still approves unless they allow direct signup." %}
                     </p>
                     {% translate "Turn on enrolling together" as toggle_label %}
                     {% include "user/user/_party_enrolls_together_form.html" with value="True" label=toggle_label %}
@@ -353,7 +353,9 @@
                         {% translate "This party has enrolled in sessions, so this stays on." %}
                     </p>
                 {% else %}
-                    <p class="mt-1 text-sm text-foreground-muted">{% translate "This party can sign up for sessions together." %}</p>
+                    <p class="mt-1 text-sm text-foreground-muted">
+                        {% translate "On: the party can sign up together. Members approve each signup unless they allow direct signup." %}
+                    </p>
                     {% translate "Turn off enrolling together" as toggle_label %}
                     {% include "user/user/_party_enrolls_together_form.html" with value="False" label=toggle_label %}
                 {% endif %}

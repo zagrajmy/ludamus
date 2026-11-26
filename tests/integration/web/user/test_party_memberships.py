@@ -325,7 +325,9 @@ class TestPartyConsentActionView:
             response,
             HTTPStatus.FOUND,
             url=_detail_url(party),
-            messages=[(messages.SUCCESS, "The leader can now enroll you directly.")],
+            messages=[
+                (messages.SUCCESS, "The leader can now sign you up without asking.")
+            ],
         )
 
     def test_post_revokes_power_of_attorney(self, authenticated_client, active_user):
@@ -344,7 +346,7 @@ class TestPartyConsentActionView:
             response,
             HTTPStatus.FOUND,
             url=_detail_url(party),
-            messages=[(messages.SUCCESS, "Enrollments now wait for your approval.")],
+            messages=[(messages.SUCCESS, "We ask before each signup again.")],
         )
 
     def test_post_rejects_unknown_mode(self, authenticated_client, active_user):
@@ -398,7 +400,7 @@ class TestPartyConsentActionView:
                 )
             ),
             template_name="user/user/party_detail.html",
-            contains="Allow direct enrollment",
+            contains="Allow direct signup",
         )
 
     def test_own_row_shows_current_consent_state(
@@ -407,14 +409,14 @@ class TestPartyConsentActionView:
         party, membership = self._party_with_me_as_member(active_user)
 
         content = authenticated_client.get(_detail_url(party)).content.decode()
-        assert "Asks before enrolling you" in content
+        assert "We ask before each signup" in content
 
         membership.consent_mode = PartyConsentMode.ACCEPT_BY_DEFAULT
         membership.save()
 
         content = authenticated_client.get(_detail_url(party)).content.decode()
-        assert "Enrolls you directly" in content
-        assert "Require my approval" in content
+        assert "Can sign you up without asking" in content
+        assert "Ask me before each signup" in content
 
     def test_leader_sees_member_consent_state(self, authenticated_client, active_user):
         member = UserFactory(username="member", name="Mira Member")
@@ -428,10 +430,10 @@ class TestPartyConsentActionView:
         )
 
         content = authenticated_client.get(_detail_url(party)).content.decode()
-        assert "asks for approval before enrolling" in content
+        assert "must approve each signup" in content
 
         membership.consent_mode = PartyConsentMode.ACCEPT_BY_DEFAULT
         membership.save()
 
         content = authenticated_client.get(_detail_url(party)).content.decode()
-        assert "direct enrollment allowed" in content
+        assert "direct signup allowed" in content

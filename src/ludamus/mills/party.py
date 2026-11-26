@@ -120,6 +120,7 @@ class PartyService(PartyServiceProtocol):
                     recipient_user_id=user.pk,
                     party_name=lead.name,
                     actor_name=lead.actor_name,
+                    enrolls_together=lead.enrolls_together,
                 )
             )
             return InviteOutcome.INVITED

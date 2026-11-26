@@ -114,6 +114,7 @@ class PartyRepository(PartyRepositoryProtocol):
                 party_pk=membership.party_id,
                 party_name=membership.party.name,
                 leader_name=membership.party.leader.get_full_name(),
+                enrolls_together=membership.party.enrolls_together,
             )
             for membership in (
                 PartyMembership.objects.filter(
@@ -211,7 +212,9 @@ class PartyRepository(PartyRepositoryProtocol):
         if membership is None:
             return None
         return PartyActionContextDTO(
-            name=membership.party.name, actor_name=membership.member.get_full_name()
+            name=membership.party.name,
+            actor_name=membership.member.get_full_name(),
+            enrolls_together=membership.party.enrolls_together,
         )
 
     @staticmethod

@@ -70,6 +70,7 @@ class TestEmailLink:
                     recipient_user_id=active_user.pk,
                     actor_name="Kobold",
                     party_name="Drużyna",
+                    enrolls_together=True,
                 )
             )
 
@@ -112,6 +113,7 @@ class TestEmailLink:
                     recipient_user_id=active_user.pk,
                     actor_name="Kobold",
                     party_name="Drużyna",
+                    enrolls_together=True,
                 )
             )
 
@@ -128,6 +130,7 @@ class TestEmailLink:
                     recipient_user_id=active_user.pk,
                     actor_name="Kobold",
                     party_name="Drużyna",
+                    enrolls_together=True,
                 )
             )
 

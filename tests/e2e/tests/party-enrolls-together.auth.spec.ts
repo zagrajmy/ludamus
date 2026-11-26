@@ -11,16 +11,21 @@ test.use({ storageState: path.join(e2eDir, ".auth-state-party-leader.json") });
 
 const PARTIES_URL = "/crowd/profile/parties/";
 
-test("a play party hides enrollment until its leader turns it on", async ({ page }, testInfo) => {
+test("turning enrolling together off hides enrollment until the leader turns it on", async ({
+  page,
+}, testInfo) => {
   const name = `Wednesday Table ${Date.now()}`;
   await page.goto(PARTIES_URL);
-  await page.getByRole("link", { name: "Create play party", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Create play party" });
+  await page.getByRole("link", { name: "Create party", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Create party" });
   await dialog.getByLabel("Party name").fill(name);
   await dialog.getByRole("button", { name: "Create party", exact: true }).click();
   await expect(page).toHaveURL(/\/crowd\/profile\/parties\/\d+\/$/);
   const party: Party = { name, url: page.url() };
 
+  await expect(page.getByRole("heading", { name: "Sessions together" })).toBeVisible();
+  await page.getByRole("button", { name: "Turn off enrolling together" }).click();
+  await expect(page.getByText("This party no longer enrolls together.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Sessions together" })).toHaveCount(0);
 
   await page.goto(PARTIES_URL);

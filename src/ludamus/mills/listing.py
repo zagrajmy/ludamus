@@ -434,7 +434,7 @@ class ListingService(ListingServiceProtocol):
             if party_id is None:
                 party_name = listing.title
                 party_id = self._parties.create(
-                    leader_pk=author_id, name=party_name, enrolls_together=False
+                    leader_pk=author_id, name=party_name, enrolls_together=True
                 )
             else:
                 party_name = self._check_party(author_id, party_id).name

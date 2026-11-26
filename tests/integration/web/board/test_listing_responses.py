@@ -485,7 +485,7 @@ class TestListingResponseInviteActionView:
         assert (party.leader_id, party.name, party.enrolls_together) == (
             active_user.pk,
             "Mörk Borg",
-            False,
+            True,
         )
         assert dict(
             PartyMembership.objects.filter(party=party).values_list("member", "status")
@@ -507,9 +507,9 @@ class TestListingResponseInviteActionView:
                 NotificationKind.PARTY_INVITE,
                 "Test User invited you to Mörk Borg",
                 (
-                    "You showed interest in Mörk Borg. Accept the invitation to "
-                    "join the party, and you and the author see each other's "
-                    "contact."
+                    "You showed interest in Mörk Borg. Accept to join the party "
+                    "and share contact. Session signups still need your OK unless "
+                    "you allow direct enrollment."
                 ),
             )
         ]
