@@ -15,7 +15,7 @@ def backfill_schedule_confirmed(apps, _schema_editor):
 
 
 class Migration(migrations.Migration):
-    dependencies = [("db_main", "0203_listing_party")]
+    dependencies = [("db_main", "0205_remove_party_enrolls_together")]
 
     operations = [
         migrations.RunPython(backfill_schedule_confirmed, migrations.RunPython.noop)
