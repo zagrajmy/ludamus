@@ -87,6 +87,7 @@ jobs:
           MEDIA_URL: ${{ vars.MEDIA_URL }}
           GS_BUCKET_NAME: ${{ vars.GS_BUCKET_NAME }}
           GS_LOCATION: ${{ vars.GS_LOCATION }}
+          MAIL_POSTAL_ADDRESS: ${{ vars.MAIL_POSTAL_ADDRESS }}
           # Per-environment, and the seam a second PostHog project would use:
           # set here it wins, unset it falls back to .env.production, which is
           # the production baseline and would put staging in that project.

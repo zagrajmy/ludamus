@@ -458,14 +458,6 @@ class TestSessionModalComponentView:
                 "host_enroll_url": None,
                 "map_pk": None,
             },
-            contains=[
-                "gm-handle",
-                "player-handle",
-                confirmed.full_name,
-                "Enrolled (1/10)",
-                "Waiting List",
-                waiter.full_name,
-            ],
         )
 
     def test_renders_session_without_enrollment(

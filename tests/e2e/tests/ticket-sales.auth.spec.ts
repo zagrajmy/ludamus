@@ -89,10 +89,11 @@ test.describe("Ticket sales", () => {
     expect(["paid", "stale"]).toContain((await delivered.json()).outcome);
 
     await page.goto("/crowd/profile/tickets/");
-    await expect(page.getByRole("tab", { name: /Tickets/ })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    await expect(
+      page.getByRole("navigation", { name: "Profile sections" }).getByRole("link", {
+        name: /Tickets/,
+      }),
+    ).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("heading", { name: "Ticket Fair" })).toBeVisible();
     await expect(page.getByText("WKND2E2EAA")).toBeVisible();
     await expect(page.getByRole("img", { name: "QR code for ticket WKND2E2EAA" })).toBeVisible();
