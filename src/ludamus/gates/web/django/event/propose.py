@@ -46,6 +46,7 @@ from ludamus.pacts.availability import (
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import TimeSlotDTO
 from ludamus.pacts.propose import FACILITATOR_NAME_FIELD
+from ludamus.pacts.user import public_display_name
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
@@ -489,8 +490,13 @@ def _details_context(
             prefix="session",
         )
         if FACILITATOR_NAME_FIELD not in initial:
-            # AnonymousUser carries no `name`.
-            initial[FACILITATOR_NAME_FIELD] = getattr(wizard.request.user, "name", "")
+            # AnonymousUser carries no `name`. Never seed the public host
+            # field with a raw email — Auth0 password signup often stores one.
+            user = wizard.request.user
+            initial[FACILITATOR_NAME_FIELD] = public_display_name(
+                name=getattr(user, "name", "") or "",
+                email=getattr(user, "email", "") or "",
+            )
         form = build_session_details_form(requirements, category=category)(
             initial=initial
         )

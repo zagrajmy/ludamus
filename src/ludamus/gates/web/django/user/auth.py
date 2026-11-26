@@ -33,6 +33,7 @@ from ludamus.pacts.user import (
     AuthenticationDTO,
     ClaimOutcome,
     IdentityRejectedError,
+    public_display_name,
 )
 
 if TYPE_CHECKING:
@@ -350,10 +351,23 @@ class SignupAgePageView(View):
         request.session[PENDING_SIGNUP_SESSION_KEY] = pending.model_copy(
             update={"confirmation_token": token}
         ).model_dump(mode="json")
+        identity = pending.authentication.identity
+        # A soft default, never a raw email: an email-shaped name falls back to
+        # the address's local part. The field stays editable so they can pick a
+        # nickname before any public surface sees them.
         return TemplateResponse(
             request,
             "user/signup_age.html",
-            {"form": SignupAgeForm(initial={"confirmation_token": token})},
+            {
+                "form": SignupAgeForm(
+                    initial={
+                        "confirmation_token": token,
+                        "name": public_display_name(
+                            name=identity.name, email=identity.email
+                        ),
+                    }
+                )
+            },
         )
 
     @staticmethod
@@ -376,9 +390,18 @@ class SignupAgePageView(View):
                 request, session_id=pending.authentication.session_id
             )
         logger.info("Signup age range confirmed")
+        # Pin the chosen display name onto the identity so the account is
+        # created with it rather than with the provider's name claim.
+        authentication = pending.authentication.model_copy(
+            update={
+                "identity": pending.authentication.identity.model_copy(
+                    update={"name": form.cleaned_data["name"]}
+                )
+            }
+        )
         destination = _finish_login(
             request,
-            authentication=pending.authentication,
+            authentication=authentication,
             redirect_to=pending.redirect_to,
             age_band=age_band,
             claim_token=pending.claim_token,

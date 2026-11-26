@@ -252,14 +252,15 @@ def assert_rendered(
     _assert_content(response=response, contains=contains, not_contains=())
 
 
-def confirm_signup_age(client: Client) -> HttpResponse:
-    """Answer the age question a first-time sign-in stops at."""
+def confirm_signup_age(client: Client, *, name: str = "Signup Tester") -> HttpResponse:
+    """Answer the age + display-name gate a first-time sign-in stops at."""
     url = reverse("web:crowd:auth:signup-age")
     page = client.get(url)
     return client.post(
         url,
         {
             "age_band": "16_plus",
+            "name": name,
             "confirmation_token": (
                 page.context_data["form"]["confirmation_token"].value()
             ),

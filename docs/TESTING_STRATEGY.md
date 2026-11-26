@@ -162,8 +162,10 @@ Per-branch context coverage belongs in integration.
 The run also measures the client TypeScript: Chromium's V8 coverage is
 collected per test and mapped back through the bundle's inline sourcemaps to
 `src/ludamus/client/src/*.ts`, landing in `coverage-client/lcov.info`. CI
-uploads it to Codecov under the `client` flag, next to the Python report from
-pytest and the same run's Django server.
+uploads that report to Codecov under the `client` flag only after every shard
+has finished, in the same job as the Python report from pytest and the Django
+server. A shard does not upload its own slice: Codecov posts its status on the
+first upload it processes, and that partial figure sticks.
 
 Read that number as a **ceiling**. V8 reports only the scripts the browser
 loaded, so a module no spec reaches is missing from the report entirely rather

@@ -43,6 +43,7 @@ from heroicons.templatetags.heroicons import heroicon_outline, heroicon_solid
 
 from ludamus.pacts.durations import format_duration
 from ludamus.pacts.sessions import SessionAvailability
+from ludamus.pacts.user import public_display_name
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Hashable
@@ -302,7 +303,10 @@ def _session_attrs(
         "pk": session.pk,
         # As-is casing: the host filter's option value and label both; the
         # search haystack lowercases on its own (normalizeText).
-        "host": escape(session.facilitator_name),
+        "host": escape(
+            data.presenter.full_name
+            or public_display_name(name=session.facilitator_name)
+        ),
         "tags": escape(data.public_tags),
         "tag_categories": escape(data.filter_categories),
         # data.availability, with one broader term: the filter counts any
@@ -590,7 +594,10 @@ def compact_session_row(context: template.Context, tile: ScheduleTile) -> SafeSt
             "guild_mark": _guild_mark(
                 sheet=sheet, data=data, extra_class="self-center relative"
             ),
-            "host": escape(session.facilitator_name),
+            "host": escape(
+                data.presenter.full_name
+                or public_display_name(name=session.facilitator_name)
+            ),
             "location": escape(data.location_label),
             "room": escape(data.loc["space_name"]),
             "duration": f" · {duration}" if duration else "",
@@ -622,11 +629,14 @@ def room_lane_tile(
     local_start = tile.start.astimezone(sheet.tz)
     local_end = tile.end.astimezone(sheet.tz)
     host = ""
-    if session.facilitator_name:
+    public_host = data.presenter.full_name or public_display_name(
+        name=session.facilitator_name
+    )
+    if public_host:
         host = _TILE_HOST % {
             "avatar": _avatar(sheet, data),
             "guild_mark": _guild_mark(sheet=sheet, data=data, extra_class="relative"),
-            "host": escape(session.facilitator_name),
+            "host": escape(public_host),
         }
     return SafeString(
         _TILE % {

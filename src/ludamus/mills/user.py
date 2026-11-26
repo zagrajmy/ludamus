@@ -40,6 +40,8 @@ from ludamus.pacts.user import (
     UserData,
     UserType,
     VerificationRequestOutcome,
+    looks_like_email,
+    public_display_name,
 )
 from ludamus.specs.email_verification import (
     EMAIL_VERIFICATION_REMINDER_INTERVAL,
@@ -245,7 +247,9 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
                         email=email,
                         email_verified=bool(email and identity.email_verified),
                         avatar_url=avatar_url,
-                        name=identity.name,
+                        name=public_display_name(
+                            name=identity.name, email=identity.email
+                        ),
                     ),
                 )
             # NOTE: a disabled account (one an underage answer rejected) must
@@ -333,8 +337,13 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         updates = UserData()
         if avatar_url and user.avatar_url != avatar_url:
             updates["avatar_url"] = avatar_url
-        if identity.name and not user.name.strip():
-            updates["name"] = identity.name
+        # NOTE: an email stored as `name` would show publicly, so a later
+        # sign-in may replace it; a real chosen name is left alone.
+        stored_name = user.name.strip()
+        name = public_display_name(name=identity.name, email=identity.email)
+        replaceable = not stored_name or looks_like_email(stored_name)
+        if name and name != stored_name and replaceable:
+            updates["name"] = name
         updates.update(
             self._email_updates(
                 user=user,

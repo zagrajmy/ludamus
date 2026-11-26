@@ -19,8 +19,7 @@ from tests.integration.web.user.workos_responses import (
     authenticate_response,
 )
 
-PROFILE_URL = "http://testserver/crowd/profile/?next=%2F"
-COMPLETE_PROFILE = [(messages.SUCCESS, "Please complete your profile.")]
+HOME_URL = "http://testserver/"
 EXPIRED = [(messages.ERROR, "Authentication session expired. Please try again.")]
 EMAIL_CONFLICT = (
     messages.WARNING,
@@ -62,9 +61,7 @@ class TestLoginCallbackActionView:
         client.get(self.URL, {"state": state_token, "code": "abc"})
         response = confirm_signup_age(client)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=PROFILE_URL, messages=COMPLETE_PROFILE
-        )
+        assert_response(response, HTTPStatus.FOUND, url=HOME_URL)
         authenticate.assert_called_once_with(code="abc")
         user = User.objects.get()
         assert user.username == f"workos|{workos_id}"
@@ -84,9 +81,7 @@ class TestLoginCallbackActionView:
         client.get(self.URL, {"state": _valid_state(), "code": "abc"})
         response = confirm_signup_age(client)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=PROFILE_URL, messages=COMPLETE_PROFILE
-        )
+        assert_response(response, HTTPStatus.FOUND, url=HOME_URL)
         assert client.session.get("anonymous_user_code") is None
         assert client.session.get("anonymous_enrollment_active") is None
         assert client.session.get("anonymous_event_id") is None
@@ -102,10 +97,7 @@ class TestLoginCallbackActionView:
             response,
             HTTPStatus.OK,
             template_name="user/signup_continue.html",
-            context_data={
-                "redirect_to": "https://www.testserver/crowd/profile/?next=%2F"
-            },
-            messages=COMPLETE_PROFILE,
+            context_data={"redirect_to": "https://www.testserver/a/b/c"},
         )
 
     def test_ok_already_authenticated(self, authenticated_client):
@@ -148,9 +140,7 @@ class TestLoginCallbackActionView:
         client.get(self.URL, {"state": state_token, "code": "abc"})
         response = confirm_signup_age(client)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=PROFILE_URL, messages=COMPLETE_PROFILE
-        )
+        assert_response(response, HTTPStatus.FOUND, url=HOME_URL)
 
     def test_ok_complete_user(
         self, authenticate, client, complete_user_factory, workos_id
@@ -171,9 +161,7 @@ class TestLoginCallbackActionView:
         client.get(self.URL, {"state": _valid_state(), "code": "abc"})
         response = confirm_signup_age(client)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=PROFILE_URL, messages=COMPLETE_PROFILE
-        )
+        assert_response(response, HTTPStatus.FOUND, url=HOME_URL)
         user = User.objects.get(username=f"workos|{workos_id}")
         assert len(user.slug) <= User._meta.get_field("slug").max_length
 
@@ -186,9 +174,7 @@ class TestLoginCallbackActionView:
         client.get(self.URL, {"state": _valid_state(), "code": "abc"})
         response = confirm_signup_age(client)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=PROFILE_URL, messages=COMPLETE_PROFILE
-        )
+        assert_response(response, HTTPStatus.FOUND, url=HOME_URL)
         assert User.objects.get(username=f"workos|{workos_id}").slug != (
             workos_id.lower()
         )
@@ -327,9 +313,7 @@ class TestLoginCallbackActionView:
         client.get(self.URL, {"state": _valid_state(), "code": "abc"})
         response = confirm_signup_age(client)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=PROFILE_URL, messages=COMPLETE_PROFILE
-        )
+        assert_response(response, HTTPStatus.FOUND, url=HOME_URL)
         assert not User.objects.get(username=f"workos|{workos_id}").avatar_url
 
     def test_ok_overlong_picture_dropped_on_update(
@@ -365,9 +349,7 @@ class TestLoginCallbackActionView:
         client.get(self.URL, {"state": _valid_state(), "code": "abc"})
         response = confirm_signup_age(client)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=PROFILE_URL, messages=COMPLETE_PROFILE
-        )
+        assert_response(response, HTTPStatus.FOUND, url=HOME_URL)
         assert User.objects.get(username=f"workos|{workos_id}").avatar_url == picture
 
     def test_ok_updates_email_without_name(
@@ -394,6 +376,29 @@ class TestLoginCallbackActionView:
         assert user.email == "new@example.com"
         assert user.name == "Existing Name"
 
+    @pytest.mark.parametrize(
+        ("claims", "expected_name"),
+        (({"first_name": "New", "last_name": "Name"}, "New Name"), ({}, "jo.smith")),
+    )
+    def test_ok_replaces_email_shaped_stored_name(
+        self,
+        authenticate,
+        client,
+        complete_user_factory,
+        workos_id,
+        claims,
+        expected_name,
+    ):
+        username = f"workos|{workos_id}"
+        complete_user_factory(username=username, slug="me", name="old@example.com")
+        authenticate.return_value = authenticate_response(
+            workos_id, email="jo.smith@example.com", **claims
+        )
+
+        client.get(self.URL, {"state": _valid_state(), "code": "abc"})
+
+        assert User.objects.get(username=username).name == expected_name
+
     def test_ok_create_strips_duplicate_email(
         self, authenticate, client, complete_user_factory, workos_id
     ):
@@ -406,10 +411,7 @@ class TestLoginCallbackActionView:
         response = confirm_signup_age(client)
 
         assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url=PROFILE_URL,
-            messages=[EMAIL_CONFLICT, *COMPLETE_PROFILE],
+            response, HTTPStatus.FOUND, url=HOME_URL, messages=[EMAIL_CONFLICT]
         )
         assert not User.objects.get(username=f"workos|{workos_id}").email
 
@@ -482,9 +484,7 @@ class TestLoginCallbackActionView:
         client.get(self.URL, {"state": _valid_state(), "code": "abc"})
         response = confirm_signup_age(client)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=PROFILE_URL, messages=COMPLETE_PROFILE
-        )
+        assert_response(response, HTTPStatus.FOUND, url=HOME_URL)
         user = User.objects.get(username=f"workos|{workos_id}")
         assert (user.email, user.email_verified) == ("new@example.com", False)
 
@@ -545,10 +545,7 @@ class TestLegacyAuth0Accounts:
         response = confirm_signup_age(client)
 
         assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url=PROFILE_URL,
-            messages=[EMAIL_CONFLICT, *COMPLETE_PROFILE],
+            response, HTTPStatus.FOUND, url=HOME_URL, messages=[EMAIL_CONFLICT]
         )
         assert User.objects.get(slug="other").username == username
         assert not User.objects.get(username=f"workos|{workos_id}").email

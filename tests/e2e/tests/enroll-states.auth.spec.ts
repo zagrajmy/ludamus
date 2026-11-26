@@ -6,9 +6,6 @@ import { expect, test } from "./helpers/fixtures";
 // every seat taken (tests/e2e/scripts/bootstrap_data.py). Between them they pin
 // both ways *in*, which no other spec exercises from the modal footer.
 
-// The seat badge lives in the footer; the participants tab lists the same words
-// for everyone in the session, so badge assertions scope to the footer. Absence
-// assertions scope to the dialog, since the footer itself can disappear.
 const openModal = async (page: Page, title: string) => {
   await page.goto("/event/enroll-states/");
   await page.getByRole("link", { name: `Open details for ${title}` }).press("Enter");
@@ -39,6 +36,8 @@ test.describe.configure({ mode: "serial" });
 
 // The enroll view, which the one-click footer posts to.
 const ENROLL_POST = "**/session/*/enrollment/";
+
+const capacity = (dialog: ReturnType<Page["getByRole"]>) => dialog.locator("[data-roster]");
 
 test.describe("Ways into a session while enrollment is open", () => {
   // Scoped to the session the test actually touched, so a restore never
@@ -84,11 +83,9 @@ test.describe("Ways into a session while enrollment is open", () => {
 
     await expect(footer.getByText("On the waiting list")).toBeVisible();
     await expect(footer.getByRole("button", { name: "Leave", exact: true })).toBeVisible();
-    const tab = dialog.getByRole("tab", { name: /Participants/ });
-    await expect(tab).toHaveAccessibleName("Participants 1 +1");
-    await tab.click();
-    await expect(dialog.getByRole("heading", { name: "Waiting List", exact: true })).toBeVisible();
-    await expect(dialog.getByText("You", { exact: true })).toBeVisible();
+    const roster = capacity(dialog);
+    await expect(roster).toContainText("1/1");
+    await expect(roster).toContainText("1 waiting");
   });
 
   test("a full session keeps your waiting-list place when leaving never reaches the server", async ({
@@ -97,8 +94,7 @@ test.describe("Ways into a session while enrollment is open", () => {
     const { dialog, footer } = await openModal(page, "Waiting List Only Demo");
     await footer.getByRole("button", { name: "Join waiting list" }).click();
     await expect(footer.getByRole("button", { name: "Leave", exact: true })).toBeVisible();
-    const tab = dialog.getByRole("tab", { name: /Participants/ });
-    await tab.click();
+    const roster = capacity(dialog);
     await page.route(ENROLL_POST, (route) =>
       route.request().method() === "POST" ? route.abort() : route.fallback(),
     );
@@ -108,14 +104,14 @@ test.describe("Ways into a session while enrollment is open", () => {
     await footer.getByRole("button", { name: "Leave", exact: true }).click();
     await aborted;
 
-    // The row that comes back is yours, still first in line.
-    await expect(tab).toHaveAccessibleName("Participants 1 +1");
-    await expect(dialog.getByText("You", { exact: true })).toHaveCount(1);
-    await expect(dialog.getByLabel("Waiting list position 1")).toBeVisible();
+    // Still waiting: the optimistic leave rolled back.
+    await expect(roster).toContainText("1/1");
+    await expect(roster).toContainText("1 waiting");
+    await expect(footer.getByText("On the waiting list")).toBeVisible();
   });
 });
 
-test.describe("The participants tab answers an Enroll click at once", () => {
+test.describe("The seat stack answers an Enroll click at once", () => {
   test.afterEach(async ({ page }) => {
     await page.unrouteAll({ behavior: "ignoreErrors" });
     await release(page, "Seat Available Demo");
@@ -132,24 +128,23 @@ test.describe("The participants tab answers an Enroll click at once", () => {
       await held;
       return route.continue();
     });
-    const tab = dialog.getByRole("tab", { name: /Participants/ });
-    await expect(tab).toHaveAccessibleName("Participants 0");
+    const roster = capacity(dialog);
+    await expect(roster).toContainText("0/5");
 
     await footer.getByRole("button", { name: "Enroll", exact: true }).click();
 
     // The request is still held here: only the client can have done this.
-    await expect(tab).toHaveAccessibleName("Participants 1");
-    await tab.click();
-    await expect(dialog.getByRole("heading", { name: "Enrolled (1/5)" })).toBeVisible();
-    await expect(dialog.getByText("You", { exact: true })).toBeVisible();
-    await expect(dialog.getByText("No participants enrolled yet.")).toBeHidden();
+    await expect(roster).toContainText("1/5");
+    await dialog.getByRole("button", { name: "Participants" }).click();
+    const people = dialog.getByRole("dialog", { name: "Participants" });
+    await expect(people.getByRole("img", { name: "E2E Tester" })).toBeVisible();
     await expect(footer.getByText("You're enrolled")).toHaveCount(0);
 
     answer();
 
     await expect(footer.getByText("You're enrolled")).toBeVisible();
-    await expect(tab).toHaveAccessibleName("Participants 1");
-    await expect(dialog.getByText("You", { exact: true })).toBeVisible();
+    await expect(roster).toContainText("1/5");
+    await expect(people.getByRole("img", { name: "E2E Tester" })).toBeVisible();
   });
 
   test("takes you back out when the enroll never reaches the server", async ({ page }) => {
@@ -157,14 +152,15 @@ test.describe("The participants tab answers an Enroll click at once", () => {
     await page.route(ENROLL_POST, (route) =>
       route.request().method() === "POST" ? route.abort() : route.fallback(),
     );
-    const tab = dialog.getByRole("tab", { name: /Participants/ });
+    const roster = capacity(dialog);
 
     await footer.getByRole("button", { name: "Enroll", exact: true }).click();
 
-    await expect(tab).toHaveAccessibleName("Participants 0");
-    await tab.click();
-    await expect(dialog.getByText("No participants enrolled yet.")).toBeVisible();
-    await expect(dialog.getByText("You", { exact: true })).toHaveCount(0);
+    await expect(roster).toContainText("0/5");
+    await dialog.getByRole("button", { name: "Participants" }).click();
+    await expect(
+      dialog.getByRole("dialog", { name: "Participants" }).getByRole("img", { name: "E2E Tester" }),
+    ).toHaveCount(0);
     await expect(footer.getByRole("button", { name: "Enroll", exact: true })).toBeVisible();
   });
 
@@ -180,15 +176,16 @@ test.describe("The participants tab answers an Enroll click at once", () => {
         ? route.fulfill({ status: 200, contentType: "text/html", body: "<div></div>" })
         : route.fallback(),
     );
-    const tab = dialog.getByRole("tab", { name: /Participants/ });
+    const roster = capacity(dialog);
 
     const answered = page.waitForResponse((response) => response.request().method() === "POST");
     await footer.getByRole("button", { name: "Enroll", exact: true }).click();
     await answered;
 
-    await expect(tab).toHaveAccessibleName("Participants 0");
-    await tab.click();
-    await expect(dialog.getByText("No participants enrolled yet.")).toBeVisible();
-    await expect(dialog.getByText("You", { exact: true })).toHaveCount(0);
+    await expect(roster).toContainText("0/5");
+    await dialog.getByRole("button", { name: "Participants" }).click();
+    await expect(
+      dialog.getByRole("dialog", { name: "Participants" }).getByRole("img", { name: "E2E Tester" }),
+    ).toHaveCount(0);
   });
 });

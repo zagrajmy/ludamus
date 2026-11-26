@@ -242,13 +242,7 @@ class TestClaimRedemptionOnLogin:
         assert User.objects.filter(
             username=f"workos|{sub}", user_type=UserType.ACTIVE
         ).exists()
-        # No claim messages — just the ordinary fresh-account onboarding nudge.
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2F",
-            messages=[(messages.SUCCESS, "Please complete your profile.")],
-        )
+        assert_response(response, HTTPStatus.FOUND, url="http://testserver/")
 
     @patch(AUTHENTICATE)
     def test_refuses_when_recipient_already_has_account(

@@ -489,19 +489,11 @@ def present_party_history(
 
 
 def _party_history_card(item: PartySessionHistoryDTO, *, now: datetime) -> SessionData:
-    if item.presenter is not None:
-        presenter = _user_info(item.presenter)
-    else:
-        name = item.session.facilitator_name
-        presenter = UserInfo(
-            avatar_url=None,
-            discord_username="",
-            full_name=name,
-            name=name,
-            pk=0,
-            slug="",
-            username=name,
-        )
+    presenter = (
+        _user_info(item.presenter)
+        if item.presenter is not None
+        else UserInfo.from_public_label(item.session.facilitator_name)
+    )
     return SessionData(
         agenda_item=item.agenda_item,
         is_enrollment_available=False,
@@ -538,19 +530,11 @@ def present_session_modal(
     access: EnrollmentAccessDTO,
     guild: GuildMarkDTO | None = None,
 ) -> SessionData:
-    if dto.presenter is not None:
-        presenter = _user_info(dto.presenter)
-    else:
-        name = dto.session.facilitator_name
-        presenter = UserInfo(
-            avatar_url=None,
-            discord_username="",
-            full_name=name,
-            name=name,
-            pk=0,
-            slug="",
-            username=name,
-        )
+    presenter = (
+        _user_info(dto.presenter)
+        if dto.presenter is not None
+        else UserInfo.from_public_label(dto.session.facilitator_name)
+    )
     card = SessionData(
         agenda_item=dto.agenda_item,
         is_enrollment_available=access.seats(dto.enrollment_window_ids),
@@ -585,12 +569,4 @@ def present_session_modal(
 
 
 def _user_info(user: UserDTO) -> UserInfo:
-    return UserInfo(
-        avatar_url=user.avatar_url or None,
-        discord_username=user.discord_username,
-        full_name=user.full_name,
-        name=user.name,
-        pk=user.pk,
-        slug=user.slug,
-        username=user.username,
-    )
+    return UserInfo.from_user_dto(user)

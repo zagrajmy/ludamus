@@ -1,0 +1,14 @@
+/* The stack's popover sits in the top layer. When CSS anchor positioning
+   is available the invoker from popovertarget is the default anchor, so the
+   panel opens under the faces instead of the viewport centre. */
+@layer utilities {
+  @supports (anchor-name: --a) {
+    [data-roster-popover]:popover-open {
+      position: fixed;
+      inset: unset;
+      top: calc(anchor(bottom) + 0.5rem);
+      left: anchor(left);
+      position-try-fallbacks: flip-block, flip-inline;
+    }
+  }
+}

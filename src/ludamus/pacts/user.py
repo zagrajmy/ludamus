@@ -260,6 +260,38 @@ class AvatarUrlProviderProtocol(Protocol):
     def __call__(self, email: str) -> str | None: ...
 
 
+def looks_like_email(value: str) -> bool:
+    """Return whether `value` is shaped like an email address, not a person name."""
+    text = value.strip()
+    if text.count("@") != 1 or " " in text:
+        return False
+    local, _, domain = text.partition("@")
+    return bool(local) and "." in domain
+
+
+def email_local_part(email: str) -> str:
+    """Return the part before `@`, or empty when `email` has no usable local part."""
+    local, sep, _domain = email.strip().partition("@")
+    return local.strip() if sep else ""
+
+
+def public_display_name(*, name: str, email: str = "") -> str:
+    """Return a name safe to show publicly — never a raw email address.
+
+    Prefers a non-email `name`. When the stored name *is* an email (Auth0
+    often copies the address into `name` on password signup), falls back to
+    the local-part of `email` or of that name. Callers that need a non-empty
+    label layer their own default on top.
+    """
+    candidate = (name or "").strip()
+    if candidate and not looks_like_email(candidate):
+        return candidate
+    for source in (email, candidate):
+        if local := email_local_part(source):
+            return local
+    return ""
+
+
 def gravatar_url(email: str) -> str | None:
     if not email:
         return None

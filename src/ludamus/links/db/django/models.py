@@ -82,6 +82,7 @@ from ludamus.pacts.user import (
     PROFILE_DISCORD_USERNAME_MAX_LENGTH,
     AgeBand,
     UserType,
+    public_display_name,
 )
 
 if TYPE_CHECKING:
@@ -235,7 +236,9 @@ class User(AbstractBaseUser, PermissionsMixin):
         return f"{self.name} <{self.email}>"
 
     def get_full_name(self) -> str:
-        return self.name or DEFAULT_NAME
+        # Never surface a raw email as the public label — Auth0 password
+        # signup often copies the address into `name`.
+        return public_display_name(name=self.name, email=self.email) or DEFAULT_NAME
 
     @property
     def full_name(self) -> str:
