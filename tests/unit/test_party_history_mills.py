@@ -21,7 +21,6 @@ def _party(*, is_leader=True):
         is_active_member=True,
         created_at=datetime(2026, 1, 1, tzinfo=UTC),
         members=[],
-        enrolls_together=True,
     )
 
 
@@ -32,9 +31,6 @@ def _event_history():
 
 
 class FakeParties:
-    def __init__(self):
-        self.enrollment_reads = 0
-
     @staticmethod
     def read_for_viewer(*, party_pk, viewer_pk):
         if (party_pk, viewer_pk) == (PARTY_PK, VIEWER_PK):
@@ -42,10 +38,6 @@ class FakeParties:
         if (party_pk, viewer_pk) == (PARTY_PK, MEMBER_PK):
             return _party(is_leader=False)
         return None
-
-    def has_enrollments(self, *, leader_pk, party_pk):
-        self.enrollment_reads += 1
-        return (party_pk, leader_pk) == (PARTY_PK, VIEWER_PK)
 
 
 class FakeHistory:
@@ -68,24 +60,15 @@ def _service(history, parties=None):
 def test_member_sees_party_with_its_history():
     detail = _service(FakeHistory()).read_detail(party_pk=PARTY_PK, viewer_pk=VIEWER_PK)
 
-    assert detail == PartyDetailDTO(
-        party=_party(), history=[_event_history()], enrolling_locked=True
-    )
+    assert detail == PartyDetailDTO(party=_party(), history=[_event_history()])
 
 
-def test_member_is_not_locked_out_and_enrollments_are_not_read():
-    parties = FakeParties()
-
-    detail = _service(FakeHistory(), parties).read_detail(
-        party_pk=PARTY_PK, viewer_pk=MEMBER_PK
-    )
+def test_non_leader_member_sees_party_with_its_history():
+    detail = _service(FakeHistory()).read_detail(party_pk=PARTY_PK, viewer_pk=MEMBER_PK)
 
     assert detail == PartyDetailDTO(
-        party=_party(is_leader=False),
-        history=[_event_history()],
-        enrolling_locked=False,
+        party=_party(is_leader=False), history=[_event_history()]
     )
-    assert parties.enrollment_reads == 0
 
 
 def test_outsider_gets_nothing_and_history_is_not_read():

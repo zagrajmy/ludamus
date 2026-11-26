@@ -11,14 +11,14 @@
             <div>
                 <h5 class="font-semibold">{% translate "Your parties" %}</h5>
                 <p class="text-sm text-foreground-muted">
-                    {% translate "Sign up for sessions together, or keep a group you play with." %}
+                    {% translate "Sign up for sessions together. New members approve each signup unless they allow otherwise." %}
                 </p>
             </div>
             {% translate "Create party" as t_create_party %}
             {% tessera_button t_create_party href="?new-party=1" icon="plus-circle" aria_controls="new-party-modal" aria_haspopup="dialog" extra_class="shrink-0" %}
         </div>
         {% translate "Create party" as party_modal_title %}
-        {% translate "Invite friends once it exists. New members approve each session signup unless they allow otherwise." as party_modal_hint %}
+        {% translate "Invite friends once it exists. New members approve each session signup unless they allow direct signup." as party_modal_hint %}
         {% include "user/user/_party_create_modal.html" with modal_id="new-party-modal" title=party_modal_title hint=party_modal_hint form=party_form %}
         {% if invites %}
             <div class="rounded-lg bg-bg-secondary p-4 mb-6">
@@ -37,15 +37,9 @@
                                         {% blocktranslate with leader=invite.leader_name %}{{ leader }} invited you to their party{% endblocktranslate %}
                                     {% endif %}
                                 </p>
-                                {% if invite.enrolls_together %}
-                                    <p class="mt-0.5 text-xs text-foreground-muted">
-                                        {% translate "They ask before each session signup unless you allow direct enrollment." %}
-                                    </p>
-                                {% else %}
-                                    <p class="mt-0.5 text-xs text-foreground-muted">
-                                        {% translate "A play group — joining does not let anyone enroll you in sessions." %}
-                                    </p>
-                                {% endif %}
+                                <p class="mt-0.5 text-xs text-foreground-muted">
+                                    {% translate "They ask before each session signup unless you allow direct signup." %}
+                                </p>
                             </div>
                             <div class="flex gap-2 shrink-0">
                                 <form method="post"
@@ -97,12 +91,6 @@
                                 </span>
                                 <span>{% blocktranslate with leader=entry.party.leader_name %}led by {{ leader }}{% endblocktranslate %}</span>
                                 <span>{% blocktranslate with created=entry.party.created_at|date:"DATE_FORMAT" %}created {{ created }}{% endblocktranslate %}</span>
-                                {% if entry.party.enrolls_together %}
-                                    <span class="inline-flex items-center gap-1">
-                                        {% icon "ticket" class="w-4 h-4" %}
-                                        {% translate "enrolls together" %}
-                                    </span>
-                                {% endif %}
                             </p>
                         </div>
                         <div class="order-2 flex items-start gap-1.5 justify-end sm:order-3 sm:items-center">

@@ -655,7 +655,7 @@ class TestSessionModalComponentView:
         self, authenticated_client, active_user, agenda_item, event
     ):
         Services().parties.create(
-            leader_pk=active_user.pk, name="Solo", enrolls_together=True
+            leader_pk=active_user.pk, name="Solo"
         )
 
         response = authenticated_client.get(_url(event, agenda_item.session.pk))

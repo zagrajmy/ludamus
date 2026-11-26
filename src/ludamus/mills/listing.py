@@ -433,9 +433,7 @@ class ListingService(ListingServiceProtocol):
                 raise ListingStatusError
             if party_id is None:
                 party_name = listing.title
-                party_id = self._parties.create(
-                    leader_pk=author_id, name=party_name, enrolls_together=True
-                )
+                party_id = self._parties.create(leader_pk=author_id, name=party_name)
             else:
                 party_name = self._check_party(author_id, party_id).name
             self._responses.invite(pk=response_id, party_id=party_id)

@@ -62,7 +62,6 @@ class PartyDTO(BaseModel):
     is_active_member: bool
     created_at: datetime
     members: list[PartyMemberDTO]
-    enrolls_together: bool
 
 
 class PartyInviteDTO(BaseModel):
@@ -72,7 +71,6 @@ class PartyInviteDTO(BaseModel):
     party_pk: int
     party_name: str
     leader_name: str
-    enrolls_together: bool
 
 
 class PartiesOverviewDTO(BaseModel):
@@ -143,12 +141,6 @@ class CompanionAddOutcome(StrEnum):
     AMBIGUOUS_NAME = "ambiguous_name"
 
 
-class SetEnrollsTogetherOutcome(StrEnum):
-    UPDATED = "updated"
-    LOCKED = "locked"
-    NOT_FOUND = "not_found"
-
-
 class DeletePartyOutcome(StrEnum):
     DELETED = "deleted"
     NOT_FOUND = "not_found"
@@ -158,7 +150,6 @@ class PartyInviteNotification(BaseModel):
     recipient_user_id: int
     party_name: str
     actor_name: str
-    enrolls_together: bool
 
 
 class PartyEnrolledNotification(BaseModel):
@@ -190,7 +181,6 @@ class InvitablePartyDTO(BaseModel):
     name: str
     leader_name: str
     already_member: bool
-    enrolls_together: bool
 
 
 class PartyJoinResult(BaseModel):
@@ -201,7 +191,6 @@ class PartyJoinResult(BaseModel):
 class PartyActionContextDTO(BaseModel):
     name: str
     actor_name: str
-    enrolls_together: bool
 
 
 class PartyRepositoryProtocol(Protocol):
@@ -212,13 +201,7 @@ class PartyRepositoryProtocol(Protocol):
     @staticmethod
     def read_for_viewer(*, party_pk: int, viewer_pk: int) -> PartyDTO | None: ...
     @staticmethod
-    def create(*, leader_pk: int, name: str, enrolls_together: bool) -> int: ...
-    @staticmethod
-    def has_enrollments(*, leader_pk: int, party_pk: int) -> bool: ...
-    @staticmethod
-    def set_enrolls_together(
-        *, leader_pk: int, party_pk: int, enrolls_together: bool
-    ) -> bool: ...
+    def create(*, leader_pk: int, name: str) -> int: ...
     @staticmethod
     def rename(*, leader_pk: int, party_pk: int, name: str) -> bool: ...
     @staticmethod
@@ -275,10 +258,7 @@ class PartyNotifierProtocol(Protocol):
 class PartyServiceProtocol(Protocol):
     def overview(self, viewer_pk: int) -> PartiesOverviewDTO: ...
     def counts(self, viewer_pk: int) -> PartyCountsDTO: ...
-    def create(self, *, leader_pk: int, name: str, enrolls_together: bool) -> int: ...
-    def set_enrolls_together(
-        self, *, leader_pk: int, party_pk: int, enrolls_together: bool
-    ) -> SetEnrollsTogetherOutcome: ...
+    def create(self, *, leader_pk: int, name: str) -> int: ...
     def rename(self, *, leader_pk: int, party_pk: int, name: str) -> bool: ...
     def delete(self, *, leader_pk: int, party_pk: int) -> DeletePartyOutcome: ...
     def invite(

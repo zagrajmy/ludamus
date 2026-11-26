@@ -5924,18 +5924,6 @@ msgid "We ask before each signup again."
 msgstr "Znów pytamy przed każdym zapisem."
 
 #: src/ludamus/gates/web/django/user/views.py
-msgid "This party can now enroll together."
-msgstr "Ta drużyna może się teraz zapisywać razem."
-
-#: src/ludamus/gates/web/django/user/views.py
-msgid "This party no longer enrolls together."
-msgstr "Ta drużyna nie zapisuje się już razem."
-
-#: src/ludamus/gates/web/django/user/views.py
-msgid "A party that has enrolled keeps enrolling together."
-msgstr "Drużyna, która już się zapisała, nadal zapisuje się razem."
-
-#: src/ludamus/gates/web/django/user/views.py
 msgid "You left the party."
 msgstr "Opuszczasz drużynę."
 
@@ -6463,14 +6451,6 @@ msgstr ""
 "zapisem, chyba że pozwolisz liderowi zapisywać Cię bezpośrednio."
 
 #: src/ludamus/links/db/django/notifications.py
-msgid ""
-"Join the party to play together. This does not let anyone enroll you in "
-"sessions."
-msgstr ""
-"Dołącz do drużyny, żeby grać razem. To nie pozwala nikomu zapisywać Cię na "
-"punkty programu."
-
-#: src/ludamus/links/db/django/notifications.py
 #, python-format
 msgid ""
 "You showed interest in %(listing)s. Accept to join the party and share "
@@ -6478,8 +6458,8 @@ msgid ""
 "enrollment."
 msgstr ""
 "Zgłoszenie zainteresowania ogłoszeniem %(listing)s. Przyjmij zaproszenie do "
-"drużyny i udostępnij kontakt. Zapisy na punkty programu nadal wymagają Twojej "
-"zgody, chyba że pozwolisz na bezpośrednie zapisy."
+"drużyny i udostępnij kontakt. Zapisy na punkty programu nadal wymagają "
+"Twojej zgody, chyba że pozwolisz na bezpośrednie zapisy."
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
@@ -16265,18 +16245,20 @@ msgid "Your parties"
 msgstr "Twoje drużyny"
 
 #: src/ludamus/templates/user/user/parties.html
-msgid "Sign up for sessions together, or keep a group you play with."
+msgid ""
+"Sign up for sessions together. New members approve each signup unless they "
+"allow otherwise."
 msgstr ""
-"Zapisujcie się razem na punkty programu albo po prostu trzymajcie się jako "
-"grupa do grania."
+"Zapisujcie się razem na punkty programu. Nowi członkowie zatwierdzają każdy "
+"zapis, chyba że pozwolą inaczej."
 
 #: src/ludamus/templates/user/user/parties.html
 msgid ""
 "Invite friends once it exists. New members approve each session signup "
-"unless they allow otherwise."
+"unless they allow direct signup."
 msgstr ""
 "Znajomych zaprosisz, gdy drużyna już powstanie. Nowi członkowie zatwierdzają "
-"każdy zapis na punkt programu, chyba że pozwolą inaczej."
+"każdy zapis na punkt programu, chyba że pozwolą na bezpośrednie zapisy."
 
 #: src/ludamus/templates/user/user/parties.html
 msgid "Invitations"
@@ -16294,16 +16276,10 @@ msgid "%(leader)s invited you to their party"
 msgstr "%(leader)s zaprasza Cię do swojej drużyny"
 
 #: src/ludamus/templates/user/user/parties.html
-msgid "They ask before each session signup unless you allow direct enrollment."
+msgid "They ask before each session signup unless you allow direct signup."
 msgstr ""
 "Pytają przed każdym zapisem na punkt programu, chyba że pozwolisz na "
 "bezpośrednie zapisy."
-
-#: src/ludamus/templates/user/user/parties.html
-msgid "A play group — joining does not let anyone enroll you in sessions."
-msgstr ""
-"Grupa do grania — dołączenie nie pozwala nikomu zapisywać Cię na punkty "
-"programu."
 
 #: src/ludamus/templates/user/user/parties.html
 #: src/ludamus/templates/user/user/party_join.html
@@ -16330,10 +16306,6 @@ msgstr "lider: %(leader)s"
 #, python-format
 msgid "created %(created)s"
 msgstr "utworzona %(created)s"
-
-#: src/ludamus/templates/user/user/parties.html
-msgid "enrolls together"
-msgstr "zapisuje się razem"
 
 #: src/ludamus/templates/user/user/parties.html
 msgid "Invite"
@@ -16575,42 +16547,6 @@ msgstr ""
 "Nie macie jeszcze wspólnych punktów programu — wybierz punkt programu na "
 "wydarzeniu i zapisz się jako drużyna."
 
-#: src/ludamus/templates/user/user/party_detail.html
-msgid "Enrolling together"
-msgstr "Wspólne zapisy"
-
-#: src/ludamus/templates/user/user/party_detail.html
-msgid ""
-"Off: members stay a play group. Turn on so the party can sign up for "
-"sessions together — each person still approves unless they allow direct "
-"signup."
-msgstr ""
-"Wyłączone: członkowie zostają grupą do grania. Włącz, żeby drużyna mogła "
-"zapisywać się razem na punkty programu — każda osoba nadal zatwierdza zapis, "
-"chyba że pozwoli na bezpośrednie zapisy."
-
-#: src/ludamus/templates/user/user/party_detail.html
-msgid "Turn on enrolling together"
-msgstr "Włącz wspólne zapisy"
-
-#: src/ludamus/templates/user/user/party_detail.html
-msgid "This party has enrolled in sessions, so this stays on."
-msgstr ""
-"Ta drużyna ma już zapisy na punkty programu, więc ta opcja pozostaje "
-"włączona."
-
-#: src/ludamus/templates/user/user/party_detail.html
-msgid ""
-"On: the party can sign up together. Members approve each signup unless they "
-"allow direct signup."
-msgstr ""
-"Włączone: drużyna może zapisywać się razem. Członkowie zatwierdzają każdy "
-"zapis, chyba że pozwolą na bezpośrednie zapisy."
-
-#: src/ludamus/templates/user/user/party_detail.html
-msgid "Turn off enrolling together"
-msgstr "Wyłącz wspólne zapisy"
-
 #: src/ludamus/templates/user/user/party_join.html
 #, python-format
 msgid "%(leader)s's party"
@@ -16623,19 +16559,11 @@ msgstr "Nie teraz"
 #: src/ludamus/templates/user/user/party_join.html
 msgid ""
 "The leader can propose session signups for the group. We ask you before each "
-"one unless you allow direct enrollment. You can leave anytime."
+"one unless you allow direct signup. You can leave anytime."
 msgstr ""
 "Lider może proponować zapisy na punkty programu dla całej grupy. Pytamy Cię "
 "przed każdym, chyba że pozwolisz na bezpośrednie zapisy. Możesz odejść w "
 "dowolnej chwili."
-
-#: src/ludamus/templates/user/user/party_join.html
-msgid ""
-"A play group: joining does not let anyone enroll you in sessions. You can "
-"leave anytime."
-msgstr ""
-"Grupa do grania: dołączenie nie pozwala nikomu zapisywać Cię na punkty "
-"programu. Możesz odejść w dowolnej chwili."
 
 #: src/ludamus/templates/user/user/privacy.html
 msgid ""
@@ -16799,6 +16727,72 @@ msgid ""
 msgstr ""
 "Bilety kupione na wydarzenia w tej sferze pojawią się tutaj, gotowe do "
 "pokazania przy wejściu."
+
+#~ msgid "This party can now enroll together."
+#~ msgstr "Ta drużyna może się teraz zapisywać razem."
+
+#~ msgid "This party no longer enrolls together."
+#~ msgstr "Ta drużyna nie zapisuje się już razem."
+
+#~ msgid "A party that has enrolled keeps enrolling together."
+#~ msgstr "Drużyna, która już się zapisała, nadal zapisuje się razem."
+
+#~ msgid ""
+#~ "Join the party to play together. This does not let anyone enroll you in "
+#~ "sessions."
+#~ msgstr ""
+#~ "Dołącz do drużyny, żeby grać razem. To nie pozwala nikomu zapisywać Cię "
+#~ "na punkty programu."
+
+#~ msgid "Sign up for sessions together, or keep a group you play with."
+#~ msgstr ""
+#~ "Zapisujcie się razem na punkty programu albo po prostu trzymajcie się "
+#~ "jako grupa do grania."
+
+#~ msgid "A play group — joining does not let anyone enroll you in sessions."
+#~ msgstr ""
+#~ "Grupa do grania — dołączenie nie pozwala nikomu zapisywać Cię na punkty "
+#~ "programu."
+
+#~ msgid "enrolls together"
+#~ msgstr "zapisuje się razem"
+
+#~ msgid "Enrolling together"
+#~ msgstr "Wspólne zapisy"
+
+#~ msgid ""
+#~ "Off: members stay a play group. Turn on so the party can sign up for "
+#~ "sessions together — each person still approves unless they allow direct "
+#~ "signup."
+#~ msgstr ""
+#~ "Wyłączone: członkowie zostają grupą do grania. Włącz, żeby drużyna mogła "
+#~ "zapisywać się razem na punkty programu — każda osoba nadal zatwierdza "
+#~ "zapis, chyba że pozwoli na bezpośrednie zapisy."
+
+#~ msgid "Turn on enrolling together"
+#~ msgstr "Włącz wspólne zapisy"
+
+#~ msgid "This party has enrolled in sessions, so this stays on."
+#~ msgstr ""
+#~ "Ta drużyna ma już zapisy na punkty programu, więc ta opcja pozostaje "
+#~ "włączona."
+
+#~ msgid ""
+#~ "On: the party can sign up together. Members approve each signup unless "
+#~ "they allow direct signup."
+#~ msgstr ""
+#~ "Włączone: drużyna może zapisywać się razem. Członkowie zatwierdzają każdy "
+#~ "zapis, chyba że pozwolą na bezpośrednie zapisy."
+
+#~ msgid "Turn off enrolling together"
+#~ msgstr "Wyłącz wspólne zapisy"
+
+#~ msgid ""
+#~ "A play group: joining does not let anyone enroll you in sessions. You can "
+#~ "leave anytime."
+#~ msgstr ""
+#~ "Grupa do grania: dołączenie nie pozwala nikomu zapisywać Cię na punkty "
+#~ "programu. Możesz odejść w dowolnej chwili."
 
 #~ msgid "Enrollments now wait for your approval."
 #~ msgstr "Od teraz zapisy czekają na Twoją zgodę."

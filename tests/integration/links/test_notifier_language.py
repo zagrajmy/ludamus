@@ -133,14 +133,12 @@ _SAMPLES = {
     "notify_offered": [lambda r: OfferNotification(**r.held)],
     "notify_offer_expired": [lambda r: PromotionNotification(**r.seat)],
     "notify_party_invited": [
-        lambda r, party=party, enrolls_together=enrolls_together: PartyInviteNotification(
+        lambda r, party=party: PartyInviteNotification(
             recipient_user_id=r.user_id,
             party_name=party,
             actor_name="Kasia",
-            enrolls_together=enrolls_together,
         )
         for party in ("", "Smoki")
-        for enrolls_together in (True, False)
     ],
     "notify_party_enrolled": [
         lambda r: PartyEnrolledNotification(**r.seat, actor_name="Kasia")

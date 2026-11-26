@@ -196,7 +196,6 @@ def test_young_account_still_receives_service_notifications(
                 recipient_user_id=active_user.pk,
                 actor_name="A friend",
                 party_name="Convention crew",
-                enrolls_together=True,
             )
         )
 

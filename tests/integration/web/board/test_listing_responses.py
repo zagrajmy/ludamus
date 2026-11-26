@@ -482,11 +482,7 @@ class TestListingResponseInviteActionView:
             url=_responses(listing),
         )
         party = Party.objects.get()
-        assert (party.leader_id, party.name, party.enrolls_together) == (
-            active_user.pk,
-            "Mörk Borg",
-            True,
-        )
+        assert (party.leader_id, party.name) == (active_user.pk, "Mörk Borg")
         assert dict(
             PartyMembership.objects.filter(party=party).values_list("member", "status")
         ) == {

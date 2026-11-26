@@ -67,7 +67,6 @@ def _party_dto(party, viewer, members):
         ),
         created_at=party.created_at,
         members=members,
-        enrolls_together=party.enrolls_together,
     )
 
 
@@ -193,7 +192,6 @@ class TestPartiesPageView:
                         party_pk=party.pk,
                         party_name="Ekipa",
                         leader_name="Frida Friend",
-                        enrolls_together=True,
                     )
                 ]
             ),
@@ -226,7 +224,6 @@ class TestPartiesPageView:
                         party_pk=party.pk,
                         party_name="",
                         leader_name="Frida Friend",
-                        enrolls_together=True,
                     )
                 ]
             ),
@@ -312,7 +309,6 @@ class TestPartyCreateActionView:
             messages=[(messages.SUCCESS, "Party created.")],
         )
         assert party.leader_id == active_user.pk
-        assert party.enrolls_together is True
         membership = party.memberships.get()
         assert membership.member_id == active_user.pk
         assert membership.status == PartyMembershipStatus.ACTIVE
