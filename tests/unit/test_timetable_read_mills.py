@@ -470,18 +470,15 @@ class TestSpaceTree:
     def test_an_event_needing_no_space_adds_a_column_for_sessions_without_one(
         self, uow
     ):
-        uow.events.read.return_value = event_dto(require_session_space=False)
-        uow.agenda_items.rows = {1: agenda_item_dto(space_id=None)}
+        uow.events.read.side_effect = lookup(
+            {1: con_event(require_session_space=False)}
+        )
 
         grid = timetable_service(uow).build_grid(event_pk=1, tz=UTC)
 
         assert [
-            (
-                column.space.pk if column.space else None,
-                [pos.agenda_item.session_title for pos in column.sessions],
-            )
-            for column in grid.days[0].columns
-        ] == [(3, []), (4, []), (5, []), (None, ["Session"])]
+            column.space.pk if column.space else None for column in grid.days[0].columns
+        ] == [3, 4, 5, None]
         assert grid.columns_per_day == len(grid.days[0].columns)
         assert grid.groups[-1].span == 1
 
@@ -492,10 +489,14 @@ class TestSpaceTree:
 
         grid = timetable_service(uow).build_grid(event_pk=1, tz=UTC)
 
-        assert grid.days[0].columns[-1].space is None
+        column = grid.days[0].columns[-1]
+        assert column.space is None
+        assert [pos.agenda_item.session_title for pos in column.sessions] == ["Session"]
 
     def test_a_room_filter_leaves_the_no_space_column_out(self, uow):
-        uow.events.read.return_value = event_dto(require_session_space=False)
+        uow.events.read.side_effect = lookup(
+            {1: con_event(require_session_space=False)}
+        )
 
         grid = timetable_service(uow).build_grid(
             event_pk=1, tz=UTC, filters=TimetableGridFilter(space_pks={2})

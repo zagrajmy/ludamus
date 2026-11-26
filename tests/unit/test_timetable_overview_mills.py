@@ -264,7 +264,7 @@ class TestTimetableOverviewCapacityHours:
         return uow
 
     @staticmethod
-    def _event(open_hour, close_hour, *, days=1):
+    def _event(*, open_hour, close_hour, days=1):
         # Every day of the event keeps the same opening hours, so the last day
         # closes at the same clock time the first one opened against.
         return event_stub(
@@ -275,7 +275,7 @@ class TestTimetableOverviewCapacityHours:
     def test_hours_are_rounded_to_one_decimal(self):
         uow = self._uow(
             spaces=[space_dto(pk=1), space_dto(pk=2)],
-            event=self._event(10, 11),
+            event=self._event(open_hour=10, close_hour=11),
             items=[
                 agenda_item_dto(
                     space_id=1,
@@ -297,7 +297,9 @@ class TestTimetableOverviewCapacityHours:
         )
 
     def test_an_event_with_no_rooms_has_no_capacity(self):
-        uow = self._uow(spaces=[], event=self._event(10, 12), items=[])
+        uow = self._uow(
+            spaces=[], event=self._event(open_hour=10, close_hour=12), items=[]
+        )
 
         result = overview_service(uow).capacity_hours(event_pk=1, tz=UTC)
 
@@ -313,7 +315,7 @@ class TestTimetableOverviewCapacityHours:
     def test_capacity_is_rooms_times_open_hours(self):
         uow = self._uow(
             spaces=[space_dto(pk=1), space_dto(pk=2)],
-            event=self._event(10, 14),
+            event=self._event(open_hour=10, close_hour=14),
             items=[],
         )
 
@@ -330,7 +332,9 @@ class TestTimetableOverviewCapacityHours:
 
     def test_every_day_of_the_event_counts_its_open_hours(self):
         uow = self._uow(
-            spaces=[space_dto(pk=1)], event=self._event(10, 12, days=2), items=[]
+            spaces=[space_dto(pk=1)],
+            event=self._event(open_hour=10, close_hour=12, days=2),
+            items=[],
         )
 
         result = overview_service(uow).capacity_hours(event_pk=1, tz=UTC)
@@ -350,7 +354,9 @@ class TestTimetableOverviewCapacityHours:
             space_dto(pk=2, parent_id=1),
             space_dto(pk=3, parent_id=1),
         ]
-        uow = self._uow(spaces=spaces, event=self._event(10, 12), items=[])
+        uow = self._uow(
+            spaces=spaces, event=self._event(open_hour=10, close_hour=12), items=[]
+        )
 
         result = overview_service(uow).capacity_hours(event_pk=1, tz=UTC)
 
@@ -375,7 +381,9 @@ class TestTimetableOverviewCapacityHours:
             for n in (1, 2)
         ]
         uow = self._uow(
-            spaces=[space_dto(pk=1)], event=self._event(10, 11), items=items
+            spaces=[space_dto(pk=1)],
+            event=self._event(open_hour=10, close_hour=11),
+            items=items,
         )
 
         result = overview_service(uow).capacity_hours(event_pk=1, tz=UTC)
@@ -398,7 +406,9 @@ class TestTimetableOverviewCapacityHours:
             )
         ]
         uow = self._uow(
-            spaces=[space_dto(pk=1)], event=self._event(10, 12), items=items
+            spaces=[space_dto(pk=1)],
+            event=self._event(open_hour=10, close_hour=12),
+            items=items,
         )
 
         result = overview_service(uow).capacity_hours(event_pk=1, tz=UTC)
