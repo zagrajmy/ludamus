@@ -178,6 +178,10 @@ function Frame({
   );
 }
 
+// What the launcher shows of unread rooms: none until the chat is in.
+type Badge = { label: string; rooms: number };
+const NO_BADGE: Badge = { label: "", rooms: 0 };
+
 // Each sphere's feed by its id, and the inbox under INBOX.
 type Feeds = Record<string, Activity>;
 const INBOX = "inbox";
@@ -205,9 +209,9 @@ function Feed({
 function Connected({
   bootstrap,
   linked,
+  onBadge,
   onLinkFollowed,
   onPassClosed,
-  onUnread,
   pageRoom,
   setView,
   view,
@@ -215,10 +219,10 @@ function Connected({
   bootstrap: Bootstrap;
   // The room a link opened the page on, as "#parley:<room id>[:<message>]" names it.
   linked: string;
+  onBadge: (badge: Badge) => void;
   // Called once the person opens a room, which settles the link either way.
   onLinkFollowed: () => void;
   onPassClosed: () => void;
-  onUnread: (rooms: number) => void;
   pageRoom: string;
   setView: Dispatch<SetStateAction<View>>;
   view: View;
@@ -269,7 +273,11 @@ function Connected({
   const unreadRooms = own.filter(
     ({ id }) => activity[id]?.unread === true && !(shown.kind === "room" && roomId === id),
   ).length;
-  useEffect(() => onUnread(unreadRooms), [onUnread, unreadRooms]);
+  const unreadLabel = counted(copy, "unreadCount", unreadRooms);
+  useEffect(() => {
+    onBadge({ label: unreadLabel, rooms: unreadRooms });
+    return () => onBadge(NO_BADGE);
+  }, [onBadge, unreadLabel, unreadRooms]);
 
   const refresh = useCallback(async () => {
     const answer = await api.list();
@@ -574,7 +582,7 @@ function Parley({
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const [unreadRooms, setUnreadRooms] = useState(0);
+  const [badge, setBadge] = useState(NO_BADGE);
   const loadedAt = useRef(0);
   const wanted = view.kind !== "closed";
   // The launcher's unread badge needs the room activity before anyone opens
@@ -637,7 +645,6 @@ function Parley({
   }, [bootstrap]);
 
   const close = () => setView(toggled);
-  const unread = bootstrap === null ? 0 : unreadRooms;
   // NOTE: one window from loading to connected and through each reconnect.
   // Swapped for a new one, it would grow out of the button again and, with
   // storage off, forget where it was dragged.
@@ -647,8 +654,8 @@ function Parley({
         expanded={wanted}
         label={launcherLabel}
         onClick={close}
-        unreadLabel={bootstrap === null ? "" : counted(bootstrap.copy, "unreadCount", unread)}
-        unreadRooms={unread}
+        unreadLabel={badge.label}
+        unreadRooms={badge.rooms}
       />
       <Frame close={close} label={bootstrap?.copy.title ?? launcherLabel} open={wanted}>
         {bootstrap === null ? (
@@ -668,9 +675,9 @@ function Parley({
             bootstrap={bootstrap}
             key={bootstrap.capabilityToken}
             linked={link}
+            onBadge={setBadge}
             onLinkFollowed={followLink}
             onPassClosed={passClosed}
-            onUnread={setUnreadRooms}
             pageRoom={pageRoom}
             setView={setView}
             view={view}
