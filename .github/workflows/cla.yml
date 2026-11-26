@@ -20,10 +20,11 @@ permissions:
 jobs:
   cla:
     runs-on: ubuntu-latest
-    # Only the signing phrase, never every comment on every issue.
+    # Signing phrase or recheck only — never every comment on every issue.
     if: >
       github.event_name == 'pull_request_target' ||
-      contains(github.event.comment.body, 'I have read the CLA Document')
+      contains(github.event.comment.body, 'I have read the CLA Document') ||
+      contains(github.event.comment.body, 'recheck')
     steps:
       - uses: contributor-assistant/github-action@v2.6.1
         env:
