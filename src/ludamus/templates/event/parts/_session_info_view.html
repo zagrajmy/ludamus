@@ -66,18 +66,10 @@
             {% end_session_fact %}
         {% endif %}
     {% endwith %}
-    {% if data.takes_enrollment %}
-        {# One fact, as the others are: the state rides on the number's colour. #}
-        {% session_fact icon="users" %}
-            <span class="sr-only">{% translate "Capacity" %}:</span>
-            <span class="font-medium tabular-nums {% if data.is_full %}text-coral-700 dark:text-coral-400{% else %}text-teal-700 dark:text-teal-400{% endif %}">{{ data.enrolled_count }}/{{ data.effective_participants_limit }}</span>
-            {% if data.waiting_count > 0 %}
-                <span class="text-foreground-muted/70" aria-hidden="true">·</span>
-                <span class="text-warning-text">
-                    {% blocktranslate count counter=data.waiting_count %}{{ counter }} waiting{% plural %}{{ counter }} waiting{% endblocktranslate %}
-                </span>
-            {% endif %}
-        {% end_session_fact %}
+    {# Faces and the seat fraction share one fact: a tab that only listed #}
+    {# the same people the number already counted was a click for nothing. #}
+    {% if data.takes_enrollment or data.session_participations %}
+        {% include "event/parts/_session_roster.html" %}
     {% endif %}
     {% if data.session.min_age > 0 %}
         <span class="tabular-nums {% if data.session.min_age >= 18 %}font-medium text-coral-700 dark:text-coral-400{% endif %}"

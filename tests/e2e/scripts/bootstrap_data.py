@@ -2632,7 +2632,7 @@ def main() -> None:
         start_offset=timedelta(hours=2),
         duration_hours=1,
         # Drop-in: no sign-up, so the specs have a session the enrollment
-        # filter must exclude and whose modal shows no Participants tab.
+        # filter must exclude and whose modal shows no seat fraction.
         participants_limit=0,
         # Open to everyone, so the age filter has an unrestricted session
         # to keep visible below its siblings' 10+ requirement.

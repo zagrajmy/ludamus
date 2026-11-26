@@ -19,7 +19,6 @@
  */
 
 import { restoreCarriedSearchParams } from "./url-state";
-import { numberWaitingPositions } from "./waiting-positions";
 
 interface NavigateEvent {
   canIntercept: boolean;
@@ -400,9 +399,9 @@ const lazyModalUrl = (source: LazyModalSource, id: string): string | null => {
   return template ? source.urlFor(template, id.slice(source.prefix.length)) : null;
 };
 
-// Tabs, click-outside and Escape are delegated on document, so injected modals
-// get those free. The close (×) button, waiting-list numbering and HTMX binding
-// are per-element and must be wired on the fetched fragment.
+// Click-outside and Escape are delegated on document, so injected modals get
+// those free. The close (×) button and HTMX binding are per-element and must
+// be wired on the fetched fragment.
 const wireCloseButtons = (root: ParentNode): void => {
   for (const trigger of root.querySelectorAll("[data-modal-close]")) {
     trigger.addEventListener("touchend", closeFromTrigger, { capture: true });
@@ -412,7 +411,6 @@ const wireCloseButtons = (root: ParentNode): void => {
 
 const wireInjectedModal = (dialog: HTMLElement): void => {
   wireCloseButtons(dialog);
-  numberWaitingPositions(dialog);
   htmx.process(dialog);
 };
 

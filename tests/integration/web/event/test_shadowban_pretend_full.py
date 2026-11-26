@@ -100,7 +100,6 @@ class TestShadowbanPretendFull:
                 "data": card,
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
-                "show_roster": True,
                 "enroll_opens_at": None,
                 "hosting": False,
                 "host_enroll_url": None,
@@ -164,7 +163,6 @@ class TestShadowbanPretendFull:
                 "data": masked_card(agenda_item, presenter=session.presenter, seats=10),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
-                "show_roster": True,
                 # The mask claims an open, full session, so it keeps the
                 # waiting list a genuinely full one would offer — the viewer's
                 # own (empty) set of windows must not shrink the footer.

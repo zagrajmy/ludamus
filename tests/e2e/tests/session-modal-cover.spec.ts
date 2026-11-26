@@ -166,11 +166,9 @@ test.describe("Session modal cover", () => {
     await expect(title).toHaveCSS("font-weight", cardType.weight);
     await expect(dialog.getByRole("button", { name: "Close" })).toBeFocused();
 
-    await dialog.getByRole("tab", { name: /Participants/ }).click();
-    const roster = dialog.getByRole("tabpanel");
+    const roster = dialog.locator("[data-roster]");
     await expect(roster).toBeVisible();
-    expect((await boxOf(roster)).height).toBeGreaterThan(40);
-    await dialog.getByRole("tab", { name: /Information/ }).click();
+    expect((await boxOf(roster)).height).toBeGreaterThan(0);
 
     await attachArtifacts(testInfo, {
       name: "session-modal-cover",
@@ -223,7 +221,6 @@ test.describe("Session modal cover", () => {
     expect(midway.groups).toMatchObject({
       cover: "nearest",
       close: "nearest",
-      tabs: "nearest",
       scrim: "normal",
       "cover-title": "normal",
     });
@@ -305,7 +302,7 @@ test.describe("Session modal cover", () => {
     expect(Math.abs(midwayPage - settledPage)).toBeLessThan(2);
   });
 
-  test("scrolls the cover away under a sticky tab bar on a phone", async ({ page }) => {
+  test("scrolls the cover away on a phone", async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.phone);
     await page.goto(EVENT_URL);
     const dialog = await openSession(page, COVERED);
@@ -326,9 +323,6 @@ test.describe("Session modal cover", () => {
     });
     await expect(coverOf(dialog)).not.toBeInViewport();
     await expect(dialog.getByText("Extra paragraph 12.")).toBeInViewport();
-    const tabsBox = await boxOf(dialog.getByRole("tablist"));
-    const scrollerBox = await boxOf(scroller);
-    expect(Math.abs(tabsBox.y - scrollerBox.y)).toBeLessThanOrEqual(1);
     await expect(close).not.toBeInViewport();
   });
 

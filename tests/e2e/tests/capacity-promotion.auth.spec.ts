@@ -67,11 +67,11 @@ test("raising a full session's limit seats the first waiter, and only her", asyn
   // One seat opened, so the second in the queue keeps waiting.
   const waiting = await openSession(second.page, title);
   await expect(waiting.getByText("On the waiting list", { exact: true })).toBeVisible();
-  await waiting.getByRole("tab", { name: /Participants/ }).click();
-  const roster = waiting.getByRole("tabpanel");
-  await expect(roster).toHaveText(
-    /Enrolled \(2\/2\)[\s\S]*Ilse First[\s\S]*Waiting List[\s\S]*Otto Second/,
-  );
+  const roster = waiting.locator("[data-roster]");
+  await expect(roster).toContainText("2/2");
+  await expect(roster).toContainText("1 waiting");
+  await expect(waiting.getByRole("img", { name: "Ilse First" })).toBeVisible();
+  await expect(waiting.getByRole("img", { name: "Otto Second" })).toHaveCount(0);
 
   await attachArtifacts(testInfo, {
     name: "capacity-promotion",

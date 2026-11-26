@@ -1038,7 +1038,6 @@ msgid "Please select at least one user to enroll."
 msgstr "Wybierz przynajmniej jednego użytkownika do zapisu."
 
 #: src/ludamus/gates/web/django/event/enroll.py
-#, python-brace-format
 msgid ""
 "Not enough spots available. {} spots requested, {} available. Bring fewer "
 "guests or use the waiting list for account holders."
@@ -1047,7 +1046,6 @@ msgstr ""
 "Zabierz mniej gości lub użyj listy oczekujących dla posiadaczy kont."
 
 #: src/ludamus/gates/web/django/event/enroll.py
-#, python-brace-format
 msgid ""
 "Not enough spots available. {} spots requested, {} available. Please use "
 "waiting list for some users."
@@ -1056,32 +1054,26 @@ msgstr ""
 "Użyj listy oczekujących dla niektórych użytkowników."
 
 #: src/ludamus/gates/web/django/event/enroll.py
-#, python-brace-format
 msgid "Enrolled: {}"
 msgstr "Zapisani: {}"
 
 #: src/ludamus/gates/web/django/event/enroll.py
-#, python-brace-format
 msgid "Added to waiting list: {}"
 msgstr "Dodani do listy oczekujących: {}"
 
 #: src/ludamus/gates/web/django/event/enroll.py
-#, python-brace-format
 msgid "Seat held (awaiting their approval): {}"
 msgstr "Miejsce zarezerwowane (czeka na ich zgodę): {}"
 
 #: src/ludamus/gates/web/django/event/enroll.py
-#, python-brace-format
 msgid "Cancelled: {}"
 msgstr "Anulowani: {}"
 
 #: src/ludamus/gates/web/django/event/enroll.py
-#, python-brace-format
 msgid "Skipped (already enrolled or conflicts): {}"
 msgstr "Pominięci (już zapisani lub konflikty): {}"
 
 #: src/ludamus/gates/web/django/event/enroll.py
-#, python-brace-format
 msgid "Guests you bring: {}"
 msgstr "Goście, których zabierasz: {}"
 
@@ -1976,7 +1968,6 @@ msgid "Your approval is withdrawn."
 msgstr "Wycofano Twoją zgodę."
 
 #: src/ludamus/gates/web/django/event/panel/views/event_settings.py
-#, python-brace-format
 msgid "Use sphere default (currently: {})"
 msgstr "Użyj domyślnego ustawienia sfery (obecnie: {})"
 
@@ -3104,7 +3095,6 @@ msgid "Please wait before submitting another proposal."
 msgstr "Poczekaj chwilę przed przesłaniem kolejnego zgłoszenia."
 
 #: src/ludamus/gates/web/django/event/propose.py
-#, python-brace-format
 msgid "Session proposal '{}' submitted successfully!"
 msgstr "Zgłoszenie punktu programu '{}' zostało pomyślnie przesłane!"
 
@@ -3294,7 +3284,6 @@ msgid "There is already a session scheduled at this space and time."
 msgstr "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
 
 #: src/ludamus/gates/web/django/event/views.py
-#, python-brace-format
 msgid "Proposal '{}' has been accepted and added to the agenda."
 msgstr "Zgłoszenie '{}' zostało zaakceptowane i dodane do programu."
 
@@ -3509,7 +3498,7 @@ msgid "Space name is required."
 msgstr "Nazwa przestrzeni jest wymagana."
 
 #: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/event/parts/_session_info_view.html
+#: src/ludamus/templates/event/parts/_session_roster.html
 #: src/ludamus/templates/event/print.html
 msgid "Capacity"
 msgstr "Pojemność"
@@ -4140,7 +4129,6 @@ msgid "Several people are typing…"
 msgstr "Kilka osób pisze…"
 
 #: src/ludamus/gates/web/django/parley/views.py
-#: src/ludamus/links/db/django/parley_mention_mail.py
 msgid "Someone"
 msgstr "Ktoś"
 
@@ -5514,6 +5502,7 @@ msgstr "Pełne"
 #: src/ludamus/gates/web/django/templatetags/schedule_tags.py
 #: src/ludamus/templates/event/_session_card.html
 #: src/ludamus/templates/event/anonymous_enroll.html
+#: src/ludamus/templates/event/parts/_session_roster.html
 msgid "waiting"
 msgstr "oczekuje"
 
@@ -9133,7 +9122,6 @@ msgstr[2] "%(counter)s zgłoszeń"
 msgstr[3] "%(counter)s zgłoszenia"
 
 #: src/ludamus/templates/event/_proposal_section.html
-#: src/ludamus/templates/event/parts/_session_info_view.html
 #, python-format
 msgid "%(counter)s waiting"
 msgid_plural "%(counter)s waiting"
@@ -9196,6 +9184,7 @@ msgid "Rooms"
 msgstr "Sale"
 
 #: src/ludamus/templates/event/_session_card.html
+#: src/ludamus/templates/event/parts/_session_roster.html
 #, python-format
 msgid "%(counter)s participant enrolled"
 msgid_plural "%(counter)s participants enrolled"
@@ -9297,7 +9286,6 @@ msgid "Host"
 msgstr "Prowadzący"
 
 #: src/ludamus/templates/event/anonymous_enroll.html
-#: src/ludamus/templates/event/parts/session-modal.html
 #: src/ludamus/templates/landing/spotkanie.html
 #: src/ludamus/templates/landing/zapisy_grupowe.html
 msgid "Participants"
@@ -9380,8 +9368,6 @@ msgid "Who should be in this session?"
 msgstr "Kto ma być w tym punkcie programu?"
 
 #: src/ludamus/templates/event/enroll_select.html
-#: src/ludamus/templates/event/parts/_roster_confirmed_row.html
-#: src/ludamus/templates/event/parts/_roster_waiting_row.html
 msgid "You"
 msgstr "Ty"
 
@@ -9819,26 +9805,6 @@ msgstr "Edytuj integrację"
 msgid "Save"
 msgstr "Zapisz"
 
-#: src/ludamus/templates/event/parts/_roster_waiting_row.html
-msgid "Waiting list position"
-msgstr "Pozycja na liście oczekujących"
-
-#: src/ludamus/templates/event/parts/_session_participants_panel.html
-msgid "Enrolled"
-msgstr "Zapisany"
-
-#: src/ludamus/templates/event/parts/_session_participants_panel.html
-msgid "Waiting List"
-msgstr "Lista oczekujących"
-
-#: src/ludamus/templates/event/parts/_session_participants_panel.html
-msgid "No one on the waiting list."
-msgstr "Nikt nie czeka na liście oczekujących."
-
-#: src/ludamus/templates/event/parts/_session_participants_panel.html
-msgid "No participants enrolled yet."
-msgstr "Brak zapisanych uczestników."
-
 #: src/ludamus/templates/event/parts/print_header.html
 msgid "QR code linking to the full schedule"
 msgstr "Kod QR z odnośnikiem do pełnego harmonogramu"
@@ -9859,10 +9825,6 @@ msgstr "z innymi"
 #: src/ludamus/templates/event/parts/session-modal.html
 msgid "Could not open the editor. Please try again."
 msgstr "Nie udało się otworzyć edytora. Spróbuj ponownie."
-
-#: src/ludamus/templates/event/parts/session-modal.html
-msgid "Information"
-msgstr "Informacje"
 
 #: src/ludamus/templates/event/parts/session-modal.html
 msgid "You are enrolled in this session"
@@ -16791,6 +16753,24 @@ msgid ""
 msgstr ""
 "Bilety kupione na wydarzenia w tej sferze pojawią się tutaj, gotowe do "
 "pokazania przy wejściu."
+
+#~ msgid "Waiting list position"
+#~ msgstr "Pozycja na liście oczekujących"
+
+#~ msgid "Enrolled"
+#~ msgstr "Zapisany"
+
+#~ msgid "Waiting List"
+#~ msgstr "Lista oczekujących"
+
+#~ msgid "No one on the waiting list."
+#~ msgstr "Nikt nie czeka na liście oczekujących."
+
+#~ msgid "No participants enrolled yet."
+#~ msgstr "Brak zapisanych uczestników."
+
+#~ msgid "Information"
+#~ msgstr "Informacje"
 
 #, python-format
 #~ msgid "Responses (%(waiting_count)s)"

@@ -23,12 +23,6 @@ const openSession = async (page: Page, title: string) => {
   return dialog;
 };
 
-const roster = async (page: Page, title: string) => {
-  const dialog = await openSession(page, title);
-  await dialog.getByRole("tab", { name: /Participants/ }).click();
-  return dialog.getByRole("tabpanel");
-};
-
 const enrollmentForm = async (page: Page, title: string) => {
   await openSession(page, title);
   await page
@@ -71,13 +65,10 @@ test.describe("Signing a companion up", () => {
     await page.getByRole("button", { name: "Join this session" }).click();
     await expect(page).toHaveURL(new RegExp(`${EVENT_URL}`));
 
-    const seated = await roster(page, "Two Chair Tale");
-    // The panel reads top to bottom: who is seated, then who waits.
-    await expect(seated).toHaveText(
-      new RegExp(
-        `Enrolled \\(2/2\\)[\\s\\S]*${HOST}[\\s\\S]*${COMPANION}[\\s\\S]*No one on the waiting list`,
-      ),
-    );
+    const seated = await openSession(page, "Two Chair Tale");
+    await expect(seated.locator("[data-roster]")).toContainText("2/2");
+    await expect(seated.getByRole("img", { name: HOST })).toBeVisible();
+    await expect(seated.getByRole("img", { name: COMPANION })).toBeVisible();
     await attachArtifacts(testInfo, {
       name: "party-enrollment-seated",
       region: page.getByRole("dialog", { name: "Two Chair Tale" }),
@@ -85,11 +76,10 @@ test.describe("Signing a companion up", () => {
     });
 
     await leave(page, "Two Chair Tale");
-    // Visible text only: the empty groups stay in the panel, hidden, so the
-    // modal can show an enroll before the server answers.
-    await expect(await roster(page, "Two Chair Tale")).toHaveText("No participants enrolled yet.", {
-      useInnerText: true,
-    });
+    const empty = await openSession(page, "Two Chair Tale");
+    await expect(empty.locator("[data-roster]")).toContainText("0/2");
+    await expect(empty.getByRole("img", { name: HOST })).toHaveCount(0);
+    await expect(empty.getByRole("img", { name: COMPANION })).toHaveCount(0);
   });
 
   test("with one chair left the companion waits, and is told so before saving", async ({
@@ -104,10 +94,12 @@ test.describe("Signing a companion up", () => {
     await page.getByRole("button", { name: "Join this session" }).click();
     await expect(page).toHaveURL(new RegExp(`${EVENT_URL}`));
 
-    const split = await roster(page, "Last Chair Saga");
-    await expect(split).toHaveText(
-      new RegExp(`Enrolled \\(2/2\\)[\\s\\S]*${HOST}[\\s\\S]*Waiting List[\\s\\S]*${COMPANION}`),
-    );
+    const split = await openSession(page, "Last Chair Saga");
+    await expect(split.locator("[data-roster]")).toContainText("2/2");
+    await expect(split.locator("[data-roster]")).toContainText("1 waiting");
+    await expect(split.getByRole("img", { name: HOST })).toBeVisible();
+    // Waiting is a count next to the seats, not a face in the stack.
+    await expect(split.getByRole("img", { name: COMPANION })).toHaveCount(0);
     await attachArtifacts(testInfo, {
       name: "party-enrollment-waiting",
       region: page.getByRole("dialog", { name: "Last Chair Saga" }),
@@ -115,8 +107,9 @@ test.describe("Signing a companion up", () => {
     });
 
     await leave(page, "Last Chair Saga");
-    const regularOnly = await roster(page, "Last Chair Saga");
-    await expect(regularOnly.getByRole("heading", { name: "Enrolled (1/2)" })).toBeVisible();
-    await expect(regularOnly.getByText(COMPANION)).toHaveCount(0);
+    const regularOnly = await openSession(page, "Last Chair Saga");
+    await expect(regularOnly.locator("[data-roster]")).toContainText("1/2");
+    await expect(regularOnly.locator("[data-roster]")).not.toContainText("waiting");
+    await expect(regularOnly.getByRole("img", { name: COMPANION })).toHaveCount(0);
   });
 });

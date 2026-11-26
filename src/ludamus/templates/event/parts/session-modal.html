@@ -8,10 +8,9 @@
         data-login-url="{% url 'web:crowd:auth0:login' %}"
         data-edit-error-label="{% translate "Could not open the editor. Please try again." %}">
     {# With a cover, the cover, the title and the close button on it scroll #}
-    {# with the body and the tab bar sticks, so a short screen can scroll the #}
-    {# picture away. #}
-    {# Without one this wrapper is display:contents and the panels scroll. #}
-    <div class="{% if cover_image_url %}@container flex-auto min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] has-[>[data-session-tabs][hidden]]:flex-none{% else %}contents{% endif %}"
+    {# with the body. Without one this wrapper is display:contents and the #}
+    {# body scrolls. #}
+    <div class="{% if cover_image_url %}@container flex-auto min-h-0 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] has-[>[data-session-body][hidden]]:flex-none{% else %}contents{% endif %}"
          {% if cover_image_url %}data-session-scroll{% endif %}>
         {% if cover_image_url %}
             {# NOTE: 100cqw/6 is the floor: the dropzone's safe zone is a #}
@@ -33,65 +32,26 @@
                 {% endwith %}
             </div>
         {% endif %}
-        <!-- Tabbed body; swapped for the inline edit form by the Edit button -->
-        <div class="{% if cover_image_url %}flex flex-col{% else %}flex-auto min-h-0 flex flex-col overflow-hidden{% endif %}"
-             data-session-tabs="{{ data.session.pk }}">
-            {# With no roster to show the bar would be a tab strip over a single #}
-            {# panel, so it goes — and the panel below drops its tab semantics with it. #}
-            {% if show_roster %}
-                {# data-morph makes the bar its own view-transition group so it can fade #}
-                {# in after the card title has flown past it; bg-bg-secondary (the modal #}
-                {# surface colour, so no static change) keeps that group opaque. #}
-                <div class="tab-list shrink-0 bg-bg-secondary{% if cover_image_url %} sticky top-0 z-10{% endif %}"
-                     role="tablist"
-                     data-morph="tabs">
-                    <button type="button"
-                            role="tab"
-                            aria-selected="true"
-                            aria-controls="info-{{ data.session.pk }}"
-                            class="tab-trigger px-4 py-3 text-sm font-medium flex items-center gap-1.5 [&[aria-selected=false]:hover]:text-foreground/80 active:scale-100!">
-                        {% icon "information-circle" class="w-4 h-4" variant="mini" %} {% translate "Information" %}
-                    </button>
-                    <button type="button"
-                            tabIndex="-1"
-                            role="tab"
-                            aria-selected="false"
-                            aria-controls="participants-{{ data.session.pk }}"
-                            class="tab-trigger px-4 py-3 text-sm font-medium flex items-center gap-1.5 active:scale-100! [&[aria-selected=false]:hover]:text-foreground/80">
-                        {% icon "users" class="w-4 h-4" variant="mini" %} {% translate "Participants" %}
-                        <span class="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-coral-100 dark:bg-coral-900/30 text-coral-700 dark:text-coral-400"
-                              data-roster-badge="confirmed">{{ data.enrolled_count }}</span>
-                        <span class="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-warning-light text-warning-text"
-                              data-roster-badge="waiting"
-                              {% if not data.waiting_count %}hidden{% endif %}>+{{ data.waiting_count }}</span>
-                    </button>
-                </div>
-            {% endif %}
-            <div class="tab-content text-foreground {% if cover_image_url %}[&>.tab-panel:not([data-active])]:h-0{% else %}flex-auto min-h-0 overflow-y-auto [-webkit-overflow-scrolling:touch]{% endif %}">
-                <div id="info-{{ data.session.pk }}"
-                     {% if show_roster %}role="tabpanel"{% endif %}
-                     class="tab-panel scrollview-fade scrollview-fade-y-12 px-6 py-4"
-                     data-active>
-                    {% include "event/parts/_session_info_view.html" %}
-                    {# Only when the footer has no state badge of its own (past #}
-                    {# sessions), so the two never repeat the same sentence. #}
-                    {% if not enroll_actions and current_user %}
-                        {% if data.user_enrolled %}
-                            <p class="text-sm text-foreground-secondary">{% translate "You are enrolled in this session" %}</p>
-                        {% elif data.user_waiting %}
-                            <p class="text-sm text-foreground-secondary">{% translate "You are on the waiting list" %}</p>
-                        {% endif %}
+        <!-- Read body; swapped for the inline edit form by the Edit button -->
+        <div {% if not cover_image_url %}class="flex-auto min-h-0 overflow-y-auto [-webkit-overflow-scrolling:touch]"{% endif %}
+             data-session-body="{{ data.session.pk }}">
+            <div class="scrollview-fade scrollview-fade-y-12 px-6 py-4 text-foreground">
+                {% include "event/parts/_session_info_view.html" %}
+                {# Only when the footer has no state badge of its own (past #}
+                {# sessions), so the two never repeat the same sentence. #}
+                {% if not enroll_actions and current_user %}
+                    {% if data.user_enrolled %}
+                        <p class="text-sm text-foreground-secondary">{% translate "You are enrolled in this session" %}</p>
+                    {% elif data.user_waiting %}
+                        <p class="text-sm text-foreground-secondary">{% translate "You are on the waiting list" %}</p>
                     {% endif %}
-                    {% url 'web:chronology:event' slug=event.slug as event_url %}
-                    <p class="mt-6 text-xs text-foreground-muted">
-                        <a href="{% report_url event_url session=data.session.pk %}"
-                           rel="nofollow"
-                           class="underline decoration-foreground-muted/50 hover:text-primary">{% translate "Report this session" %}</a>
-                    </p>
-                </div>
-                {% if show_roster %}
-                    {% include "event/parts/_session_participants_panel.html" %}
                 {% endif %}
+                {% url 'web:chronology:event' slug=event.slug as event_url %}
+                <p class="mt-6 text-xs text-foreground-muted">
+                    <a href="{% report_url event_url session=data.session.pk %}"
+                       rel="nofollow"
+                       class="underline decoration-foreground-muted/50 hover:text-primary">{% translate "Report this session" %}</a>
+                </p>
             </div>
         </div>
     </div>

@@ -255,7 +255,7 @@ test.describe("Event detail page on a phone", () => {
     // once visible — inject the long description here, not before the click.
     await page.evaluate((id) => {
       const description = document.querySelector(
-        `#session-${id} [id^="info-"] [data-session-description]`,
+        `#session-${id} [data-session-description]`,
       );
       if (!description) throw new Error("Missing session description");
       description.innerHTML = Array.from(
@@ -266,16 +266,14 @@ test.describe("Event detail page on a phone", () => {
 
     const mobileModalLayout = await page.evaluate(() => {
       const dialog = document.querySelector("dialog[open]");
-      // By class, not by role: a drop-in session's modal has no tab bar, so its
-      // information panel carries no tabpanel role to find the container by.
-      const tabContent = dialog?.querySelector(".tab-content");
-      if (!(dialog instanceof HTMLElement) || !(tabContent instanceof HTMLElement)) return null;
+      const body = dialog?.querySelector("[data-session-body]");
+      if (!(dialog instanceof HTMLElement) || !(body instanceof HTMLElement)) return null;
 
       const dialogBox = dialog.getBoundingClientRect();
-      const tabContentBox = tabContent.getBoundingClientRect();
+      const bodyBox = body.getBoundingClientRect();
       return {
         dialogHeight: dialogBox.height,
-        tabContentHeight: tabContentBox.height,
+        bodyHeight: bodyBox.height,
         viewportHeight: window.innerHeight,
       };
     });
@@ -284,13 +282,13 @@ test.describe("Event detail page on a phone", () => {
       throw new Error("Mobile modal layout metrics were unavailable");
     }
     expect(mobileModalLayout.dialogHeight).toBeGreaterThan(mobileModalLayout.viewportHeight * 0.75);
-    expect(mobileModalLayout.tabContentHeight).toBeGreaterThan(240);
+    expect(mobileModalLayout.bodyHeight).toBeGreaterThan(240);
 
     const touchMoveAllowed = await page.evaluate(() => {
       const dialog = document.querySelector("dialog[open]");
-      const activePanel = dialog?.querySelector(".tab-panel[data-active]");
-      const text = activePanel?.querySelector("p");
-      if (!dialog || !(activePanel instanceof HTMLElement) || !text) return false;
+      const body = dialog?.querySelector("[data-session-body]");
+      const text = body?.querySelector("p");
+      if (!dialog || !(body instanceof HTMLElement) || !text) return false;
 
       const start = new Event("touchstart", {
         bubbles: true,
@@ -309,7 +307,7 @@ test.describe("Event detail page on a phone", () => {
       text.dispatchEvent(start);
       text.dispatchEvent(move);
 
-      return activePanel.scrollHeight > activePanel.clientHeight && !move.defaultPrevented;
+      return body.scrollHeight > body.clientHeight && !move.defaultPrevented;
     });
     expect(touchMoveAllowed).toBe(true);
 

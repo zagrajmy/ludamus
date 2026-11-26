@@ -118,7 +118,6 @@ export default defineConfig({
         "schedule-fold": resolve(rootDir, "src/schedule-fold.ts"),
         "schedule-now": resolve(rootDir, "src/schedule-now.ts"),
         "session-bookmarks": resolve(rootDir, "src/session-bookmarks.ts"),
-        "session-card": resolve(rootDir, "src/session-card.ts"),
         "session-edit": resolve(rootDir, "src/session-edit.ts"),
         "session-filters": resolve(rootDir, "src/session-filters.ts"),
         "session-roster": resolve(rootDir, "src/session-roster.ts"),

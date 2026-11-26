@@ -75,26 +75,25 @@ test.describe("Event detail page", () => {
     await expect(detailDialog).toBeHidden();
   });
 
-  test("session modal drops the Participants tab when nobody signs up", async ({ page }) => {
+  test("session modal shows seats only when the session takes enrollment", async ({ page }) => {
     await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).press("Enter");
     const enrollable = page.getByRole("dialog", { name: "Mega Strategy Lab" });
-    await expect(enrollable.getByRole("tab", { name: /Participants/ })).toBeVisible();
+    await expect(enrollable).toBeVisible();
+    await expect(enrollable.getByText("0/24", { exact: true })).toBeVisible();
+    await expect(enrollable.getByRole("tab")).toHaveCount(0);
     await settleViewTransitions(page);
     await enrollable.getByRole("button", { name: "Close" }).click();
     await expect(enrollable).toBeHidden();
     await settleViewTransitions(page);
 
-    // Seeded with no participants limit, so there is no roster to show and the
-    // information panel stands alone.
+    // Seeded with no participants limit, so there is no seat fraction to show.
     await page
       .getByRole("link", { name: "Open details for Cozy Storytellers Circle" })
       .press("Enter");
     const dropIn = page.getByRole("dialog", { name: "Cozy Storytellers Circle" });
     await expect(dropIn).toBeVisible();
     await expect(dropIn.getByRole("tab")).toHaveCount(0);
-    // The information section drops the tab vocabulary with the bar: a panel
-    // announcing itself as a tabpanel with no tab to select it is invalid ARIA.
-    await expect(dropIn.getByRole("tabpanel")).toHaveCount(0);
+    await expect(dropIn.getByText(/\d+\/\d+/)).toHaveCount(0);
   });
 
   test("opening session modal does not log Transition was skipped", async ({ page }) => {
@@ -255,7 +254,7 @@ test.describe("Event detail page", () => {
       await expect(page.getByRole("dialog", { name: "Mega Strategy Lab" })).toBeVisible();
       await settleViewTransitions(page);
     };
-    const panel = page.locator("dialog[open] .tab-panel[data-active]");
+    const panel = page.locator("dialog[open] [data-session-body]");
 
     await open();
     // The seeded description is short; give the panel something to scroll.

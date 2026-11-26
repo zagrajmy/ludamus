@@ -1,0 +1,50 @@
+{% load i18n tessera %}
+{# Capacity and who holds a seat, as one fact on the session body. The #}
+{# footer's enroll / waitlist / cancel forms swap only themselves, so #}
+{# session-roster.ts updates this stack and the numbers at once. #}
+<span class="inline-flex items-center gap-2 min-w-0"
+      data-roster="{{ data.session.pk }}"
+      data-roster-enrolled="{{ data.enrolled_count }}"
+      data-roster-waiting="{{ data.waiting_count }}"
+      data-roster-status="{% if data.user_enrolled %}confirmed{% elif data.user_waiting %}waiting{% endif %}">
+    <span class="flex -space-x-2"
+          data-roster-stack
+          role="list"
+          aria-label="{% blocktranslate count counter=data.enrolled_count %}{{ counter }} participant enrolled{% plural %}{{ counter }} participants enrolled{% endblocktranslate %}"
+          {% if not data.enrolled_count %}hidden{% endif %}>
+        {% for participation in data.session_participations|dictsort:"creation_time" %}
+            {% if participation.status == "confirmed" %}
+                <span class="relative shrink-0"
+                      role="listitem"
+                      {% if current_user and participation.user.pk == current_user.pk %}data-roster-self{% endif %}>
+                    {% include "components/avatar.html" with user=participation.user size="size-7" danger_ring=participation.is_shadowbanned %}
+                </span>
+            {% endif %}
+        {% endfor %}
+    </span>
+    {% if current_user %}
+        <template data-roster-self-template>
+            <span class="relative shrink-0" role="listitem" data-roster-self>
+                {% include "components/avatar.html" with user=current_user size="size-7" danger_ring=False %}
+            </span>
+        </template>
+    {% endif %}
+    {% if data.takes_enrollment %}
+        <span data-roster-empty-icon
+              aria-hidden="true"
+              {% if data.enrolled_count %}hidden{% endif %}>{% icon "users" class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}</span>
+        <span class="sr-only">{% translate "Capacity" %}:</span>
+        <span class="font-medium tabular-nums {% if data.is_full %}text-coral-700 dark:text-coral-400{% else %}text-teal-700 dark:text-teal-400{% endif %}">
+            <span data-roster-count>{{ data.enrolled_count }}</span>/<span data-roster-limit>{{ data.effective_participants_limit }}</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5"
+              data-roster-waiting-block
+              {% if not data.waiting_count %}hidden{% endif %}>
+            <span class="text-foreground-muted/70" aria-hidden="true">·</span>
+            <span class="text-warning-text">
+                <span data-roster-waiting-count>{{ data.waiting_count }}</span>
+                {% translate "waiting" %}
+            </span>
+        </span>
+    {% endif %}
+</span>
