@@ -35,7 +35,7 @@ class ParleyMentionRepository(ParleyMentionRepositoryProtocol):
     def read_names(user_ids: set[int]) -> dict[int, str]:
         return {
             user.pk: user.get_full_name()
-            for user in User.objects.filter(pk__in=user_ids).only("name")
+            for user in User.objects.filter(pk__in=user_ids).only("name", "email")
         }
 
     @staticmethod

@@ -6,6 +6,7 @@ import pytest
 from django.template import Context, Template
 from django.utils import timezone, translation
 
+from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.event.schedule import RoomLaneTile, ScheduleTile
 from ludamus.gates.web.django.templatetags.schedule_tags import space_sort_path_json
 from ludamus.pacts.durations import format_duration
@@ -163,7 +164,7 @@ class TestSessionDataAttrs:
         assert attrs == {
             "data-title": "difference engines",
             "data-session-id": str(card.session.pk),
-            "data-host": "Ada Lovelace",
+            "data-host": card.presenter.full_name,
             "data-tags": "",
             "data-tag-categories": "",
             "data-status": "unavailable",
@@ -233,7 +234,7 @@ class TestCompactSessionRow:
 
         assert _text(rendered) == (
             f"Open details for Difference Engines {start:%H:%M} – {end:%H:%M}"
-            f" Difference Engines Ada Lovelace {card.loc['space_name']}"
+            f" Difference Engines {card.presenter.full_name} {card.loc['space_name']}"
             f" · {format_duration(card.session.duration)} · 16+ · 10 seats"
             " Babbage's plan, on brass."
         )
@@ -471,14 +472,15 @@ class TestRoomLaneTile:
         assert [avatar["aria-label"] for avatar in avatars] == [
             card.presenter.full_name or card.presenter.name
         ]
-        assert (
-            _element_text(rendered, lambda attrs: attrs.get("data-morph") == "host")
-            == "Ada Lovelace"
-        )
+        assert _element_text(
+            rendered, lambda attrs: attrs.get("data-morph") == "host"
+        ) == (card.presenter.full_name or card.presenter.name)
 
     def test_tile_without_a_host_draws_no_presenter_row(self, card):
         data = replace(
-            card, session=card.session.model_copy(update={"facilitator_name": ""})
+            card,
+            session=card.session.model_copy(update={"facilitator_name": ""}),
+            presenter=UserInfo.from_public_label(""),
         )
 
         rendered = _tile(data)

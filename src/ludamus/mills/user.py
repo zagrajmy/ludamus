@@ -38,6 +38,7 @@ from ludamus.pacts.user import (
     UserData,
     UserType,
     VerificationRequestOutcome,
+    looks_like_email,
 )
 from ludamus.specs.email_verification import (
     EMAIL_VERIFICATION_REMINDER_INTERVAL,
@@ -263,7 +264,11 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         claim_verified = updates.pop("email_verified", False)
         if updates.get("avatar_url") == user.avatar_url:
             del updates["avatar_url"]
-        if "name" in updates and (user.name or "").strip():
+        # An email stored as `name` is a leak waiting to happen (Auth0
+        # password signup). Allow a later claim to replace it; a real
+        # chosen name is left alone.
+        stored_name = (user.name or "").strip()
+        if "name" in updates and stored_name and not looks_like_email(stored_name):
             del updates["name"]
         updates.update(
             self._email_updates(

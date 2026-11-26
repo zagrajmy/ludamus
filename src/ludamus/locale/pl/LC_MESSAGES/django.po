@@ -3507,7 +3507,7 @@ msgid "Space name is required."
 msgstr "Nazwa przestrzeni jest wymagana."
 
 #: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/event/parts/_session_info_view.html
+#: src/ludamus/templates/event/parts/_session_roster.html
 #: src/ludamus/templates/event/print.html
 msgid "Capacity"
 msgstr "Pojemność"
@@ -5512,6 +5512,7 @@ msgstr "Pełne"
 #: src/ludamus/gates/web/django/templatetags/schedule_tags.py
 #: src/ludamus/templates/event/_session_card.html
 #: src/ludamus/templates/event/anonymous_enroll.html
+#: src/ludamus/templates/event/parts/_session_roster.html
 msgid "waiting"
 msgstr "oczekuje"
 
@@ -5677,6 +5678,22 @@ msgstr "13–15 lat"
 #: src/ludamus/gates/web/django/user/forms.py
 msgid "Under 13"
 msgstr "Poniżej 13 lat"
+
+#: src/ludamus/gates/web/django/user/forms.py
+msgid ""
+"How others see you on sessions and your profile. A nickname is fine — not an "
+"email address."
+msgstr ""
+"Tak będą Cię widzieć przy punktach programu i w profilu. Pseudonim jest w "
+"porządku — nie adres e-mail."
+
+#: src/ludamus/gates/web/django/user/forms.py
+msgid "Enter a display name."
+msgstr "Podaj nazwę wyświetlaną."
+
+#: src/ludamus/gates/web/django/user/forms.py
+msgid "Enter a display name, not an email address."
+msgstr "Podaj nazwę wyświetlaną, nie adres e-mail."
 
 #: src/ludamus/gates/web/django/user/forms.py
 #: src/ludamus/templates/event/anonymous_enroll.html
@@ -9133,7 +9150,6 @@ msgstr[2] "%(counter)s zgłoszeń"
 msgstr[3] "%(counter)s zgłoszenia"
 
 #: src/ludamus/templates/event/_proposal_section.html
-#: src/ludamus/templates/event/parts/_session_info_view.html
 #, python-format
 msgid "%(counter)s waiting"
 msgid_plural "%(counter)s waiting"
@@ -9292,19 +9308,18 @@ msgid "Save this code to manage your enrollment later"
 msgstr "Zachowaj ten kod, aby później zarządzać swoim zapisem"
 
 #: src/ludamus/templates/event/anonymous_enroll.html
-#: src/ludamus/templates/event/parts/_session_info_view.html
 msgctxt "session host"
 msgid "Leads"
 msgstr "Prowadzi"
 
 #: src/ludamus/templates/event/anonymous_enroll.html
-#: src/ludamus/templates/event/parts/session-modal.html
+#: src/ludamus/templates/event/parts/_session_roster.html
 msgctxt "session roster taking part"
 msgid "Participants"
 msgstr "Udział biorą"
 
 #: src/ludamus/templates/event/anonymous_enroll.html
-#: src/ludamus/templates/event/parts/session-modal.html
+#: src/ludamus/templates/event/parts/_session_roster.html
 msgctxt "session roster playing"
 msgid "Participants"
 msgstr "Grają"
@@ -9829,25 +9844,25 @@ msgstr "Zapisz"
 msgid "Waiting list position"
 msgstr "Pozycja na liście oczekujących"
 
-#: src/ludamus/templates/event/parts/_session_participants_panel.html
+#: src/ludamus/templates/event/parts/_session_roster.html
 msgctxt "session roster taking part"
 msgid "Enrolled"
 msgstr "Udział biorą"
 
-#: src/ludamus/templates/event/parts/_session_participants_panel.html
+#: src/ludamus/templates/event/parts/_session_roster.html
 msgctxt "session roster playing"
 msgid "Enrolled"
 msgstr "Grają"
 
-#: src/ludamus/templates/event/parts/_session_participants_panel.html
+#: src/ludamus/templates/event/parts/_session_roster.html
 msgid "Waiting List"
 msgstr "Lista oczekujących"
 
-#: src/ludamus/templates/event/parts/_session_participants_panel.html
+#: src/ludamus/templates/event/parts/_session_roster.html
 msgid "No one on the waiting list."
 msgstr "Nikt nie czeka na liście oczekujących."
 
-#: src/ludamus/templates/event/parts/_session_participants_panel.html
+#: src/ludamus/templates/event/parts/_session_roster.html
 msgid "No participants enrolled yet."
 msgstr "Brak zapisanych uczestników."
 
@@ -9871,10 +9886,6 @@ msgstr "z innymi"
 #: src/ludamus/templates/event/parts/session-modal.html
 msgid "Could not open the editor. Please try again."
 msgstr "Nie udało się otworzyć edytora. Spróbuj ponownie."
-
-#: src/ludamus/templates/event/parts/session-modal.html
-msgid "Information"
-msgstr "Informacje"
 
 #: src/ludamus/templates/event/parts/session-modal.html
 msgid "You are enrolled in this session"
@@ -15944,14 +15955,13 @@ msgid "You need to be logged in to access this page."
 msgstr "Zaloguj się, aby uzyskać dostęp do tej strony."
 
 #: src/ludamus/templates/user/signup_age.html
-#: src/ludamus/templates/user/user/age_range.html
-msgid "Confirm age range"
-msgstr "Potwierdź przedział wiekowy"
+msgid "Create your account"
+msgstr "Załóż konto"
 
 #: src/ludamus/templates/user/signup_age.html
-#: src/ludamus/templates/user/user/age_range.html
-msgid "Confirm your age range"
-msgstr "Potwierdź swój przedział wiekowy"
+msgid "Choose the name others will see, then confirm your age range."
+msgstr ""
+"Wybierz nazwę, którą zobaczą inni, a potem potwierdź przedział wiekowy."
 
 #: src/ludamus/templates/user/signup_age.html
 #, python-format
@@ -16158,6 +16168,14 @@ msgstr "Przedział wiekowy: 13–15"
 #: src/ludamus/templates/user/user/_profile_sidebar.html
 msgid "Age range not confirmed"
 msgstr "Przedział wiekowy niepotwierdzony"
+
+#: src/ludamus/templates/user/user/age_range.html
+msgid "Confirm age range"
+msgstr "Potwierdź przedział wiekowy"
+
+#: src/ludamus/templates/user/user/age_range.html
+msgid "Confirm your age range"
+msgstr "Potwierdź swój przedział wiekowy"
 
 #: src/ludamus/templates/user/user/age_range.html
 msgid ""
@@ -16812,6 +16830,9 @@ msgstr ""
 
 #~ msgid "Enrolled"
 #~ msgstr "Zapisany"
+
+#~ msgid "Information"
+#~ msgstr "Informacje"
 
 #, python-format
 #~ msgid "Responses (%(waiting_count)s)"
@@ -18858,9 +18879,6 @@ msgstr ""
 #~ msgid "Room fits %(capacity)s people, session requires %(limit)s"
 #~ msgstr "Sala mieści %(capacity)s os., wymagane %(limit)s"
 
-#~ msgid "Create account"
-#~ msgstr "Załóż konto"
-
 #~ msgid "total"
 #~ msgstr "łącznie"
 
@@ -19063,3 +19081,6 @@ msgstr ""
 
 #~ msgid "Unnamed party"
 #~ msgstr "Drużyna bez nazwy"
+
+#~ msgid "Create account"
+#~ msgstr "Załóż konto"

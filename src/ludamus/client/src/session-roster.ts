@@ -1,9 +1,11 @@
 // Optimistic roster in the session modal. The one-click enroll, waitlist and
-// cancel forms swap only the footer, so on submit the participants tab and
-// panel show the viewer's change at once. The server answers with a
-// roster-sync event carrying the real outcome, which replaces the guess; a
-// request that ends without one (network error, 5xx, redirect) restores what
-// the panel showed before.
+// cancel forms swap only the footer, so on submit the avatar stack, seat
+// counts, and the participants popover show the viewer's change at once. The
+// server answers with a roster-sync event carrying the real outcome, which
+// replaces the guess; a request that ends without one (network error, 5xx,
+// redirect) restores what the stack and lists showed before.
+
+import "./session-roster.css";
 
 import { numberWaitingPositions } from "./waiting-positions";
 
@@ -35,21 +37,24 @@ const ACTION_STATUS: Record<string, RosterStatus> = {
   waitlist: "waiting",
 };
 
-// Where the viewer's own row sat, so a rollback puts that row back with its
-// place in the list and its join time, rather than a fresh copy at the end.
+const STACK_CAP = 4;
+
+// Where the viewer's own face or row sat, so a rollback puts that node back
+// with its place rather than a fresh copy at the end.
 interface Placement {
   list: Element;
   next: Node | null;
   row: Element;
 }
 
-// The panel as it stood before a request still in flight.
 interface Pending {
-  placement: Placement | null;
+  panel: Placement | null;
+  stack: Placement | null;
   state: RosterState;
 }
 
-const SELF_ROW = "[data-roster-list] > [data-roster-self]";
+const STACK_SELF = "[data-roster-stack] > [data-roster-self]";
+const PANEL_SELF = "[data-roster-list] > [data-roster-self]";
 
 const pending = new Map<string, Pending>();
 
@@ -68,16 +73,13 @@ const seated = (status: RosterStatus): number => (status === "confirmed" ? 1 : 0
 
 const queued = (status: RosterStatus): number => (status === "waiting" ? 1 : 0);
 
-const selfStatus = (panel: HTMLElement): RosterStatus => {
-  const self = panel.querySelector(SELF_ROW);
-  return toStatus(self?.closest<HTMLElement>("[data-roster-group]")?.dataset.rosterGroup);
-};
+const selfStatus = (root: HTMLElement): RosterStatus => toStatus(root.dataset.rosterStatus);
 
-const readState = (panel: HTMLElement): RosterState => ({
-  enrolled: Number(panel.dataset.rosterEnrolled),
-  limit: panel.querySelector("[data-roster-limit]")?.textContent ?? "",
-  status: selfStatus(panel),
-  waiting: Number(panel.dataset.rosterWaiting),
+const readState = (root: HTMLElement): RosterState => ({
+  enrolled: Number(root.dataset.rosterEnrolled),
+  limit: root.querySelector("[data-roster-limit]")?.textContent ?? "",
+  status: selfStatus(root),
+  waiting: Number(root.dataset.rosterWaiting),
 });
 
 const predict = (before: RosterState, action: string): RosterState => {
@@ -90,28 +92,69 @@ const predict = (before: RosterState, action: string): RosterState => {
   };
 };
 
-const placementOf = (panel: HTMLElement): Placement | null => {
-  const row = panel.querySelector(SELF_ROW);
+const placementOf = (root: HTMLElement, selector: string): Placement | null => {
+  const row = root.querySelector(selector);
   const list = row?.parentElement;
   return row && list ? { list, next: row.nextSibling, row } : null;
 };
 
-const addSelf = (panel: HTMLElement, status: RosterStatus): void => {
-  const group = `[data-roster-group="${status}"]`;
-  const template = panel.querySelector<HTMLTemplateElement>(
-    `${group} template[data-roster-self-template]`,
+const addFromTemplate = (root: HTMLElement, kind: string, listSelector: string): void => {
+  const template = root.querySelector<HTMLTemplateElement>(
+    `template[data-roster-self-template][data-roster-kind="${kind}"]`,
   );
-  const list = panel.querySelector(`${group} [data-roster-list]`);
+  const list = root.querySelector(listSelector);
   if (template && list) list.append(template.content.cloneNode(true));
 };
 
-// The saved row comes back only when the outcome is the status it had; any
-// other outcome is a new row.
-const showSelf = (panel: HTMLElement, status: RosterStatus, saved?: Pending): void => {
-  for (const row of panel.querySelectorAll(SELF_ROW)) row.remove();
-  const placement = saved?.state.status === status ? saved.placement : null;
-  if (placement) placement.list.insertBefore(placement.row, placement.next);
-  else addSelf(panel, status);
+interface PutSelf {
+  kind: string;
+  listSelector: string;
+  placement: Placement | null;
+  room: () => boolean;
+  selector: string;
+  show: boolean;
+}
+
+const clearMatching = (root: HTMLElement, selector: string): void => {
+  for (const row of root.querySelectorAll(selector)) row.remove();
+};
+
+// Drop every copy of the viewer's own node, then put one back when `show` —
+// either the saved placement (rollback / same-status sync) or a fresh clone,
+// unless `room` says the list is already full (the stack's four-face cap).
+const putSelf = (root: HTMLElement, spec: PutSelf): void => {
+  clearMatching(root, spec.selector);
+  if (!spec.show) return;
+  if (spec.placement) {
+    spec.placement.list.insertBefore(spec.placement.row, spec.placement.next);
+    return;
+  }
+  if (spec.room()) addFromTemplate(root, spec.kind, spec.listSelector);
+};
+
+const showStackSelf = (root: HTMLElement, status: RosterStatus, saved?: Pending): void => {
+  putSelf(root, {
+    kind: "stack",
+    listSelector: "[data-roster-stack]",
+    placement: saved?.state.status === "confirmed" ? saved.stack : null,
+    room: () => {
+      const stack = root.querySelector("[data-roster-stack]");
+      return Boolean(stack && stack.childElementCount < STACK_CAP);
+    },
+    selector: STACK_SELF,
+    show: status === "confirmed",
+  });
+};
+
+const showPanelSelf = (root: HTMLElement, status: RosterStatus, saved?: Pending): void => {
+  putSelf(root, {
+    kind: status,
+    listSelector: `[data-roster-group="${status}"] [data-roster-list]`,
+    placement: saved?.state.status === status ? saved.panel : null,
+    room: () => true,
+    selector: PANEL_SELF,
+    show: Boolean(status),
+  });
 };
 
 const setHidden = (root: ParentNode, selector: string, hidden: boolean): void => {
@@ -120,39 +163,33 @@ const setHidden = (root: ParentNode, selector: string, hidden: boolean): void =>
 };
 
 const setText = (root: ParentNode, selector: string, text: string): void => {
-  const element = root.querySelector(selector);
-  if (element) element.textContent = text;
+  for (const element of root.querySelectorAll(selector)) {
+    element.textContent = text;
+  }
 };
 
-// Mirrors the hidden rules _session_participants_panel.html renders with.
+// Mirrors the hidden rules _session_roster.html renders with.
 const hiddenWhen = ({ enrolled, waiting }: RosterState): [string, boolean][] => [
+  ["[data-roster-stack]", enrolled === 0],
+  ["[data-roster-empty-icon]", enrolled > 0],
+  ["[data-roster-waiting-block]", waiting === 0],
   ['[data-roster-group="confirmed"]', enrolled === 0],
   ['[data-roster-group="waiting"]', waiting === 0],
   ['[data-roster-empty="waiting"]', waiting > 0 || enrolled === 0],
   ['[data-roster-empty="all"]', waiting > 0 || enrolled > 0],
 ];
 
-const renderPanel = (panel: HTMLElement, state: RosterState, saved?: Pending): void => {
-  showSelf(panel, state.status, saved);
-  panel.dataset.rosterEnrolled = String(state.enrolled);
-  panel.dataset.rosterWaiting = String(state.waiting);
-  setText(panel, "[data-roster-count]", String(state.enrolled));
-  setText(panel, "[data-roster-limit]", state.limit);
-  for (const [selector, hidden] of hiddenWhen(state)) setHidden(panel, selector, hidden);
-  numberWaitingPositions(document);
-};
-
-const renderTab = (panel: HTMLElement, state: RosterState): void => {
-  const tab = document.querySelector(`[role="tab"][aria-controls="${panel.id}"]`);
-  if (!tab) return;
-  setText(tab, '[data-roster-badge="confirmed"]', String(state.enrolled));
-  setText(tab, '[data-roster-badge="waiting"]', `+${state.waiting}`);
-  setHidden(tab, '[data-roster-badge="waiting"]', state.waiting === 0);
-};
-
-const render = (panel: HTMLElement, state: RosterState, saved?: Pending): void => {
-  renderPanel(panel, state, saved);
-  renderTab(panel, state);
+const render = (root: HTMLElement, state: RosterState, saved?: Pending): void => {
+  showStackSelf(root, state.status, saved);
+  showPanelSelf(root, state.status, saved);
+  root.dataset.rosterEnrolled = String(state.enrolled);
+  root.dataset.rosterWaiting = String(state.waiting);
+  root.dataset.rosterStatus = state.status;
+  setText(root, "[data-roster-count]", String(state.enrolled));
+  setText(root, "[data-roster-limit]", state.limit);
+  setText(root, "[data-roster-waiting-count]", String(state.waiting));
+  for (const [selector, hidden] of hiddenWhen(state)) setHidden(root, selector, hidden);
+  numberWaitingPositions(root);
 };
 
 const eventForm = (e: Event): HTMLFormElement | null => {
@@ -165,7 +202,7 @@ const rosterRequest = (e: Event): RosterRequest | null => {
   return rosterSession ? { action: rosterAction, session: rosterSession } : null;
 };
 
-const requestPanel = (request: RosterRequest | null): HTMLElement | null =>
+const requestRoot = (request: RosterRequest | null): HTMLElement | null =>
   request ? panelFor(request.session) : null;
 
 const requestXhr = (e: Event): object | undefined =>
@@ -178,25 +215,29 @@ const track = (e: Event, session: string): void => {
 
 // A second submit before the first answers keeps the first snapshot: that is
 // the last state the server confirmed.
-const remember = (session: string, panel: HTMLElement): void => {
+const remember = (session: string, root: HTMLElement): void => {
   if (pending.has(session)) return;
-  pending.set(session, { placement: placementOf(panel), state: readState(panel) });
+  pending.set(session, {
+    panel: placementOf(root, PANEL_SELF),
+    stack: placementOf(root, STACK_SELF),
+    state: readState(root),
+  });
 };
 
 const restore = (session: string): void => {
   const saved = pending.get(session);
-  const panel = panelFor(session);
+  const root = panelFor(session);
   pending.delete(session);
-  if (saved && panel) render(panel, saved.state, saved);
+  if (saved && root) render(root, saved.state, saved);
 };
 
 document.body.addEventListener("htmx:beforeRequest", (e) => {
   const request = rosterRequest(e);
-  const panel = requestPanel(request);
-  if (!request || !panel) return;
+  const root = requestRoot(request);
+  if (!request || !root) return;
   track(e, request.session);
-  remember(request.session, panel);
-  render(panel, predict(readState(panel), request.action));
+  remember(request.session, root);
+  render(root, predict(readState(root), request.action));
 });
 
 // Sent by the enroll view in its HX-Trigger header, so htmx fires it before
@@ -206,20 +247,22 @@ document.body.addEventListener("roster-sync", (e) => {
   const session = String(sync.session);
   const saved = pending.get(session);
   pending.delete(session);
-  const panel = panelFor(session);
-  if (!panel) return;
+  const root = panelFor(session);
+  if (!root) return;
   const state = {
     enrolled: sync.enrolled,
     limit: String(sync.limit),
     status: toStatus(sync.status),
     waiting: sync.waiting,
   };
-  render(panel, state, saved);
+  render(root, state, saved);
 });
 
-// Still pending here means no roster-sync came back: put the panel back.
+// Still pending here means no roster-sync came back: put the stack back.
 document.body.addEventListener("htmx:afterRequest", (e) => {
   const xhr = requestXhr(e);
   const session = xhr && inFlight.get(xhr);
   if (session) restore(session);
 });
+
+numberWaitingPositions(document);

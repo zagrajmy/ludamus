@@ -618,10 +618,12 @@ class TestEventPageView:
                 kwargs={"event_slug": event.slug, "session_id": scarce.pk},
             )
         )
+        # Digits live in separate spans (`4</span>/<span…>5`), so a contiguous
+        # "4/5" never appears in the markup; the roster attrs carry the values.
         assert_rendered(
             response=modal,
             template_name="event/parts/session-modal.html",
-            contains="4/5",
+            contains=['data-roster-enrolled="4"', "data-roster-limit>5"],
         )
 
     def test_ok_compact_rooms_view(
