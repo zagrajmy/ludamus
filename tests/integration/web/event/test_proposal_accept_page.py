@@ -19,6 +19,7 @@ from ludamus.links.db.django.models import (
     SessionFieldValue,
     Space,
 )
+from ludamus.links.db.django.repositories.sessions import SessionRepository
 from ludamus.links.db.django.users import user_dto
 from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.event import EventDTO
@@ -35,6 +36,20 @@ from tests.integration.conftest import (
 from tests.integration.utils import assert_response
 
 POSTED_START = "%Y-%m-%dT%H:%M"
+
+
+def _commit_placement_before_lock(*, monkeypatch, session, space, start, end):
+    real_lock = SessionRepository.lock
+
+    def lock(pk):
+        session.status = "accepted"
+        session.save(update_fields=["status"])
+        AgendaItem.objects.create(
+            session=session, space=space, start_time=start, end_time=end
+        )
+        real_lock(pk)
+
+    monkeypatch.setattr(SessionRepository, "lock", staticmethod(lock))
 
 
 def _wall_clock(event):
@@ -922,3 +937,129 @@ class TestProposalAcceptPageView:
             },
             template_name="event/accept_proposal.html",
         )
+
+    def test_a_repeat_accept_of_the_same_placement_succeeds(
+        self,
+        event,
+        pending_session,
+        space,
+        manager_client,
+        monkeypatch,
+        django_capture_on_commit_callbacks,
+    ):
+        start = _wall_clock(event)
+        end = start + timedelta(hours=1)
+        _commit_placement_before_lock(
+            monkeypatch=monkeypatch,
+            session=pending_session,
+            space=space,
+            start=start,
+            end=end,
+        )
+
+        with django_capture_on_commit_callbacks(execute=True):
+            response = manager_client.post(
+                self._get_url(pending_session.id, pending_session.event.slug),
+                data={"space": space.id, "start_time": start.strftime(POSTED_START)},
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        f"Proposal '{pending_session.title}' has been accepted and "
+                        "added to the agenda."
+                    ),
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert AgendaItem.objects.filter(session=pending_session).count() == 1
+        assert not ScheduleChangeLog.objects.filter(session=pending_session).exists()
+        assert not Notification.objects.exists()
+        assert not mail.outbox
+
+    def test_an_accepted_session_at_another_time_is_moved_without_a_new_notice(
+        self,
+        manager_user,
+        event,
+        pending_session,
+        space,
+        manager_client,
+        monkeypatch,
+        django_capture_on_commit_callbacks,
+    ):
+        start = _wall_clock(event)
+        end = start + timedelta(hours=1)
+        earlier = start + timedelta(hours=3)
+        _commit_placement_before_lock(
+            monkeypatch=monkeypatch,
+            session=pending_session,
+            space=space,
+            start=earlier,
+            end=earlier + timedelta(hours=1),
+        )
+
+        with django_capture_on_commit_callbacks(execute=True):
+            response = manager_client.post(
+                self._get_url(pending_session.id, event.slug),
+                data={"space": space.id, "start_time": start.strftime(POSTED_START)},
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        f"Proposal '{pending_session.title}' has been accepted and "
+                        "added to the agenda."
+                    ),
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        item = AgendaItem.objects.get(session=pending_session)
+        assert (item.start_time, item.end_time, item.space_id) == (start, end, space.pk)
+        logs = list(
+            ScheduleChangeLog.objects.filter(session=pending_session).order_by("pk")
+        )
+        assert [(log.action, log.user_id, log.moved_from_id) for log in logs] == [
+            (ScheduleChangeAction.UNASSIGN, manager_user.pk, None),
+            (ScheduleChangeAction.ASSIGN, manager_user.pk, logs[0].pk),
+        ]
+        assert logs[0].old_start_time == earlier
+        assert logs[1].new_start_time == start
+        assert logs[1].new_space_id == space.pk
+        assert not Notification.objects.exists()
+        assert not mail.outbox
+
+    def test_posting_the_accept_form_twice_does_not_500(
+        self,
+        event,
+        pending_session,
+        space,
+        manager_client,
+        django_capture_on_commit_callbacks,
+    ):
+        start = _wall_clock(event)
+        url = self._get_url(pending_session.id, event.slug)
+        data = {"space": space.id, "start_time": start.strftime(POSTED_START)}
+
+        with django_capture_on_commit_callbacks(execute=True):
+            first = manager_client.post(url, data=data, follow=True)
+            second = manager_client.post(url, data=data)
+
+        assert first.status_code == HTTPStatus.OK
+        assert_response(
+            second,
+            HTTPStatus.FOUND,
+            messages=[(messages.WARNING, "This proposal has already been accepted.")],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert AgendaItem.objects.filter(session=pending_session).count() == 1
+        assert Notification.objects.count() == 1
