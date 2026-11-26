@@ -129,19 +129,23 @@ function Launcher({
 }
 
 // One window for every view: on a large enough screen it floats over the
-// page, dragged by its header; anything smaller gets it full screen.
+// page, dragged by its header; anything smaller gets it full screen. Closed,
+// it is hidden rather than gone, so the chat inside keeps listening.
 function Frame({
   children,
   close,
   label,
+  open,
 }: {
   children: ReactNode;
   close: () => void;
   label: string;
+  open: boolean;
 }) {
   const { drag, frame, placed } = useFloatingWindow();
   // It grows out of the chat button, wherever the window was left.
   useLayoutEffect(() => {
+    if (!open) return;
     const button = document
       .querySelector('[aria-controls="parley-panel"]')!
       .getBoundingClientRect();
@@ -150,7 +154,7 @@ function Frame({
     // the box by the time this runs.
     const { offsetLeft, offsetTop } = frame.current!;
     frame.current!.style.transformOrigin = `${button.left + button.width / 2 - offsetLeft}px ${button.top + button.height / 2 - offsetTop}px`;
-  }, [frame]);
+  }, [frame, open]);
   return (
     <div
       aria-label={label}
@@ -159,6 +163,7 @@ function Frame({
           ? "float:right-4 float:bottom-[calc(max(1rem,env(safe-area-inset-bottom))+3.75rem)]"
           : "float:top-(--parley-y) float:left-(--parley-x)"
       }`}
+      hidden={!open}
       id="parley-panel"
       onKeyDown={(event) => {
         if (event.key === "Escape" && !event.defaultPrevented) close();
@@ -196,23 +201,24 @@ function Feed({
   return null;
 }
 
+// The chat once its pass is in: its sockets, and the views in the window.
 function Connected({
   bootstrap,
-  launcherLabel,
   linked,
   onLinkFollowed,
   onPassClosed,
+  onUnread,
   pageRoom,
   setView,
   view,
 }: {
   bootstrap: Bootstrap;
-  launcherLabel: string;
   // The room a link opened the page on, as "#parley:<room id>[:<message>]" names it.
   linked: string;
   // Called once the person opens a room, which settles the link either way.
   onLinkFollowed: () => void;
   onPassClosed: () => void;
+  onUnread: (rooms: number) => void;
   pageRoom: string;
   setView: Dispatch<SetStateAction<View>>;
   view: View;
@@ -263,6 +269,7 @@ function Connected({
   const unreadRooms = own.filter(
     ({ id }) => activity[id]?.unread === true && !(shown.kind === "room" && roomId === id),
   ).length;
+  useEffect(() => onUnread(unreadRooms), [onUnread, unreadRooms]);
 
   const refresh = useCallback(async () => {
     const answer = await api.list();
@@ -395,15 +402,8 @@ function Connected({
           source={{ inbox: true }}
         />
       )}
-      <Launcher
-        expanded={shown.kind !== "closed"}
-        label={launcherLabel}
-        onClick={() => setView(toggled)}
-        unreadLabel={counted(copy, "unreadCount", unreadRooms)}
-        unreadRooms={unreadRooms}
-      />
       {shown.kind !== "closed" && (
-        <Frame close={close} label={copy.title}>
+        <>
           {shown.kind === "list" && (
             <RoomList
               activity={activity}
@@ -507,8 +507,47 @@ function Connected({
               )}
             </>
           )}
-        </Frame>
+        </>
       )}
+    </>
+  );
+}
+
+// The window's own view while the pass is being fetched, or once that failed.
+function Connecting({
+  close,
+  failed,
+  retry,
+  shell,
+}: {
+  close: () => void;
+  failed: boolean;
+  retry: () => void;
+  shell: Shell;
+}) {
+  return (
+    <>
+      <TitleBar className="justify-end">
+        <IconButton icon="Close" label={shell.closeLabel} onClick={close} />
+      </TitleBar>
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 pb-10 text-center">
+        {failed ? (
+          <div className="contents" role="alert">
+            <span className="grid size-12 place-items-center rounded-full bg-danger-bg text-danger-text">
+              <Icon className="size-6" name="Warning" />
+            </span>
+            <p className="text-sm text-foreground-secondary">{shell.connectionError}</p>
+            <button className="btn btn-primary text-sm" onClick={retry} type="button">
+              {shell.retry}
+            </button>
+          </div>
+        ) : (
+          <p className="flex items-center gap-2 text-sm text-foreground-muted" role="status">
+            <span className="parley-pulse size-2 rounded-full bg-primary" />
+            {shell.loading}
+          </p>
+        )}
+      </div>
     </>
   );
 }
@@ -535,6 +574,7 @@ function Parley({
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [unreadRooms, setUnreadRooms] = useState(0);
   const loadedAt = useRef(0);
   const wanted = view.kind !== "closed";
   // The launcher's unread badge needs the room activity before anyone opens
@@ -596,64 +636,47 @@ function Parley({
     return () => clearTimeout(timer);
   }, [bootstrap]);
 
-  if (bootstrap !== null) {
-    return (
-      <Connected
-        bootstrap={bootstrap}
-        key={bootstrap.capabilityToken}
-        launcherLabel={launcherLabel}
-        linked={link}
-        onLinkFollowed={followLink}
-        onPassClosed={passClosed}
-        pageRoom={pageRoom}
-        setView={setView}
-        view={view}
-      />
-    );
-  }
-
   const close = () => setView(toggled);
+  const unread = bootstrap === null ? 0 : unreadRooms;
+  // NOTE: one window from loading to connected and through each reconnect.
+  // Swapped for a new one, it would grow out of the button again and, with
+  // storage off, forget where it was dragged.
   return (
     <>
       <Launcher
         expanded={wanted}
         label={launcherLabel}
-        onClick={() => setView(toggled)}
-        unreadLabel=""
-        unreadRooms={0}
+        onClick={close}
+        unreadLabel={bootstrap === null ? "" : counted(bootstrap.copy, "unreadCount", unread)}
+        unreadRooms={unread}
       />
-      {wanted && (
-        <Frame close={close} label={launcherLabel}>
-          <TitleBar className="justify-end">
-            <IconButton icon="Close" label={shell.closeLabel} onClick={close} />
-          </TitleBar>
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 pb-10 text-center">
-            {failed ? (
-              <div className="contents" role="alert">
-                <span className="grid size-12 place-items-center rounded-full bg-danger-bg text-danger-text">
-                  <Icon className="size-6" name="Warning" />
-                </span>
-                <p className="text-sm text-foreground-secondary">{shell.connectionError}</p>
-                <button
-                  className="btn btn-primary text-sm"
-                  onClick={() => {
-                    setFailed(false);
-                    setAttempt((count) => count + 1);
-                  }}
-                  type="button"
-                >
-                  {shell.retry}
-                </button>
-              </div>
-            ) : (
-              <p className="flex items-center gap-2 text-sm text-foreground-muted" role="status">
-                <span className="parley-pulse size-2 rounded-full bg-primary" />
-                {shell.loading}
-              </p>
-            )}
-          </div>
-        </Frame>
-      )}
+      <Frame close={close} label={bootstrap?.copy.title ?? launcherLabel} open={wanted}>
+        {bootstrap === null ? (
+          wanted && (
+            <Connecting
+              close={close}
+              failed={failed}
+              retry={() => {
+                setFailed(false);
+                setAttempt((count) => count + 1);
+              }}
+              shell={shell}
+            />
+          )
+        ) : (
+          <Connected
+            bootstrap={bootstrap}
+            key={bootstrap.capabilityToken}
+            linked={link}
+            onLinkFollowed={followLink}
+            onPassClosed={passClosed}
+            onUnread={setUnreadRooms}
+            pageRoom={pageRoom}
+            setView={setView}
+            view={view}
+          />
+        )}
+      </Frame>
     </>
   );
 }

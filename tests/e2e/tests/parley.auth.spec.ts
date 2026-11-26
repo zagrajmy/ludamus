@@ -145,8 +145,7 @@ test("The chat window floats where it is dragged, and stays there", async ({ pag
   const launcher = launcherOf(page);
   await launcher.click();
   const panel = panelOf(page);
-  const header = panel.locator("header").first();
-  await expect(header).toBeVisible();
+  await expect(panel).toBeVisible();
   const corner = async () => {
     const { x, y } = (await panel.boundingBox())!;
     return [Math.round(x), Math.round(y)];
@@ -161,8 +160,9 @@ test("The chat window floats where it is dragged, and stays there", async ({ pag
     Math.round(button.y + button.height / 2 - before.y),
   ]);
 
-  // A press without a move leaves it where it is.
-  const grip = (await header.boundingBox())!;
+  // A press without a move leaves it where it is. The header is the top of
+  // the window, whichever view it shows.
+  const grip = before;
   await page.mouse.click(grip.x + 120, grip.y + 20);
   expect(await panel.boundingBox()).toEqual(before);
 
@@ -211,7 +211,7 @@ test("The chat window floats where it is dragged, and stays there", async ({ pag
 test("With storage refused, the chat window still opens and moves", async ({ page }) => {
   // Grabbed mid-opening, the header would still be growing out of the button.
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await routeBootstrap(page);
+  await routeBootstrap(page, [{ delayMs: 3000 }]);
   await FakeWorker.install(page);
   await page.addInitScript(() => {
     const { getItem } = Storage.prototype;
@@ -223,22 +223,22 @@ test("With storage refused, the chat window still opens and moves", async ({ pag
   await page.goto("/");
   await launcherOf(page).click();
   const panel = panelOf(page);
-  // SAFETY: the loading window is replaced, header and all, once the chat
-  // connects; a header measured or grabbed across that swap is gone.
-  await expect(panel.getByRole("navigation", { name: "Conversations" })).toBeVisible();
-  const header = panel.locator("header").first();
-  await expect(header).toBeVisible();
-  const grip = (await header.boundingBox())!;
+  await expect(panel.getByRole("status")).toHaveText(bootstrap.copy.loading);
+  const corner = async () => {
+    const { x, y } = (await panel.boundingBox())!;
+    return [Math.round(x), Math.round(y)];
+  };
+  const grip = (await panel.boundingBox())!;
   await page.mouse.move(grip.x + 120, grip.y + 20);
   await page.mouse.down();
   await page.mouse.move(grip.x - 2000, grip.y - 2000, { steps: 6 });
   await page.mouse.up();
-  await expect
-    .poll(async () => {
-      const { x, y } = (await panel.boundingBox())!;
-      return [Math.round(x), Math.round(y)];
-    })
-    .toEqual([16, 16]);
+  await expect.poll(corner).toEqual([16, 16]);
+
+  // Its spot lives only in the page, so the chat connecting must keep the
+  // window it was dragged in rather than open a new one over the button.
+  await expect(panel.getByRole("navigation", { name: bootstrap.copy.roomsLabel })).toBeVisible();
+  expect(await corner()).toEqual([16, 16]);
 });
 
 test("On a programme point's page the chat opens on its room, kept on top of the list", async ({
