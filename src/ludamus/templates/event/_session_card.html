@@ -70,8 +70,7 @@
                         {% if data.presenter.full_name %}
                             <span class="shrink-0 max-w-[12rem] truncate text-base font-medium text-foreground-secondary"
                                   data-morph="host"
-                                  data-ph-block
-                                  title="{{ data.presenter.full_name }}">{{ data.presenter.full_name }}</span>
+                                  data-ph-mask>{{ data.presenter.full_name }}</span>
                         {% endif %}
                         {% if data.enrolled_count > 0 %}
                             <span class="shrink-0 flex justify-end grow -space-x-2"
