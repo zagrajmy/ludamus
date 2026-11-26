@@ -13,6 +13,7 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
+from ludamus.links.db.django.party import PartyRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.pacts.enrollment_member import SessionUserParticipationData
 from ludamus.pacts.notifications import NotificationKind
@@ -55,6 +56,23 @@ def _join(party, user, *, status=PartyMembershipStatus.ACTIVE):
         member=user,
         consent_mode=PartyConsentMode.ACCEPT_INVITES,
         status=status,
+    )
+
+
+def _commit_after_party_read(monkeypatch, competing):
+    # A competing request commits `competing` after this one read the viewer's
+    # parties and before it writes anything. Fires once.
+    read = PartyRepository.owned_companions
+    pending = [competing]
+
+    def read_before_competitor(**kwargs):
+        companions = read(**kwargs)
+        while pending:
+            pending.pop()()
+        return companions
+
+    monkeypatch.setattr(
+        PartyRepository, "owned_companions", staticmethod(read_before_competitor)
     )
 
 
@@ -144,6 +162,194 @@ class TestPartyThatDoesNotEnroll:
         )
         party.refresh_from_db()
         assert party.enrolls_together is False
+        assert not SessionParticipation.objects.exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_only_cancelling_leaves_it_off(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        party = Party.objects.create(
+            leader=active_user, name="Ekipa", enrolls_together=False
+        )
+        _join(party, active_user)
+        _reassign_presenter(agenda_item)
+        SessionParticipation.objects.create(
+            session=agenda_item.session,
+            user=active_user,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = authenticated_client.post(
+            _url(agenda_item),
+            data={"party": str(party.pk), f"user_{active_user.pk}": "cancel"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"/event/{agenda_item.session.event.slug}/",
+            messages=[(messages.SUCCESS, f"Cancelled: {active_user.name}")],
+        )
+        party.refresh_from_db()
+        assert party.enrolls_together is False
+        assert not SessionParticipation.objects.exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_skipping_everyone_leaves_it_off(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        party = Party.objects.create(
+            leader=active_user, name="Ekipa", enrolls_together=False
+        )
+        _join(party, active_user)
+        _reassign_presenter(agenda_item)
+        agenda_item.session.presenter.shadowbanned.add(active_user)
+
+        response = authenticated_client.post(
+            _url(agenda_item),
+            data={"party": str(party.pk), f"user_{active_user.pk}": "enroll"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"/event/{agenda_item.session.event.slug}/",
+            messages=[
+                (
+                    messages.WARNING,
+                    (
+                        "Skipped (already enrolled or conflicts): "
+                        f"{active_user.name} (not available)"
+                    ),
+                )
+            ],
+        )
+        party.refresh_from_db()
+        assert party.enrolls_together is False
+        assert not SessionParticipation.objects.exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_cancelling_and_skipping_cancels_and_leaves_it_off(
+        self, authenticated_client, active_user, companion, agenda_item
+    ):
+        party = Party.objects.create(
+            leader=active_user, name="Ekipa", enrolls_together=False
+        )
+        _join(party, active_user)
+        _reassign_presenter(agenda_item)
+        agenda_item.session.presenter.shadowbanned.add(companion)
+        SessionParticipation.objects.create(
+            session=agenda_item.session,
+            user=active_user,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = authenticated_client.post(
+            _url(agenda_item),
+            data={
+                "party": str(party.pk),
+                f"user_{active_user.pk}": "cancel",
+                f"user_{companion.pk}": "enroll",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"/event/{agenda_item.session.event.slug}/",
+            messages=[
+                (messages.SUCCESS, f"Cancelled: {active_user.name}"),
+                (
+                    messages.WARNING,
+                    (
+                        "Skipped (already enrolled or conflicts): "
+                        f"{companion.name} (not available)"
+                    ),
+                ),
+            ],
+        )
+        party.refresh_from_db()
+        assert party.enrolls_together is False
+        assert not SessionParticipation.objects.exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_changing_nothing_leaves_it_off(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        party = Party.objects.create(
+            leader=active_user, name="Ekipa", enrolls_together=False
+        )
+        _join(party, active_user)
+        _reassign_presenter(agenda_item)
+
+        response = authenticated_client.post(
+            _url(agenda_item), data={"party": str(party.pk), "enroll_mode": "desired"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_url(agenda_item),
+            messages=[(messages.WARNING, "No changes.")],
+        )
+        party.refresh_from_db()
+        assert party.enrolls_together is False
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_turns_it_back_on_when_switched_off_mid_request(
+        self, authenticated_client, active_user, agenda_item, monkeypatch
+    ):
+        party = Party.objects.create(
+            leader=active_user, name="Ekipa", enrolls_together=True
+        )
+        _join(party, active_user)
+        _reassign_presenter(agenda_item)
+        _commit_after_party_read(
+            monkeypatch,
+            lambda: Party.objects.filter(pk=party.pk).update(enrolls_together=False),
+        )
+
+        response = authenticated_client.post(
+            _url(agenda_item),
+            data={"party": str(party.pk), f"user_{active_user.pk}": "enroll"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"/event/{agenda_item.session.event.slug}/",
+            messages=[(messages.SUCCESS, f"Enrolled: {active_user.name}")],
+        )
+        party.refresh_from_db()
+        assert party.enrolls_together is True
+        assert SessionParticipation.objects.get().party_id == party.pk
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_through_one_deleted_mid_request_is_refused(
+        self, authenticated_client, active_user, agenda_item, monkeypatch
+    ):
+        party = Party.objects.create(
+            leader=active_user, name="Ekipa", enrolls_together=False
+        )
+        _join(party, active_user)
+        _reassign_presenter(agenda_item)
+        _commit_after_party_read(
+            monkeypatch, lambda: Party.objects.filter(pk=party.pk).delete()
+        )
+
+        response = authenticated_client.post(
+            _url(agenda_item),
+            data={"party": str(party.pk), f"user_{active_user.pk}": "enroll"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_url(agenda_item),
+            messages=[
+                (messages.ERROR, "Choose one of your parties or enroll by yourself.")
+            ],
+        )
         assert not SessionParticipation.objects.exists()
 
 
@@ -426,6 +632,7 @@ class TestPartySelector:
                 companions=[CompanionDTO.model_validate(party_companion)],
                 party_choices=[*pills["party_choices"], crew_pill],
                 selected_party=pills["selected_party"],
+                offers_party_choice=True,
             ),
         )
 

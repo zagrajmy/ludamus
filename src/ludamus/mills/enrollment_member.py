@@ -50,7 +50,11 @@ from ludamus.pacts.enrollment_member import (
 )
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.ids import EventId, SessionId, UserId
-from ludamus.pacts.party import PartyConsentMode, PartyEnrolledNotification
+from ludamus.pacts.party import (
+    PartyConsentMode,
+    PartyEnrolledNotification,
+    SetEnrollsTogetherOutcome,
+)
 from ludamus.pacts.party import PartyMembershipStatus as MembershipStatus
 
 if TYPE_CHECKING:
@@ -115,6 +119,14 @@ class _Batch:
     signed_up: list[tuple[UserId, str]] = field(default_factory=list)
     held: list[UserDTO] = field(default_factory=list)
     enrolled_members: list[UserDTO] = field(default_factory=list)
+    added_guests: bool = False
+
+    @property
+    def took_nothing(self) -> bool:
+        outcome = self.outcome
+        return not (
+            outcome.enrolled or outcome.waitlisted or self.held or self.added_guests
+        )
 
 
 class MemberEnrollmentService(MemberEnrollmentServiceProtocol):
@@ -366,21 +378,41 @@ class MemberEnrollmentService(MemberEnrollmentServiceProtocol):
             raise NothingToChangeError(
                 quiet=guests_target is not None or submission.desired
             )
+        seats_someone = any(
+            req.choice != EnrollmentChoice.CANCEL for req in requests
+        ) or (guests_target or 0) > (page.guest_count or 0)
         with self._transaction.atomic():
-            self._turn_on_enrolling(page)
+            if seats_someone:
+                self._turn_on_enrolling(page)
             batch = self._take(page, submission, requests, guests_target)
+            if seats_someone and batch.took_nothing:
+                # Not a rollback: the cancellations in this submit stand.
+                self._restore_not_enrolling(page)
         self._after_commit(page, batch)
         return batch.outcome
 
     def _turn_on_enrolling(self, page: MemberEnrollPageDTO) -> None:
-        # Only a party's leader is offered it before it enrolls, so the viewer
-        # leads it. Before any seat lock: a party delete also takes the Party
+        # Written even when the page read it on: another tab may have turned it
+        # off since. Before any seat lock: a party delete also takes the Party
         # row first, then the seats grouped under it.
         selected = page.parties.selected
-        if selected is not None and not selected.enrolls_together:
-            self._peers.parties.set_enrolls_together(
-                leader_pk=page.viewer.pk, party_pk=selected.pk, enrolls_together=True
-            )
+        if selected is None or not selected.is_own_led:
+            return
+        outcome = self._peers.parties.set_enrolls_together(
+            leader_pk=page.viewer.pk, party_pk=selected.pk, enrolls_together=True
+        )
+        if outcome is SetEnrollsTogetherOutcome.NOT_FOUND:
+            raise MemberEnrollError(MemberEnrollErrorCode.INVALID_PARTY)
+
+    def _restore_not_enrolling(self, page: MemberEnrollPageDTO) -> None:
+        selected = page.parties.selected
+        if selected is None or not selected.is_own_led or selected.enrolls_together:
+            return
+        # The party stays on if another request seated people through it: the
+        # service locks the setting then.
+        self._peers.parties.set_enrolls_together(
+            leader_pk=page.viewer.pk, party_pk=selected.pk, enrolls_together=False
+        )
 
     def _desired_requests(
         self, page: MemberEnrollPageDTO, submission: MemberEnrollSubmission
@@ -510,6 +542,7 @@ class MemberEnrollmentService(MemberEnrollmentServiceProtocol):
         if guests_in or guests_out:
             self._adjust_guests(page, guests_in=guests_in, guests_out=guests_out)
             batch.freed_seat = batch.freed_seat or bool(guests_out)
+            batch.added_guests = bool(guests_in)
             batch.outcome.guest_total = self._repository.guest_count(
                 session_id=session_id, host_id=page.viewer.pk
             )

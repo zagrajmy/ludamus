@@ -269,7 +269,18 @@ class PartyService(PartyServiceProtocol):
                 return EnrollmentPartiesDTO(choices=choices, requested_invalid=True)
         return EnrollmentPartiesDTO(
             choices=choices,
-            selected=_selected_party(selected) if selected else None,
+            selected=(
+                _selected_party(choices[parties.index(selected)], selected)
+                if selected
+                else None
+            ),
+            # One enrolling party, already selected, applies by itself. A
+            # selected party that does not enroll yet keeps the choice, so its
+            # leader can go back to "Just myself".
+            offers_choice=bool(choices)
+            and not (
+                len(choices) == 1 and selected is not None and selected.enrolls_together
+            ),
             # Nobody else can seat the viewer's own companions, so only a party
             # someone else leads takes them off the roster.
             companions=(
@@ -280,23 +291,20 @@ class PartyService(PartyServiceProtocol):
         )
 
 
-def _selected_party(party: PartyDTO) -> SelectedEnrollmentPartyDTO:
-    return SelectedEnrollmentPartyDTO(
-        pk=party.pk,
-        name=party.name,
-        leader_name=party.leader_name,
-        is_own_led=party.is_leader,
-        enrolls_together=party.enrolls_together,
-        members=[
-            EnrollmentPartyMemberDTO(
-                user_pk=member.user_pk,
-                name=member.name,
-                slug=member.slug,
-                is_login_less=member.is_login_less,
-                is_leader=member.is_leader,
-                consent_mode=member.consent_mode,
-                status=member.status,
-            )
-            for member in party.members
-        ],
-    )
+def _selected_party(
+    choice: EnrollmentPartyChoiceDTO, party: PartyDTO
+) -> SelectedEnrollmentPartyDTO:
+    selected = SelectedEnrollmentPartyDTO.model_validate(choice, from_attributes=True)
+    selected.members = [
+        EnrollmentPartyMemberDTO(
+            user_pk=member.user_pk,
+            name=member.name,
+            slug=member.slug,
+            is_login_less=member.is_login_less,
+            is_leader=member.is_leader,
+            consent_mode=member.consent_mode,
+            status=member.status,
+        )
+        for member in party.members
+    ]
+    return selected

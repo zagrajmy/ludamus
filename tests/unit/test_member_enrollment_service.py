@@ -45,6 +45,7 @@ from ludamus.pacts.party import (
     PartyEnrolledNotification,
     PartyMembershipStatus,
     SelectedEnrollmentPartyDTO,
+    SetEnrollsTogetherOutcome,
 )
 from ludamus.pacts.session_cards import SessionCardStatsDTO
 from ludamus.pacts.user import CompanionDTO
@@ -803,24 +804,42 @@ class TestSubmitExplicit:
                 event_slug="konwent",
             )
         )
-        peers.parties.set_enrolls_together.assert_not_called()
 
-    def test_enrolling_through_a_party_that_does_not_enroll_turns_it_on(self):
-        peers = _peers(parties=_led_party(enrolls_together=False))
 
-        _submit(FakeSeats(), peers, {_MEMBER.pk: "enroll"})
+class FakePartySwitch:
+    def __init__(self, *, enrolls_together):
+        self.enrolls_together = enrolls_together
 
-        peers.parties.set_enrolls_together.assert_called_once_with(
-            leader_pk=_VIEWER.pk, party_pk=_PARTY_ID, enrolls_together=True
+    def set_enrolls_together(self, *, leader_pk, party_pk, enrolls_together):
+        self.enrolls_together = enrolls_together
+        return SetEnrollsTogetherOutcome.UPDATED
+
+
+class TestSubmitThroughOwnParty:
+    def test_skipping_everyone_leaves_it_not_enrolling(self):
+        peers = _peers(
+            parties=_led_party(enrolls_together=False), shadowbanned=[_MEMBER.pk]
         )
+        switch = FakePartySwitch(enrolls_together=False)
+        peers.parties.set_enrolls_together.side_effect = switch.set_enrolls_together
 
-    def test_a_submit_that_changes_nothing_leaves_the_party_as_it_is(self):
-        peers = _peers(parties=_led_party(enrolls_together=False))
+        outcome = _submit(FakeSeats(), peers, {_MEMBER.pk: "enroll"})
 
-        with pytest.raises(NothingToChangeError):
-            _submit(FakeSeats(), peers, {}, desired=True)
+        assert [person.name for person in outcome.skipped] == ["Mira"]
+        assert not switch.enrolls_together
 
-        peers.parties.set_enrolls_together.assert_not_called()
+    def test_a_party_deleted_since_the_page_was_read_seats_nobody(self):
+        peers = _peers(parties=_led_party())
+        peers.parties.set_enrolls_together.return_value = (
+            SetEnrollsTogetherOutcome.NOT_FOUND
+        )
+        repo = FakeSeats()
+
+        with pytest.raises(MemberEnrollError) as excinfo:
+            _submit(repo, peers, {_MEMBER.pk: "enroll"})
+
+        assert excinfo.value.code == MemberEnrollErrorCode.INVALID_PARTY
+        assert not repo.statuses
 
 
 class TestSubmitDesired:

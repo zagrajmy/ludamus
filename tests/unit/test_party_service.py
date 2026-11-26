@@ -721,6 +721,7 @@ class TestEnrollmentSelection:
         assert selection.selected is not None
         assert selection.selected.pk == OWN_PARTY_PK
         assert not selection.selected.enrolls_together
+        assert selection.offers_choice
 
     def test_someone_elses_party_that_does_not_enroll_is_invalid(self):
         parties = FakeParties()
@@ -775,6 +776,7 @@ class TestEnrollmentSelection:
         assert selection.choices == [_choice(OWN_PARTY_PK, is_own_led=True)]
         assert selection.companions == [_companion_dto()]
         assert not selection.requested_invalid
+        assert selection.offers_choice
 
     def test_default_prefers_own_led_party(self):
         parties = FakeParties()
@@ -789,6 +791,16 @@ class TestEnrollmentSelection:
         assert selection.selected is not None
         assert selection.selected.pk == OWN_PARTY_PK
         assert selection.companions == [_companion_dto()]
+        assert selection.offers_choice
+
+    def test_one_enrolling_party_selected_offers_no_choice(self):
+        parties = FakeParties()
+        parties.parties = [_party(OWN_PARTY_PK, is_leader=True)]
+
+        selection = self._select(parties, None)
+
+        assert selection.selected is not None
+        assert not selection.offers_choice
 
     def test_default_falls_back_to_first_party_and_drops_companions(self):
         parties = FakeParties()
@@ -810,3 +822,4 @@ class TestEnrollmentSelection:
         assert selection.choices == []
         assert selection.selected is None
         assert selection.companions == [_companion_dto()]
+        assert not selection.offers_choice

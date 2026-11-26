@@ -92,6 +92,7 @@ class EnrollmentPartyChoiceDTO(BaseModel):
     name: str
     leader_name: str
     is_own_led: bool
+    # False until the leader's first enrollment through it turns it on.
     enrolls_together: bool
 
 
@@ -107,14 +108,8 @@ class EnrollmentPartyMemberDTO(BaseModel):
     status: PartyMembershipStatus
 
 
-class SelectedEnrollmentPartyDTO(BaseModel):
-    pk: int
-    name: str
-    leader_name: str
-    is_own_led: bool
-    # False until the leader's first enrollment through it turns it on.
-    enrolls_together: bool
-    members: list[EnrollmentPartyMemberDTO]
+class SelectedEnrollmentPartyDTO(EnrollmentPartyChoiceDTO):
+    members: list[EnrollmentPartyMemberDTO] = []
 
 
 class EnrollmentPartiesDTO(BaseModel):
@@ -125,6 +120,9 @@ class EnrollmentPartiesDTO(BaseModel):
     # The viewer's own login-less companions, whether or not they belong to a
     # party; empty while a party someone else leads is selected.
     companions: list[CompanionDTO] = []
+    # Whether the page lets the viewer pick between "Just myself" and
+    # `choices`.
+    offers_choice: bool = False
     # The requested party is not one of the viewer's — the caller must surface
     # an error instead of silently substituting a default, and every other
     # field is unset filler on this path.

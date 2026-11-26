@@ -275,6 +275,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 "event": session.event,
                 "party_choices": page.parties.choices,
                 "selected_party": page.parties.selected,
+                "offers_party_choice": page.parties.offers_choice,
                 "companions": page.parties.companions,
                 "user_data": list(page.user_data),
                 # Frontload the decision: warn the viewer up top if players

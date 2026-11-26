@@ -58,6 +58,7 @@ def _page_context(viewer, agenda_item):
     return {
         "party_choices": selection.choices,
         "selected_party": selection.selected,
+        "offers_party_choice": selection.offers_choice,
         "companions": [],
         "event": EventDTO.model_validate(agenda_item.session.event),
         "form": ANY,
@@ -193,6 +194,53 @@ class TestGuestEnrollment:
             ).count()
             == 1
         )
+
+    def test_post_more_guests_turns_party_enrolling_on(
+        self, authenticated_client, active_user, agenda_item, enrollment_config
+    ):
+        _allow_guests(enrollment_config)
+        _reassign_presenter(agenda_item)
+        party = Party.objects.create(
+            leader=active_user, name="Ekipa", enrolls_together=False
+        )
+
+        response = authenticated_client.post(
+            _url(agenda_item), data={"party": str(party.pk), "guests": "1"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"/event/{agenda_item.session.event.slug}/",
+            messages=[(messages.SUCCESS, "Guests you bring: 1")],
+        )
+        party.refresh_from_db()
+        assert party.enrolls_together is True
+        assert _guests(agenda_item, active_user).get().party_id == party.pk
+
+    def test_post_fewer_guests_leaves_party_enrolling_off(
+        self, authenticated_client, active_user, agenda_item, enrollment_config
+    ):
+        _allow_guests(enrollment_config)
+        _reassign_presenter(agenda_item)
+        party = Party.objects.create(
+            leader=active_user, name="Ekipa", enrolls_together=False
+        )
+        authenticated_client.post(_url(agenda_item), data={"guests": "2"}, follow=True)
+
+        response = authenticated_client.post(
+            _url(agenda_item), data={"party": str(party.pk), "guests": "1"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"/event/{agenda_item.session.event.slug}/",
+            messages=[(messages.SUCCESS, "Guests you bring: 1")],
+        )
+        party.refresh_from_db()
+        assert party.enrolls_together is False
+        assert _guests(agenda_item, active_user).count() == 1
 
     @pytest.mark.usefixtures("active_user")
     def test_freed_guest_seat_promotes_the_waitlist(

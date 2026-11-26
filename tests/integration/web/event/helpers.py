@@ -230,7 +230,11 @@ def party_context(party=None, *, leader_name="", members=(), enrolls_together=Tr
     # party at all; a scenario that gives them one they lead states the pills
     # the page should show, rather than asking the service the view asks.
     if party is None:
-        return {"party_choices": [], "selected_party": None}
+        return {
+            "party_choices": [],
+            "selected_party": None,
+            "offers_party_choice": False,
+        }
     pill = {
         "pk": party.pk,
         "name": party.name,
@@ -241,6 +245,9 @@ def party_context(party=None, *, leader_name="", members=(), enrolls_together=Tr
     return {
         "party_choices": [EnrollmentPartyChoiceDTO(**pill)],
         "selected_party": SelectedEnrollmentPartyDTO(**pill, members=list(members)),
+        # The one party applies by itself once it enrolls together; until
+        # then its leader keeps the way back to "Just myself".
+        "offers_party_choice": not enrolls_together,
     }
 
 
@@ -298,14 +305,16 @@ def enroll_context(
     shadowban_warnings=(),
     party_choices=(),
     selected_party=None,
+    offers_party_choice=False,
     seats=None,
 ):
     return {
         "seats": seats or stored_seats(session),
-        # The two party keys, as `party_context` spells them: a caller with a
+        # The three party keys, as `party_context` spells them: a caller with a
         # party splices its result straight in.
         "party_choices": list(party_choices),
         "selected_party": selected_party,
+        "offers_party_choice": offers_party_choice,
         "companions": list(companions),
         "event": EventDTO.model_validate(session.event),
         "form": ANY,
