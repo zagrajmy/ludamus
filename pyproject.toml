@@ -50,7 +50,7 @@ segno = "~1.6.6"
 unidecode = "~1.4.0"
 urllib3 = "~2.8.0"
 whitenoise = "~6.12.0"
-stripe = "~16.0.0"
+stripe = "~17.1.0"
 workos = "~10.5.0"
 
 [tool.poetry.group.dev.dependencies]
