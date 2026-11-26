@@ -420,7 +420,7 @@ msgstr "Miejsce"
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "Max participants"
-msgstr "Maks. uczestników"
+msgstr "Liczba miejsc"
 
 #: src/ludamus/gates/web/django/encounter/forms.py
 msgid "Public encounter"
@@ -1824,7 +1824,7 @@ msgstr "Przypisany do"
 #: src/ludamus/templates/event/propose/parts/review.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Presenter name"
-msgstr "Nazwa prowadzącego"
+msgstr "Osoba prowadząca"
 
 #: src/ludamus/gates/web/django/event/panel/views/columns.py
 #: src/ludamus/gates/web/django/event/panel/views/google_docs_import.py
@@ -3617,7 +3617,7 @@ msgstr "Tytuł jest wymagany."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Presenter name is required."
-msgstr "Nazwa prowadzącego jest wymagana."
+msgstr "Podaj osobę prowadzącą."
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/event/parts/session-edit-form.html
@@ -3644,7 +3644,7 @@ msgstr "Puste pole lub 0 = bez zapisów"
 #: src/ludamus/templates/event/parts/session-edit-form.html
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Minimum Age"
-msgstr "Minimalny Wiek"
+msgstr "Minimalny wiek"
 
 #: src/ludamus/gates/web/django/forms.py src/ludamus/templates/event/print.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
@@ -5717,11 +5717,11 @@ msgstr ""
 
 #: src/ludamus/gates/web/django/user/forms.py
 msgid "Companion display name"
-msgstr "Nazwa wyświetlana towarzysza"
+msgstr "Nazwa wyświetlana osoby towarzyszącej"
 
 #: src/ludamus/gates/web/django/user/forms.py
 msgid "Enter one of your companions exactly as they are named."
-msgstr "Wpisz dokładną nazwę jednego ze swoich towarzyszy."
+msgstr "Wpisz dokładną nazwę jednej z osób towarzyszących."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid ""
@@ -5748,19 +5748,19 @@ msgstr "Proszę poprawić błędy poniżej."
 #: src/ludamus/gates/web/django/user/profile.py
 #, python-format
 msgid "You can only have up to %(max)s companions."
-msgstr "Możesz mieć maksymalnie %(max)s towarzyszy."
+msgstr "Możesz mieć maksymalnie %(max)s osób towarzyszących."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Companion added successfully!"
-msgstr "Towarzysz został dodany!"
+msgstr "Dodano osobę towarzyszącą!"
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Companion updated successfully!"
-msgstr "Zaktualizowano dane towarzysza!"
+msgstr "Zaktualizowano dane osoby towarzyszącej!"
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Companion deleted successfully."
-msgstr "Towarzysz został usunięty."
+msgstr "Usunięto osobę towarzyszącą."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Could not create a claim link for this person."
@@ -5808,7 +5808,7 @@ msgstr "Gracz został cicho zbanowany."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Shadowban removed."
-msgstr "Cichy ban został usunięty."
+msgstr "Ban został cofnięty."
 
 #: src/ludamus/gates/web/django/user/views.py
 msgid "Party created."
@@ -5862,7 +5862,7 @@ msgid ""
 msgstr ""
 "Żadne konto nie pasuje do tego adresu email ani nazwy użytkownika Discord. "
 "Poproś tę osobę o rejestrację, udostępnij jej swój link zaproszenia albo "
-"dodaj ją jako towarzysza, którego zapisujesz samodzielnie."
+"dodaj ją jako osobę towarzyszącą, którą zapisujesz samodzielnie."
 
 #: src/ludamus/gates/web/django/user/views.py
 msgid "Could not regenerate the invite link."
@@ -5874,25 +5874,25 @@ msgstr "Wygenerowano nowy link zaproszenia."
 
 #: src/ludamus/gates/web/django/user/views.py
 msgid "Enter a companion display name."
-msgstr "Podaj nazwę wyświetlaną towarzysza."
+msgstr "Podaj nazwę wyświetlaną osoby towarzyszącej."
 
 #: src/ludamus/gates/web/django/user/views.py
 msgid "Companion added to the party."
-msgstr "Towarzysz został dodany do drużyny."
+msgstr "Dodano osobę towarzyszącą do drużyny."
 
 #: src/ludamus/gates/web/django/user/views.py
 msgid "This companion is already in the party."
-msgstr "Ten towarzysz jest już w drużynie."
+msgstr "Ta osoba towarzysząca jest już w drużynie."
 
 #: src/ludamus/gates/web/django/user/views.py
 msgid "More than one companion has that display name. Rename one first."
 msgstr ""
-"Więcej niż jeden towarzysz ma tę nazwę wyświetlaną. Najpierw zmień nazwę "
-"jednego z nich."
+"Więcej niż jedna osoba towarzysząca ma tę nazwę wyświetlaną. Najpierw zmień "
+"nazwę jednej z nich."
 
 #: src/ludamus/gates/web/django/user/views.py
 msgid "No companion matches that display name."
-msgstr "Żaden towarzysz nie ma takiej nazwy wyświetlanej."
+msgstr "Żadna osoba towarzysząca nie ma takiej nazwy wyświetlanej."
 
 #: src/ludamus/gates/web/django/user/views.py
 msgid "This invite link is invalid."
@@ -10379,7 +10379,7 @@ msgstr "Wybierz widok strony"
 
 #: src/ludamus/templates/landing/_aud_switch.html
 msgid "For players"
-msgstr "Dla graczy"
+msgstr "Dla osób uczestniczących"
 
 #: src/ludamus/templates/landing/druk.html
 msgid "Ctrl+P and done"
@@ -11920,7 +11920,7 @@ msgstr "0 = bez minimum"
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "Maximum participants"
-msgstr "Maks. uczestników"
+msgstr "Liczba miejsc"
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "0 = no limit"
@@ -15801,7 +15801,7 @@ msgid ""
 "parent's or guardian's companions."
 msgstr ""
 "Własne konto możesz mieć od 13. roku życia. Młodsze dzieci dołączają jako "
-"towarzysze rodzica lub opiekuna."
+"osoby towarzyszące rodzica lub opiekuna."
 
 #: src/ludamus/templates/user/_age_range_intro.html
 msgid ""
@@ -15958,7 +15958,8 @@ msgid ""
 "guardian can add you as a companion and sign you up for sessions."
 msgstr ""
 "Aby mieć własne konto, musisz mieć co najmniej %(min_age)s lat. Rodzic lub "
-"opiekun może dodać Cię jako towarzysza i zapisać Cię na punkty programu."
+"opiekun może dodać Cię jako osobę towarzyszącą i zapisać Cię na punkty "
+"programu."
 
 #: src/ludamus/templates/user/signup_guardian.html
 msgid "Continue with a parent or guardian"
@@ -16056,10 +16057,10 @@ msgstr[3] "%(parties)s drużyn"
 #, python-format
 msgid "%(companions)s companion"
 msgid_plural "%(companions)s companions"
-msgstr[0] "%(companions)s towarzysz"
-msgstr[1] "%(companions)s towarzyszy"
-msgstr[2] "%(companions)s towarzyszy"
-msgstr[3] "%(companions)s towarzyszy"
+msgstr[0] "%(companions)s osoba towarzysząca"
+msgstr[1] "%(companions)s osoby towarzyszące"
+msgstr[2] "%(companions)s osób towarzyszących"
+msgstr[3] "%(companions)s osób towarzyszących"
 
 #: src/ludamus/templates/user/user/_profile_sidebar.html
 #, python-format
@@ -16391,12 +16392,12 @@ msgid ""
 "Create a party and invite friends, or add a companion and sign them up "
 "yourself."
 msgstr ""
-"Utwórz drużynę i zaproś znajomych albo dodaj towarzysza, którego zapisujesz "
-"samodzielnie."
+"Utwórz drużynę i zaproś znajomych albo dodaj osobę towarzyszącą, którą "
+"zapisujesz samodzielnie."
 
 #: src/ludamus/templates/user/user/parties.html
 msgid "Your companions"
-msgstr "Twoi towarzysze"
+msgstr "Osoby towarzyszące"
 
 #: src/ludamus/templates/user/user/parties.html
 msgid ""
@@ -16409,12 +16410,12 @@ msgstr ""
 #: src/ludamus/templates/user/user/parties.html
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "Add companion"
-msgstr "Dodaj towarzysza"
+msgstr "Dodaj osobę towarzyszącą"
 
 #: src/ludamus/templates/user/user/parties.html
 #, python-format
 msgid "You can have at most %(max_companions)s companions."
-msgstr "Możesz mieć najwyżej %(max_companions)s towarzyszy."
+msgstr "Możesz mieć najwyżej %(max_companions)s osób towarzyszących."
 
 #: src/ludamus/templates/user/user/parties.html
 msgid ""
@@ -16460,17 +16461,17 @@ msgid ""
 "Delete companion %(name)s? This also removes their party memberships and "
 "enrollments."
 msgstr ""
-"Usunąć towarzysza %(name)s? Spowoduje to również usunięcie jego członkostw w "
-"drużynach i zapisów."
+"Usunąć osobę towarzyszącą %(name)s? Spowoduje to również usunięcie jej "
+"członkostw w drużynach i zapisów."
 
 #: src/ludamus/templates/user/user/parties.html
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "Delete companion"
-msgstr "Usuń towarzysza"
+msgstr "Usuń osobę towarzyszącą"
 
 #: src/ludamus/templates/user/user/parties.html
 msgid "No companions yet."
-msgstr "Nie masz jeszcze towarzyszy."
+msgstr "Nie masz jeszcze osób towarzyszących."
 
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "All parties"
@@ -16494,7 +16495,7 @@ msgstr "zaproszono"
 
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "companion"
-msgstr "towarzysz"
+msgstr "osoba towarzysząca"
 
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "direct enrollment allowed"
@@ -16537,7 +16538,7 @@ msgstr "Usuń z drużyny"
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "Add one of your companions to this party by their display name."
 msgstr ""
-"Dodaj jednego ze swoich towarzyszy do tej drużyny, podając jego nazwę "
+"Dodaj jedną z osób towarzyszących do tej drużyny, podając jej nazwę "
 "wyświetlaną."
 
 #: src/ludamus/templates/user/user/party_detail.html
@@ -16699,11 +16700,11 @@ msgstr ""
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowbanned players"
-msgstr "Cicho zbanowani gracze"
+msgstr "Osoby z cichym banem"
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowban"
-msgstr "Cichy ban"
+msgstr "Zbanuj"
 
 #: src/ludamus/templates/user/user/safety.html
 msgid ""
@@ -16718,7 +16719,7 @@ msgstr ""
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Players you have met"
-msgstr "Spotkani gracze"
+msgstr "Osoby, które znasz z wydarzeń"
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowbanned"
@@ -16731,7 +16732,7 @@ msgstr "%(sphere)s › %(event)s › %(session)s"
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Remove shadowban"
-msgstr "Usuń cichy ban"
+msgstr "Cofnij ban"
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Sessions you run always look full to them, so they can never join."
@@ -16770,7 +16771,7 @@ msgstr ""
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowban by username or email"
-msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
+msgstr "Zbanuj po nazwie użytkownika lub e-mailu"
 
 #: src/ludamus/templates/user/user/tickets.html
 msgid "Show a code, or its QR, at the entrance. Each one admits one person."
