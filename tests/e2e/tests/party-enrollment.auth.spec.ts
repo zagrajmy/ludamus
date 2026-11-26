@@ -67,8 +67,10 @@ test.describe("Signing a companion up", () => {
 
     const seated = await openSession(page, "Two Chair Tale");
     await expect(seated.locator("[data-roster]")).toContainText("2/2");
-    await expect(seated.getByRole("img", { name: HOST })).toBeVisible();
-    await expect(seated.getByRole("img", { name: COMPANION })).toBeVisible();
+    await seated.getByRole("button", { name: "Participants" }).click();
+    const seatedRoster = seated.getByRole("dialog", { name: "Participants" });
+    await expect(seatedRoster.getByRole("img", { name: HOST })).toBeVisible();
+    await expect(seatedRoster.getByRole("img", { name: COMPANION })).toBeVisible();
     await attachArtifacts(testInfo, {
       name: "party-enrollment-seated",
       region: page.getByRole("dialog", { name: "Two Chair Tale" }),
@@ -78,8 +80,10 @@ test.describe("Signing a companion up", () => {
     await leave(page, "Two Chair Tale");
     const empty = await openSession(page, "Two Chair Tale");
     await expect(empty.locator("[data-roster]")).toContainText("0/2");
-    await expect(empty.getByRole("img", { name: HOST })).toHaveCount(0);
-    await expect(empty.getByRole("img", { name: COMPANION })).toHaveCount(0);
+    await empty.getByRole("button", { name: "Participants" }).click();
+    const emptyRoster = empty.getByRole("dialog", { name: "Participants" });
+    await expect(emptyRoster.getByRole("img", { name: HOST })).toHaveCount(0);
+    await expect(emptyRoster.getByRole("img", { name: COMPANION })).toHaveCount(0);
   });
 
   test("with one chair left the companion waits, and is told so before saving", async ({
@@ -97,12 +101,10 @@ test.describe("Signing a companion up", () => {
     const split = await openSession(page, "Last Chair Saga");
     await expect(split.locator("[data-roster]")).toContainText("2/2");
     await expect(split.locator("[data-roster]")).toContainText("1 waiting");
-    await expect(split.getByRole("img", { name: HOST })).toBeVisible();
-    // Waiting is a count next to the seats, not a face in the stack.
-    await expect(split.getByRole("img", { name: COMPANION })).toHaveCount(0);
     await split.getByRole("button", { name: "Participants" }).click();
     const roster = split.getByRole("dialog", { name: "Participants" });
     await expect(roster.getByRole("heading", { name: /Enrolled/ })).toBeVisible();
+    await expect(roster.getByRole("img", { name: HOST })).toBeVisible();
     await expect(roster.getByText(HOST, { exact: true })).toBeVisible();
     await expect(roster.getByRole("heading", { name: "Waiting List" })).toBeVisible();
     await expect(roster.getByText(COMPANION, { exact: true })).toBeVisible();
@@ -119,6 +121,8 @@ test.describe("Signing a companion up", () => {
     // The popover always holds the "Waiting List" copy; the trigger is what
     // must stop saying anyone is waiting once the companion has left.
     await expect(seats).not.toContainText("waiting");
-    await expect(regularOnly.getByRole("img", { name: COMPANION })).toHaveCount(0);
+    await seats.click();
+    const cleared = regularOnly.getByRole("dialog", { name: "Participants" });
+    await expect(cleared.getByText(COMPANION, { exact: true })).toHaveCount(0);
   });
 });

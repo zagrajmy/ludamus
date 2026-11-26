@@ -135,14 +135,16 @@ test.describe("The seat stack answers an Enroll click at once", () => {
 
     // The request is still held here: only the client can have done this.
     await expect(roster).toContainText("1/5");
-    await expect(dialog.getByRole("img", { name: "E2E Tester" })).toBeVisible();
+    await dialog.getByRole("button", { name: "Participants" }).click();
+    const people = dialog.getByRole("dialog", { name: "Participants" });
+    await expect(people.getByRole("img", { name: "E2E Tester" })).toBeVisible();
     await expect(footer.getByText("You're enrolled")).toHaveCount(0);
 
     answer();
 
     await expect(footer.getByText("You're enrolled")).toBeVisible();
     await expect(roster).toContainText("1/5");
-    await expect(dialog.getByRole("img", { name: "E2E Tester" })).toBeVisible();
+    await expect(people.getByRole("img", { name: "E2E Tester" })).toBeVisible();
   });
 
   test("takes you back out when the enroll never reaches the server", async ({ page }) => {
@@ -155,7 +157,10 @@ test.describe("The seat stack answers an Enroll click at once", () => {
     await footer.getByRole("button", { name: "Enroll", exact: true }).click();
 
     await expect(roster).toContainText("0/5");
-    await expect(dialog.getByRole("img", { name: "E2E Tester" })).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Participants" }).click();
+    await expect(
+      dialog.getByRole("dialog", { name: "Participants" }).getByRole("img", { name: "E2E Tester" }),
+    ).toHaveCount(0);
     await expect(footer.getByRole("button", { name: "Enroll", exact: true })).toBeVisible();
   });
 
@@ -178,6 +183,9 @@ test.describe("The seat stack answers an Enroll click at once", () => {
     await answered;
 
     await expect(roster).toContainText("0/5");
-    await expect(dialog.getByRole("img", { name: "E2E Tester" })).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Participants" }).click();
+    await expect(
+      dialog.getByRole("dialog", { name: "Participants" }).getByRole("img", { name: "E2E Tester" }),
+    ).toHaveCount(0);
   });
 });

@@ -1,4 +1,4 @@
-from typing import ClassVar, cast
+from typing import cast
 
 from django import forms
 from django.utils.translation import gettext_lazy as _
@@ -44,23 +44,23 @@ class SignupAgeForm(AgeRangeForm):
         ),
     )
     confirmation_token = forms.CharField(widget=forms.HiddenInput())
-    field_order: ClassVar[list[str]] = ["name", "age_band", "confirmation_token"]
+    field_order = ("name", "age_band", "confirmation_token")
 
-    def clean(self):
-        cleaned = super().clean()
+    def clean(self) -> None:
+        super().clean()
+        cleaned = self.cleaned_data
         # Under the minimum age the account is never activated, so a display
         # name is not collected. Eligible ages must pick one before we create
         # the account — otherwise Auth0's email-as-name leaks into public UI.
         if cleaned.get("age_band") is None:
             cleaned["name"] = ""
-            return cleaned
-        if not (name := (cleaned.get("name") or "").strip()):
+            return
+        if not (name := str(cleaned.get("name") or "").strip()):
             self.add_error("name", _("Enter a display name."))
         elif looks_like_email(name):
             self.add_error("name", _("Enter a display name, not an email address."))
         else:
             cleaned["name"] = name
-        return cleaned
 
 
 class BaseUserForm(forms.Form):
@@ -73,7 +73,7 @@ class BaseUserForm(forms.Form):
     )
 
     def clean_name(self) -> str:
-        name = self.cleaned_data["name"].strip()
+        name = str(self.cleaned_data["name"]).strip()
         if looks_like_email(name):
             raise forms.ValidationError(
                 _("Enter a display name, not an email address.")

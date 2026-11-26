@@ -70,8 +70,11 @@ test("raising a full session's limit seats the first waiter, and only her", asyn
   const roster = waiting.locator("[data-roster]");
   await expect(roster).toContainText("2/2");
   await expect(roster).toContainText("1 waiting");
-  await expect(waiting.getByRole("img", { name: "Ilse First" })).toBeVisible();
-  await expect(waiting.getByRole("img", { name: "Otto Second" })).toHaveCount(0);
+  await waiting.getByRole("button", { name: "Participants" }).click();
+  const people = waiting.getByRole("dialog", { name: "Participants" });
+  await expect(people.getByRole("img", { name: "Ilse First" })).toBeVisible();
+  await expect(people.getByText("Otto Second", { exact: true })).toBeVisible();
+  await expect(people.getByRole("heading", { name: "Waiting List" })).toBeVisible();
 
   await attachArtifacts(testInfo, {
     name: "capacity-promotion",
