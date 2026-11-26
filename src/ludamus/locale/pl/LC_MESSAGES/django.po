@@ -5804,7 +5804,7 @@ msgstr "Jeśli pasująca osoba istnieje, została cicho zbanowana."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Player shadowbanned."
-msgstr "Nadano cichy ban."
+msgstr "Zbanowano."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Shadowban removed."
