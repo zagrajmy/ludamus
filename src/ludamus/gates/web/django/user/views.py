@@ -12,7 +12,6 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.user.forms import (
     PartyCompanionForm,
-    PartyCreateForm,
     PartyEnrollsTogetherForm,
     PartyInviteForm,
     PartyNameForm,
@@ -61,12 +60,12 @@ class PartyCreateActionView(LoginRequiredMixin, View):
 
     @staticmethod
     def post(request: AuthenticatedRootRequest) -> HttpResponse:
-        form = PartyCreateForm(request.POST)
+        form = PartyNameForm(request.POST)
         if form.is_valid():
             party_pk = request.services.parties.create(
                 leader_pk=request.context.current_user_id,
                 name=form.cleaned_data["name"],
-                enrolls_together=form.cleaned_data["enrolls_together"],
+                enrolls_together=False,
             )
             messages.success(request, _("Party created."))
             return redirect("web:crowd:party-detail", pk=party_pk)

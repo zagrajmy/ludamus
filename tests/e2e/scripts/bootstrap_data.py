@@ -963,6 +963,19 @@ def _create_enroll_states_scenario(sphere: Sphere) -> None:
     # The seat is taken by its own user, never the tester, so both sessions
     # keep offering the tester a way in however often the spec runs.
 
+    # NOTE: only party-enrolls-together.auth.spec.ts signs up here, so its seat
+    # never moves the counts the two sessions above are read by.
+    _scheduled_session(
+        event,
+        space,
+        title="Party Table Demo",
+        slug="party-table-demo",
+        presenter="States GM",
+        description="A table a party signs up for together.",
+        seats=5,
+        hour=5,
+    )
+
 
 # An early window nobody reading the page is in: it seats half the room and it
 # is restricted to configured users, so a visitor is turned away by a window

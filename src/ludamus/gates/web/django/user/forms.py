@@ -81,10 +81,6 @@ class PartyEnrollsTogetherForm(forms.Form):
     )
 
 
-class PartyCreateForm(PartyEnrollsTogetherForm, PartyNameForm):
-    pass
-
-
 class PartyInviteForm(forms.Form):
     identifier = forms.CharField(
         label=_("Email or Discord username"),

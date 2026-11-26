@@ -92,6 +92,7 @@ class EnrollmentPartyChoiceDTO(BaseModel):
     name: str
     leader_name: str
     is_own_led: bool
+    enrolls_together: bool
 
 
 class EnrollmentPartyMemberDTO(BaseModel):
@@ -111,6 +112,8 @@ class SelectedEnrollmentPartyDTO(BaseModel):
     name: str
     leader_name: str
     is_own_led: bool
+    # False until the leader's first enrollment through it turns it on.
+    enrolls_together: bool
     members: list[EnrollmentPartyMemberDTO]
 
 

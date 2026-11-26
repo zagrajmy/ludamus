@@ -14,10 +14,22 @@ from ludamus.links.db.django.models import (
     SessionParticipationStatus,
 )
 from ludamus.links.db.django.transaction import DjangoTransaction
+from ludamus.pacts.enrollment_member import SessionUserParticipationData
 from ludamus.pacts.notifications import NotificationKind
-from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
+from ludamus.pacts.party import (
+    EnrollmentPartyChoiceDTO,
+    PartyConsentMode,
+    PartyMembershipStatus,
+)
+from ludamus.pacts.user import CompanionDTO
 from tests.integration.conftest import UserFactory, sponsor_user
 from tests.integration.utils import assert_response
+from tests.integration.web.event.helpers import (
+    enroll_page_context,
+    participation_row,
+    party_context,
+    party_member,
+)
 
 
 def _url(agenda_item):
@@ -48,11 +60,73 @@ def _join(party, user, *, status=PartyMembershipStatus.ACTIVE):
 
 class TestPartyThatDoesNotEnroll:
     @pytest.mark.usefixtures("enrollment_config")
-    def test_post_through_it_is_refused(
+    def test_post_through_an_own_led_one_enrolls_and_turns_enrolling_on(
         self, authenticated_client, active_user, agenda_item
     ):
-        party = sponsor_user(leader=active_user, member=active_user)
-        Party.objects.filter(pk=party.pk).update(enrolls_together=False)
+        party = Party.objects.create(
+            leader=active_user, name="Ekipa", enrolls_together=False
+        )
+        _join(party, active_user)
+        _reassign_presenter(agenda_item)
+
+        response = authenticated_client.post(
+            _url(agenda_item),
+            data={"party": str(party.pk), f"user_{active_user.pk}": "enroll"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"/event/{agenda_item.session.event.slug}/",
+            messages=[(messages.SUCCESS, f"Enrolled: {active_user.name}")],
+        )
+        party.refresh_from_db()
+        assert party.enrolls_together is True
+        assert SessionParticipation.objects.get().party_id == party.pk
+
+    def test_get_does_not_turn_enrolling_on(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        party = Party.objects.create(
+            leader=active_user, name="Ekipa", enrolls_together=False
+        )
+        _join(party, active_user)
+
+        response = authenticated_client.get(_url(agenda_item), {"party": party.pk})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="event/enroll_select.html",
+            context_data=enroll_page_context(
+                viewer=active_user,
+                agenda_item=agenda_item,
+                **party_context(
+                    party,
+                    leader_name=active_user.name,
+                    members=[
+                        party_member(
+                            active_user,
+                            is_leader=True,
+                            consent_mode=PartyConsentMode.ACCEPT_INVITES,
+                        )
+                    ],
+                    enrolls_together=False,
+                ),
+            ),
+        )
+        party.refresh_from_db()
+        assert party.enrolls_together is False
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_through_one_someone_else_leads_is_refused(
+        self, authenticated_client, active_user, agenda_item
+    ):
+        leader = UserFactory(username="leader", name="Lena Leader")
+        party = Party.objects.create(
+            leader=leader, name="Ekipa", enrolls_together=False
+        )
+        _join(party, active_user)
         _reassign_presenter(agenda_item)
 
         response = authenticated_client.post(
@@ -68,6 +142,8 @@ class TestPartyThatDoesNotEnroll:
                 (messages.ERROR, "Choose one of your parties or enroll by yourself.")
             ],
         )
+        party.refresh_from_db()
+        assert party.enrolls_together is False
         assert not SessionParticipation.objects.exists()
 
 
@@ -250,9 +326,9 @@ class TestEnrollRecordsParty:
 
 
 class TestPartySelector:
-    # There is no party selector UI: the viewer's own led party (else their
-    # first party) is applied automatically, and the checkboxes alone decide
-    # who enrolls. The ?party= URL contract stays for the server.
+    # A single enrolling party is applied automatically, with no selector:
+    # the checkboxes alone decide who enrolls. The selector shows once there
+    # is another party to pick; tests/e2e covers its markup.
     def test_default_party_applies_without_selector(
         self, authenticated_client, active_user, party_companion, agenda_item
     ):
@@ -308,7 +384,7 @@ class TestPartySelector:
     def test_own_led_party_wins_the_default_with_multiple_parties(
         self, authenticated_client, active_user, party_companion, agenda_item
     ):
-        sponsor_user(leader=active_user, member=active_user)
+        own = sponsor_user(leader=active_user, member=active_user)
         friend = UserFactory(username="friend", name="Frida Friend")
         crew = Party.objects.create(leader=friend, name="Ekipa")
         _join(crew, friend)
@@ -316,11 +392,42 @@ class TestPartySelector:
 
         response = authenticated_client.get(_url(agenda_item))
 
-        # Own led party selected by default: its companion is listed, and the
-        # foreign party is not surfaced anywhere (no selector).
-        content = response.content.decode()
-        assert party_companion.name in content
-        assert "Ekipa" not in content
+        pills = party_context(
+            own,
+            leader_name=active_user.name,
+            members=[
+                party_member(active_user, is_leader=True),
+                party_member(party_companion, is_login_less=True),
+            ],
+        )
+        crew_pill = EnrollmentPartyChoiceDTO(
+            pk=crew.pk,
+            name="Ekipa",
+            leader_name="Frida Friend",
+            is_own_led=False,
+            enrolls_together=True,
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="event/enroll_select.html",
+            context_data=enroll_page_context(
+                viewer=active_user,
+                agenda_item=agenda_item,
+                user_data=[
+                    participation_row(active_user),
+                    SessionUserParticipationData(
+                        user=CompanionDTO.model_validate(party_companion),
+                        user_enrolled=False,
+                        user_waiting=False,
+                        has_time_conflict=False,
+                    ),
+                ],
+                companions=[CompanionDTO.model_validate(party_companion)],
+                party_choices=[*pills["party_choices"], crew_pill],
+                selected_party=pills["selected_party"],
+            ),
+        )
 
     def test_foreign_party_lists_only_self(
         self, authenticated_client, active_user, companion, agenda_item

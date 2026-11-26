@@ -133,6 +133,35 @@
                         {# vs the waiting list. #}
                         <div class="px-4 pt-4 pb-3">
                             <h2 class="text-lg font-semibold">{% translate "Who should be in this session?" %}</h2>
+                            {# One enrolling party applies by itself; the choice shows #}
+                            {# only when there is another party to pick. #}
+                            {% if party_choices|length > 1 or party_choices and not selected_party %}
+                                {% translate "Enrolling as" as t_enrolling_as %}
+                                {% firstof selected_party.pk "none" as active_tab %}
+                                {% tabs variant="segment" aria_label=t_enrolling_as class="mt-3 max-w-full flex-wrap" %}
+                                    {% tab "none" href="?party=none#enrollment" %}
+                                        {% translate "Just myself" %}
+                                    {% end_tab %}
+                                    {% for party in party_choices %}
+                                        {% with pk=party.pk|stringformat:"s" %}
+                                            {% tab party.pk href="?party="|add:pk|add:"#enrollment" %}
+                                                {% if party.name %}
+                                                    {{ party.name }}
+                                                {% elif party.is_own_led %}
+                                                    {% translate "Your party" %}
+                                                {% else %}
+                                                    {% blocktranslate with leader_name=party.leader_name %}Party of {{ leader_name }}{% endblocktranslate %}
+                                                {% endif %}
+                                            {% end_tab %}
+                                        {% endwith %}
+                                    {% endfor %}
+                                {% end_tabs %}
+                                {% if selected_party and not selected_party.enrolls_together %}
+                                    <p class="mt-2 text-xs text-foreground-muted">
+                                        {% translate "Enrolling turns on enrolling together for this party." %}
+                                    </p>
+                                {% endif %}
+                            {% endif %}
                         </div>
                         <ul class="divide-y divide-border border-t border-border">
                             {% for row in user_data %}

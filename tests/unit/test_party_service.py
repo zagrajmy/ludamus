@@ -671,9 +671,13 @@ def _companion_dto():
     )
 
 
-def _choice(pk, *, is_own_led):
+def _choice(pk, *, is_own_led, enrolls_together=True):
     return EnrollmentPartyChoiceDTO(
-        pk=pk, name="", leader_name="Lena Leader", is_own_led=is_own_led
+        pk=pk,
+        name="",
+        leader_name="Lena Leader",
+        is_own_led=is_own_led,
+        enrolls_together=enrolls_together,
     )
 
 
@@ -684,7 +688,7 @@ class TestEnrollmentSelection:
             viewer_pk=VIEWER_PK, requested_party=requested_party
         )
 
-    def test_a_party_that_does_not_enroll_is_neither_offered_nor_preselected(self):
+    def test_an_own_led_party_that_does_not_enroll_is_offered_not_preselected(self):
         parties = FakeParties()
         parties.parties = [
             _party(FOREIGN_PARTY_PK, is_leader=True, enrolls_together=False),
@@ -693,16 +697,38 @@ class TestEnrollmentSelection:
 
         selection = self._select(parties, None)
 
-        assert [choice.pk for choice in selection.choices] == [OWN_PARTY_PK]
+        assert selection.choices == [
+            _choice(FOREIGN_PARTY_PK, is_own_led=True, enrolls_together=False),
+            _choice(OWN_PARTY_PK, is_own_led=False),
+        ]
         assert selection.selected is not None
         assert selection.selected.pk == OWN_PARTY_PK
 
-    def test_asking_for_a_party_that_does_not_enroll_is_invalid(self):
+    def test_only_a_party_that_does_not_enroll_leaves_the_viewer_alone(self):
+        parties = FakeParties()
+        parties.parties = [_party(OWN_PARTY_PK, is_leader=True, enrolls_together=False)]
+
+        selection = self._select(parties, None)
+
+        assert selection.selected is None
+
+    def test_asking_for_an_own_led_party_that_does_not_enroll_selects_it(self):
         parties = FakeParties()
         parties.parties = [_party(OWN_PARTY_PK, is_leader=True, enrolls_together=False)]
 
         selection = self._select(parties, str(OWN_PARTY_PK))
 
+        assert selection.selected is not None
+        assert selection.selected.pk == OWN_PARTY_PK
+        assert not selection.selected.enrolls_together
+
+    def test_someone_elses_party_that_does_not_enroll_is_invalid(self):
+        parties = FakeParties()
+        parties.parties = [_party(FOREIGN_PARTY_PK, enrolls_together=False)]
+
+        selection = self._select(parties, str(FOREIGN_PARTY_PK))
+
+        assert selection.choices == []
         assert selection.requested_invalid
 
     def test_garbage_request_is_flagged_invalid(self):

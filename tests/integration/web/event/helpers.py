@@ -225,7 +225,7 @@ def compact_day(cards):
     )
 
 
-def party_context(party=None, *, leader_name="", members=()):
+def party_context(party=None, *, leader_name="", members=(), enrolls_together=True):
     # The enroll page's party plumbing. The default is a viewer who is in no
     # party at all; a scenario that gives them one they lead states the pills
     # the page should show, rather than asking the service the view asks.
@@ -236,6 +236,7 @@ def party_context(party=None, *, leader_name="", members=()):
         "name": party.name,
         "leader_name": leader_name,
         "is_own_led": True,
+        "enrolls_together": enrolls_together,
     }
     return {
         "party_choices": [EnrollmentPartyChoiceDTO(**pill)],

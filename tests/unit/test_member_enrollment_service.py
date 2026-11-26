@@ -219,7 +219,9 @@ def _query(**overrides):
     return MemberEnrollQuery(**values | overrides)
 
 
-def _led_party(*, consent=PartyConsentMode.ACCEPT_BY_DEFAULT, **member):
+def _led_party(
+    *, consent=PartyConsentMode.ACCEPT_BY_DEFAULT, enrolls_together=True, **member
+):
     values = {
         "user_pk": _MEMBER.pk,
         "name": "Mira",
@@ -236,6 +238,7 @@ def _led_party(*, consent=PartyConsentMode.ACCEPT_BY_DEFAULT, **member):
             name="Ekipa",
             leader_name="Vera",
             is_own_led=True,
+            enrolls_together=enrolls_together,
             members=[
                 EnrollmentPartyMemberDTO(**values | member),
                 EnrollmentPartyMemberDTO(
@@ -800,6 +803,24 @@ class TestSubmitExplicit:
                 event_slug="konwent",
             )
         )
+        peers.parties.set_enrolls_together.assert_not_called()
+
+    def test_enrolling_through_a_party_that_does_not_enroll_turns_it_on(self):
+        peers = _peers(parties=_led_party(enrolls_together=False))
+
+        _submit(FakeSeats(), peers, {_MEMBER.pk: "enroll"})
+
+        peers.parties.set_enrolls_together.assert_called_once_with(
+            leader_pk=_VIEWER.pk, party_pk=_PARTY_ID, enrolls_together=True
+        )
+
+    def test_a_submit_that_changes_nothing_leaves_the_party_as_it_is(self):
+        peers = _peers(parties=_led_party(enrolls_together=False))
+
+        with pytest.raises(NothingToChangeError):
+            _submit(FakeSeats(), peers, {}, desired=True)
+
+        peers.parties.set_enrolls_together.assert_not_called()
 
 
 class TestSubmitDesired:

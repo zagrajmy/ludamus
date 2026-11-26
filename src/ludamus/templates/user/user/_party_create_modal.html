@@ -5,8 +5,10 @@
     <form action="{% url 'web:crowd:parties-create' %}" method="post">
         {% csrf_token %}
         <div class="px-6 pt-5 pb-4">
-            <h3 id="{{ modal_id }}-title" class="font-semibold text-foreground">{{ title }}</h3>
-            <p class="mt-1 text-sm text-foreground-muted">{{ hint }}</p>
+            <h3 id="{{ modal_id }}-title" class="font-semibold text-foreground">{% translate "Create party" %}</h3>
+            <p class="mt-1 text-sm text-foreground-muted">
+                {% translate "A group you play with. Invite friends once it exists, and pick it when you enroll to sign up together." %}
+            </p>
             <div class="mt-4">{% tessera_form form %}</div>
         </div>
         <div class="modal-footer flex justify-end gap-2 border-t border-border px-6 pt-3">

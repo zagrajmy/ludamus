@@ -367,9 +367,20 @@ class MemberEnrollmentService(MemberEnrollmentServiceProtocol):
                 quiet=guests_target is not None or submission.desired
             )
         with self._transaction.atomic():
+            self._turn_on_enrolling(page)
             batch = self._take(page, submission, requests, guests_target)
         self._after_commit(page, batch)
         return batch.outcome
+
+    def _turn_on_enrolling(self, page: MemberEnrollPageDTO) -> None:
+        # Only a party's leader is offered it before it enrolls, so the viewer
+        # leads it. Before any seat lock: a party delete also takes the Party
+        # row first, then the seats grouped under it.
+        selected = page.parties.selected
+        if selected is not None and not selected.enrolls_together:
+            self._peers.parties.set_enrolls_together(
+                leader_pk=page.viewer.pk, party_pk=selected.pk, enrolls_together=True
+            )
 
     def _desired_requests(
         self, page: MemberEnrollPageDTO, submission: MemberEnrollSubmission

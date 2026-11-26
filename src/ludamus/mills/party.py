@@ -235,18 +235,22 @@ class PartyService(PartyServiceProtocol):
         # The party the viewer enrolls as. An explicit ENROLL_WITHOUT_PARTY
         # means just themselves; an absent parameter defaults to their own led
         # party (else the first party they belong to); a value that is not one
-        # of their parties is invalid, never silently substituted.
+        # of their parties is invalid, never silently substituted. A party
+        # that does not enroll yet is offered to its leader alone, who turns
+        # enrolling on by enrolling through it, and is never the default.
         parties = [
             party
             for party in self._parties.overview(viewer_pk).parties
-            if party.enrolls_together
+            if party.enrolls_together or party.is_leader
         ]
+        enrolling = [party for party in parties if party.enrolls_together]
         choices = [
             EnrollmentPartyChoiceDTO(
                 pk=party.pk,
                 name=party.name,
                 leader_name=party.leader_name,
                 is_own_led=party.is_leader,
+                enrolls_together=party.enrolls_together,
             )
             for party in parties
         ]
@@ -254,8 +258,8 @@ class PartyService(PartyServiceProtocol):
             selected = None
         elif requested_party is None:
             selected = next(
-                (party for party in parties if party.is_leader),
-                parties[0] if parties else None,
+                (party for party in enrolling if party.is_leader),
+                enrolling[0] if enrolling else None,
             )
         else:
             selected = next(
@@ -282,6 +286,7 @@ def _selected_party(party: PartyDTO) -> SelectedEnrollmentPartyDTO:
         name=party.name,
         leader_name=party.leader_name,
         is_own_led=party.is_leader,
+        enrolls_together=party.enrolls_together,
         members=[
             EnrollmentPartyMemberDTO(
                 user_pk=member.user_pk,

@@ -214,6 +214,7 @@ msgstr ""
 "skończą."
 
 #: src/ludamus/gates/web/django/board/forms.py
+#: src/ludamus/templates/event/enroll_select.html
 #: src/ludamus/templates/user/user/parties.html
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "Your party"
@@ -9380,6 +9381,23 @@ msgid "Who should be in this session?"
 msgstr "Kto ma być w tym punkcie programu?"
 
 #: src/ludamus/templates/event/enroll_select.html
+msgid "Enrolling as"
+msgstr "Zapisy jako"
+
+#: src/ludamus/templates/event/enroll_select.html
+msgid "Just myself"
+msgstr "Tylko ja"
+
+#: src/ludamus/templates/event/enroll_select.html
+#, python-format
+msgid "Party of %(leader_name)s"
+msgstr "Drużyna %(leader_name)s"
+
+#: src/ludamus/templates/event/enroll_select.html
+msgid "Enrolling turns on enrolling together for this party."
+msgstr "Zapis przez tę drużynę włączy jej wspólne zapisy."
+
+#: src/ludamus/templates/event/enroll_select.html
 #: src/ludamus/templates/event/parts/_roster_confirmed_row.html
 #: src/ludamus/templates/event/parts/_roster_waiting_row.html
 msgid "You"
@@ -16019,8 +16037,17 @@ msgid "Send email"
 msgstr "Wyślij email"
 
 #: src/ludamus/templates/user/user/_party_create_modal.html
+#: src/ludamus/templates/user/user/parties.html
 msgid "Create party"
 msgstr "Utwórz drużynę"
+
+#: src/ludamus/templates/user/user/_party_create_modal.html
+msgid ""
+"A group you play with. Invite friends once it exists, and pick it when you "
+"enroll to sign up together."
+msgstr ""
+"Grupa, z którą grasz. Znajomych zaprosisz, gdy drużyna już powstanie, a przy "
+"zapisie możesz ją wybrać, żeby zapisać się razem."
 
 #: src/ludamus/templates/user/user/_profile_sidebar.html
 msgid "Change avatar"
@@ -16267,28 +16294,6 @@ msgid "Sign up for sessions together, or keep a group you play with."
 msgstr ""
 "Zapisujcie się razem na punkty programu albo po prostu trzymajcie się jako "
 "grupa do grania."
-
-#: src/ludamus/templates/user/user/parties.html
-msgid "Create play party"
-msgstr "Utwórz drużynę do grania"
-
-#: src/ludamus/templates/user/user/parties.html
-msgid "Create enrollment party"
-msgstr "Utwórz drużynę do zapisów"
-
-#: src/ludamus/templates/user/user/parties.html
-msgid "Sign up for sessions together — invite friends once it exists."
-msgstr ""
-"Zapisujcie się razem na punkty programu — znajomych zaprosisz, gdy drużyna "
-"już powstanie."
-
-#: src/ludamus/templates/user/user/parties.html
-msgid ""
-"A group to play with, without enrolling together — invite friends once it "
-"exists."
-msgstr ""
-"Grupa do grania, bez wspólnych zapisów — znajomych zaprosisz, gdy już "
-"powstanie."
 
 #: src/ludamus/templates/user/user/parties.html
 msgid "Invitations"
@@ -16787,6 +16792,24 @@ msgid ""
 msgstr ""
 "Bilety kupione na wydarzenia w tej sferze pojawią się tutaj, gotowe do "
 "pokazania przy wejściu."
+
+#~ msgid "Create play party"
+#~ msgstr "Utwórz drużynę do grania"
+
+#~ msgid "Create enrollment party"
+#~ msgstr "Utwórz drużynę do zapisów"
+
+#~ msgid "Sign up for sessions together — invite friends once it exists."
+#~ msgstr ""
+#~ "Zapisujcie się razem na punkty programu — znajomych zaprosisz, gdy "
+#~ "drużyna już powstanie."
+
+#~ msgid ""
+#~ "A group to play with, without enrolling together — invite friends once it "
+#~ "exists."
+#~ msgstr ""
+#~ "Grupa do grania, bez wspólnych zapisów — znajomych zaprosisz, gdy już "
+#~ "powstanie."
 
 #, python-format
 #~ msgid "Responses (%(waiting_count)s)"
@@ -18537,10 +18560,6 @@ msgstr ""
 
 #~ msgid "Invalid facilitator selection."
 #~ msgstr "Nieprawidłowy wybór twórcy programu."
-
-#, python-format
-#~ msgid "Party of %(leader_name)s"
-#~ msgstr "Drużyna %(leader_name)s"
 
 #, python-format
 #~ msgid ""
