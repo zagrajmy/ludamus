@@ -22,8 +22,18 @@ jobs:
       sha: ${{ github.sha }}
     secrets: inherit
 
+  board:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/deploy-board.yml
+    with:
+      environment: production-coolify
+      stage: prod
+      sha: ${{ github.sha }}
+    secrets: inherit
+
   deploy:
-    needs: parley
+    needs: [parley, board]
     permissions:
       contents: read
       packages: write

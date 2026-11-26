@@ -108,6 +108,14 @@ def parley(request: RootRequest) -> dict[str, SimpleLazyObject[bool]]:
     }
 
 
+def whiteboard(_request: HttpRequest) -> dict[str, bool]:
+    # The board signs its passes with Parley's key; without the board app's
+    # host or that key no board could open, so every board route 404s.
+    host: str = settings.BOARD_HOST
+    private_key: str = settings.PARLEY_SIGNING_PRIVATE_KEY
+    return {"BOARD_AVAILABLE": bool(host and private_key)}
+
+
 def static_version(_request: HttpRequest) -> dict[str, str]:
     return {
         "COMMIT_SHA": settings.COMMIT_SHA,

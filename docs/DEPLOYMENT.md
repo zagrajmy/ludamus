@@ -209,6 +209,15 @@ Scopes: **L** = local, **D** = docker local, **P** = prod.
 - `ROOT_DOMAIN` — root domain for the site — P
 - `SESSION_COOKIE_DOMAIN` — cookie domain — P
 
+**Board** (optional, prod):
+
+- `BOARD_HOST` — the board app's host, default `board.<ROOT_DOMAIN>`. Django
+  redirects `/b/<code>/` there and answers its pass requests from that
+  origin alone. The board is off without `PARLEY_SIGNING_PRIVATE_KEY`. The
+  board app deploys on its own (`workers/board/README.md`) and needs the
+  session cookie's domain (`SESSION_COOKIE_DOMAIN`, `.<ROOT_DOMAIN>`) to
+  cover the root domain — P
+
 **Database:**
 
 - `USE_POSTGRES` — default `false` — L(opt) D P

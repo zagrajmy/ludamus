@@ -1,0 +1,4 @@
+/* tldraw's stylesheet joins Tailwind's components layer, below utilities:
+   unlayered, it would beat every utility class placed on tldraw's parts
+   (the toolbar's width, the board's controls inside it). */
+@import "tldraw/tldraw.css" layer(components);

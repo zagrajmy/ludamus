@@ -19,6 +19,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from ludamus.pacts.sphere import DecryptionError
 
 if TYPE_CHECKING:
+    from ludamus.pacts.board import BoardDeletionClaims, BoardPassClaims
     from ludamus.pacts.parley import (
         ParleyCapabilityClaims,
         ParleyMembershipClaims,
@@ -56,7 +57,9 @@ class JwtSigner:
     def sign(
         self,
         claims: (
-            ParleyCapabilityClaims
+            BoardDeletionClaims
+            | BoardPassClaims
+            | ParleyCapabilityClaims
             | ParleyMembershipClaims
             | ParleyMessageLookupClaims
             | ParleyRevocationClaims
@@ -67,7 +70,7 @@ class JwtSigner:
             self._private_key_pem, password=None
         )
         if not isinstance(loaded, rsa.RSAPrivateKey):
-            raise TypeError("Parley signing key must be an RSA private key")
+            raise TypeError("The pass signing key must be an RSA private key")
         jwt_header: dict[str, str] = {"alg": "RS256", "typ": "JWT"}
         header = _base64url(json.dumps(jwt_header).encode())
         payload = _base64url(claims.model_dump_json().encode())

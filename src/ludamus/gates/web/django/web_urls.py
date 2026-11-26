@@ -33,6 +33,12 @@ from ludamus.gates.web.django.landing import (
 from ludamus.gates.web.django.staff.mail import StaffMailHookView
 from ludamus.gates.web.django.staff.urls import urlpatterns as staff_urls
 from ludamus.gates.web.django.user.urls import crowd_urlpatterns as crowd_gate_urls
+from ludamus.gates.web.django.whiteboard.urls import (
+    authenticated_urlpatterns as whiteboard_authenticated,
+)
+from ludamus.gates.web.django.whiteboard.urls import (
+    public_urlpatterns as whiteboard_public,
+)
 
 app_name = "web"  # pylint: disable=invalid-name
 
@@ -183,6 +189,19 @@ urlpatterns = [
                 "notice-board",
             ),
             namespace="notice-board",
+        ),
+    ),
+    path(
+        "",
+        include(
+            (
+                [
+                    path("b/", include(whiteboard_public)),
+                    path("boards/", include(whiteboard_authenticated)),
+                ],
+                "boards",
+            ),
+            namespace="boards",
         ),
     ),
 ]

@@ -60,6 +60,8 @@ env = environ.Env(
     PARLEY_AGENT_HOST=(str, ""),
     PARLEY_SIGNING_PRIVATE_KEY=(str, ""),
     PARLEY_MENTIONS_SECRET=(str, ""),
+    # Board
+    BOARD_HOST=(str, ""),
     CREDENTIALS_ENCRYPTION_KEY=str,
     DEBUG=(bool, False),
     # Email transport: consolemail:// (default), smtp://mailpit:1025 for the
@@ -235,6 +237,7 @@ TEMPLATES = [
                 "ludamus.gates.web.django.context_processors.support",
                 "ludamus.gates.web.django.context_processors.board",
                 "ludamus.gates.web.django.context_processors.parley",
+                "ludamus.gates.web.django.context_processors.whiteboard",
                 "ludamus.inits.context_processors.analytics",
                 "ludamus.gates.web.django.context_processors.static_version",
                 "ludamus.gates.web.django.context_processors.current_user",
@@ -775,6 +778,14 @@ if PARLEY_AGENT_HOST:
             f"{PARLEY_WEBSOCKET_SCHEME}://{PARLEY_AGENT_HOST}",
         ]
     )
+
+# Board: the board app, a Worker with its own pages that asks Django for
+# passes across origins. Its passes are signed with Parley's key. A
+# deployment's Worker serves board.<ROOT_DOMAIN>, a laptop runs it on 8788
+# beside the app, and tests have none. No Django page talks to it.
+BOARD_HOST = env("BOARD_HOST") or (
+    {"development": "localhost:8788", "test": ""}.get(ENV, f"board.{ROOT_DOMAIN}")
+)
 
 # Vendor Dependencies Configuration
 # Download with: mise run dj downloadvendor

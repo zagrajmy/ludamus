@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from django.conf import settings
 
+from ludamus.inits.board import board_service
 from ludamus.inits.builders import (
     build_credentials_decryptor,
     build_credentials_encryptor,
@@ -170,6 +171,7 @@ from ludamus.pacts.user import gravatar_url
 if TYPE_CHECKING:
     import stripe
 
+    from ludamus.mills.board import BoardService
     from ludamus.mills.encounter import EncounterService
     from ludamus.mills.encounter_calendar import EncounterGuests
     from ludamus.mills.konwencik import KonwencikExportService
@@ -198,6 +200,10 @@ class Services:
     def __init__(self) -> None:
         self._repos = Repositories()
         self._transaction = DjangoTransaction()
+
+    @cached_property
+    def boards(self) -> BoardService:
+        return board_service(transaction=self._transaction, boards=self._repos.boards)
 
     @cached_property
     def parley(self) -> ParleyService:

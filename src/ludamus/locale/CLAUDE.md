@@ -13,3 +13,8 @@
   ("I'm interested" → "Zgłaszam się"), declining it → "Nie tym razem". Keep
   board copy gender-neutral: nouns ("zgłoszenie") over past-tense verbs
   ("zgłosiłeś się")
+- **board** (the whiteboard with dice, `/b/…`) → "tablica"; a **place** on it
+  → "miejsce"; a die is written "k6", not "d6" (`d%(sides)s` → "k%(sides)s");
+  **roll** → "rzut", the button "Rzuć". Keep it gender-neutral too:
+  "%(name)s rolled" → "%(name)s rzuca", not "rzucił(a)". The listings board
+  (`/board/`) stays "Ogłoszenia", so the two never share a name.

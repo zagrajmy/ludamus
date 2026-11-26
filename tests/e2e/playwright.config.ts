@@ -36,6 +36,9 @@ const proxyServer = process.env.HTTPS_PROXY ?? process.env.https_proxy;
 const WEB_COMMAND = "mise run test:e2e:prep && exec mise run test:e2e:serve";
 
 const isCI = !!process.env.CI;
+
+// Where the e2e board Worker keeps its rooms, inside workers/board.
+const BOARD_E2E_STATE = ".wrangler/e2e-state";
 const skipWebkit = !!process.env.E2E_SKIP_WEBKIT;
 
 // CI runs the projects as three groups, each sharded on its own, so a shard's
@@ -219,6 +222,23 @@ export default defineConfig({
       stdout: "pipe",
       stderr: "pipe",
       cwd: repoRoot,
+      gracefulShutdown: { signal: "SIGTERM", timeout: 5000 },
+    },
+    {
+      // The board app as deployed: the client built for the e2e server's
+      // origin, served with the rooms by the real board Worker. wrangler
+      // runs it in workerd with the dev public key from
+      // workers/board/.env.development, so the passes the e2e server signs
+      // with the committed dev key open its rooms.
+      // NOTE: board ids restart with each fresh e2e database, so the rooms
+      // start from empty storage too, or a board opens on an old run's drawing.
+      command: `rm -rf ${BOARD_E2E_STATE} && aube run build && exec aube run serve -- --persist-to ${BOARD_E2E_STATE}`,
+      // A room without a pass answers 403, which counts as up.
+      url: "http://localhost:8788/rooms/e2e/rolls",
+      env: { ...webServerEnv, WRANGLER_SEND_METRICS: "false" },
+      reuseExistingServer: !isCI,
+      timeout: 120 * 1000,
+      cwd: path.join(repoRoot, "workers", "board"),
       gracefulShutdown: { signal: "SIGTERM", timeout: 5000 },
     },
     {
