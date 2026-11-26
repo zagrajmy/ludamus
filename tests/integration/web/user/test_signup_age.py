@@ -48,10 +48,12 @@ def _reach_gate(client, sub, **claims):
         return client.get(CALLBACK_URL, {"state": state_token})
 
 
-def _answer(client, age_band):
+def _answer(client, age_band, *, name: str = "Signup Tester"):
     page = client.get(GATE_URL)
     token = page.context_data["form"]["confirmation_token"].value()
-    return client.post(GATE_URL, {"age_band": age_band, "confirmation_token": token})
+    return client.post(
+        GATE_URL, {"age_band": age_band, "name": name, "confirmation_token": token}
+    )
 
 
 def _update(client, age_band, **extra):
@@ -166,7 +168,10 @@ class TestSignupAgeGate:
         assert "pending_claim_token" not in client.session
         client.post(reverse("web:crowd:claim", kwargs={"token": "later"}))
 
-        client.post(GATE_URL, {"age_band": "13_15", "confirmation_token": token})
+        client.post(
+            GATE_URL,
+            {"age_band": "13_15", "name": "Signup Tester", "confirmation_token": token},
+        )
 
         original.refresh_from_db()
         later.refresh_from_db()
@@ -234,7 +239,12 @@ class TestSignupAgeGate:
             )
 
         response = client.post(
-            GATE_URL, {"age_band": "13_15", "confirmation_token": old_token}
+            GATE_URL,
+            {
+                "age_band": "13_15",
+                "name": "Signup Tester",
+                "confirmation_token": old_token,
+            },
         )
 
         assert_response(
@@ -259,19 +269,15 @@ class TestSignupAgeGate:
         sub = faker.uuid4()
         _reach_gate(client, sub)
 
-        _answer(client, age_band)
-        replay = client.post(GATE_URL, {"age_band": age_band})
+        _answer(client, age_band, name="Chosen Nick")
+        replay = client.post(GATE_URL, {"age_band": age_band, "name": "Chosen Nick"})
 
         user = User.objects.get()
         assert user.username == f"auth0|{sub}"
         assert user.age_band == age_band
+        assert user.name == "Chosen Nick"
         assert client.session["_auth_user_id"] == str(user.pk)
-        assert_response(
-            replay,
-            HTTPStatus.FOUND,
-            url=reverse("web:index"),
-            messages=[(messages.SUCCESS, "Please complete your profile.")],
-        )
+        assert_response(replay, HTTPStatus.FOUND, url=reverse("web:index"))
 
     def test_invalid_choice_preserves_the_pending_sign_in(self, client, faker):
         _reach_gate(client, faker.uuid4())
@@ -304,7 +310,12 @@ class TestSignupAgeGate:
         _reach_gate(client, faker.uuid4())
 
         response = client.post(
-            GATE_URL, {"age_band": "16_plus", "confirmation_token": old_token}
+            GATE_URL,
+            {
+                "age_band": "16_plus",
+                "name": "Signup Tester",
+                "confirmation_token": old_token,
+            },
         )
 
         assert_response(
@@ -320,6 +331,33 @@ class TestSignupAgeGate:
         )
         assert not User.objects.exists()
 
+    def test_email_shaped_auth0_name_defaults_to_local_part(self, client, faker):
+        sub = faker.uuid4()
+        _reach_gate(
+            client, sub, email="redziniak.w@gmail.com", name="redziniak.w@gmail.com"
+        )
+
+        page = client.get(GATE_URL)
+
+        assert page.context_data["form"]["name"].value() == "redziniak.w"
+
+    def test_rejects_email_as_display_name(self, client, faker):
+        _reach_gate(client, faker.uuid4(), email="a@example.com")
+
+        response = _answer(client, "16_plus", name="a@example.com")
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="user/signup_age.html",
+            context_data={
+                "form": FormErrorsMatcher(
+                    name=["Enter a display name, not an email address."]
+                )
+            },
+        )
+        assert not User.objects.exists()
+
     def test_later_login_discards_pending_signup(self, client, faker):
         existing_sub = faker.uuid4()
         User.objects.create(
@@ -332,7 +370,12 @@ class TestSignupAgeGate:
         _reach_gate(client, existing_sub)
 
         response = client.post(
-            GATE_URL, {"age_band": "16_plus", "confirmation_token": old_token}
+            GATE_URL,
+            {
+                "age_band": "16_plus",
+                "name": "Signup Tester",
+                "confirmation_token": old_token,
+            },
         )
 
         assert_response(response, HTTPStatus.FOUND, url=reverse("web:index"))

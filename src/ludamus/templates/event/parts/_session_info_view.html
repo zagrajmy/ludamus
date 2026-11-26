@@ -1,7 +1,7 @@
 {% extends "event/parts/_session_info.html" %}
 {% load i18n tessera cfp_tags markdown_tags schedule_tags session_info_tags %}
 {% block host_section %}
-    {% if data.session.facilitator_name %}{{ block.super }}{% endif %}
+    {% if data.presenter.full_name %}{{ block.super }}{% endif %}
 {% endblock host_section %}
 {% block host %}
     {# The whole row is guarded above, paired with the card's own guard: both #}

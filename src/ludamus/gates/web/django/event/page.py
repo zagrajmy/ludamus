@@ -423,16 +423,7 @@ class EventPageView(TemplateView):
             if card.presenter is not None:
                 presenter = UserInfo.from_user_dto(card.presenter)
             else:
-                presenter_name = session.facilitator_name or ""
-                presenter = UserInfo(
-                    avatar_url=None,
-                    discord_username="",
-                    full_name=presenter_name,
-                    name=presenter_name,
-                    pk=0,
-                    slug="",
-                    username=presenter_name,
-                )
+                presenter = UserInfo.from_public_label(session.facilitator_name or "")
             sessions_data[session.pk] = SessionData(
                 can_edit=(
                     edit_allowed
