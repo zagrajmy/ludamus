@@ -8272,11 +8272,6 @@ msgstr "Organizujesz"
 
 #: src/ludamus/templates/components/encounter_card.html
 #, python-format
-#: src/ludamus/templates/event/parts/_session_info_view.html
-msgctxt "session host"
-msgid "Leads"
-msgstr "Prowadzi"
-
 msgid "Hosted by %(name)s"
 msgstr "Prowadzi %(name)s"
 
@@ -9297,16 +9292,22 @@ msgid "Save this code to manage your enrollment later"
 msgstr "Zachowaj ten kod, aby później zarządzać swoim zapisem"
 
 #: src/ludamus/templates/event/anonymous_enroll.html
-#: src/ludamus/templates/event/event.html
-msgid "Host"
-msgstr "Prowadzący"
+#: src/ludamus/templates/event/parts/_session_info_view.html
+msgctxt "session host"
+msgid "Leads"
+msgstr "Prowadzi"
 
 #: src/ludamus/templates/event/anonymous_enroll.html
 #: src/ludamus/templates/event/parts/session-modal.html
-#: src/ludamus/templates/landing/spotkanie.html
-#: src/ludamus/templates/landing/zapisy_grupowe.html
+msgctxt "session roster taking part"
 msgid "Participants"
-msgstr "Uczestnicy"
+msgstr "Udział biorą"
+
+#: src/ludamus/templates/event/anonymous_enroll.html
+#: src/ludamus/templates/event/parts/session-modal.html
+msgctxt "session roster playing"
+msgid "Participants"
+msgstr "Grają"
 
 #: src/ludamus/templates/event/anonymous_enroll.html
 #: src/ludamus/templates/event/parts/session-modal.html
@@ -9638,6 +9639,10 @@ msgid "All"
 msgstr "Wszystkie"
 
 #: src/ludamus/templates/event/event.html
+msgid "Host"
+msgstr "Prowadzący"
+
+#: src/ludamus/templates/event/event.html
 msgid "Search hosts…"
 msgstr "Szukaj prowadzących…"
 
@@ -9824,16 +9829,6 @@ msgstr "Zapisz"
 msgid "Waiting list position"
 msgstr "Pozycja na liście oczekujących"
 
-#: src/ludamus/templates/event/parts/session-modal.html
-msgctxt "session roster taking part"
-msgid "Participants"
-msgstr "Udział biorą"
-
-#: src/ludamus/templates/event/parts/session-modal.html
-msgctxt "session roster playing"
-msgid "Participants"
-msgstr "Grają"
-
 #: src/ludamus/templates/event/parts/_session_participants_panel.html
 msgctxt "session roster taking part"
 msgid "Enrolled"
@@ -9843,10 +9838,6 @@ msgstr "Udział biorą"
 msgctxt "session roster playing"
 msgid "Enrolled"
 msgstr "Grają"
-
-#: src/ludamus/templates/event/parts/_session_participants_panel.html
-msgid "Enrolled"
-msgstr "Zapisany"
 
 #: src/ludamus/templates/event/parts/_session_participants_panel.html
 msgid "Waiting List"
@@ -11131,6 +11122,11 @@ msgid "I'm in!"
 msgstr "Będę"
 
 #: src/ludamus/templates/landing/spotkanie.html
+#: src/ludamus/templates/landing/zapisy_grupowe.html
+msgid "Participants"
+msgstr "Uczestnicy"
+
+#: src/ludamus/templates/landing/spotkanie.html
 msgid "Time left until the encounter"
 msgstr "Do spotkania zostało"
 
@@ -11708,8 +11704,8 @@ msgstr ""
 "Bany wydarzenia są dla poważnych przypadków — osób, których obecność na "
 "wydarzeniu jest niebezpieczna. Zbanowana osoba nie może zapisać się na żaden "
 "punkt programu: wydarzenie po prostu wydaje się dla niej pełne i nie jest "
-"informowana, że jest zbanowana. W przypadku łagodniejszego dyskomfortu "
-"osoby mogą zamiast tego cicho banować się nawzajem we własnych ustawieniach."
+"informowana, że jest zbanowana. W przypadku łagodniejszego dyskomfortu osoby "
+"mogą zamiast tego cicho banować się nawzajem we własnych ustawieniach."
 
 #: src/ludamus/templates/panel/bans.html
 msgid "Banned people"
@@ -12585,8 +12581,8 @@ msgid ""
 "Cached name from the submission wizard. The canonical byline is the "
 "proposal's presenter name."
 msgstr ""
-"Nazwa zapisana przez kreator zgłoszeń. Kanonicznym podpisem jest nazwa "
-"osoby prowadzącej w zgłoszeniu."
+"Nazwa zapisana przez kreator zgłoszeń. Kanonicznym podpisem jest nazwa osoby "
+"prowadzącej w zgłoszeniu."
 
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid ""
@@ -15350,17 +15346,17 @@ msgid_plural ""
 "Its mark stops showing on the programme cards of %(counter)s presenters. "
 "Sessions are untouched."
 msgstr[0] ""
-"Jej znak przestanie się pokazywać na kartach programu %(counter)s "
-"osoby prowadzącej. Punkty programu zostają nietknięte."
+"Jej znak przestanie się pokazywać na kartach programu %(counter)s osoby "
+"prowadzącej. Punkty programu zostają nietknięte."
 msgstr[1] ""
-"Jej znak przestanie się pokazywać na kartach programu %(counter)s "
-"osób prowadzących. Punkty programu zostają nietknięte."
+"Jej znak przestanie się pokazywać na kartach programu %(counter)s osób "
+"prowadzących. Punkty programu zostają nietknięte."
 msgstr[2] ""
-"Jej znak przestanie się pokazywać na kartach programu %(counter)s "
-"osób prowadzących. Punkty programu zostają nietknięte."
+"Jej znak przestanie się pokazywać na kartach programu %(counter)s osób "
+"prowadzących. Punkty programu zostają nietknięte."
 msgstr[3] ""
-"Jej znak przestanie się pokazywać na kartach programu %(counter)s "
-"osoby prowadzącej. Punkty programu zostają nietknięte."
+"Jej znak przestanie się pokazywać na kartach programu %(counter)s osoby "
+"prowadzącej. Punkty programu zostają nietknięte."
 
 #: src/ludamus/templates/sphere/panel/guilds/edit.html
 msgid "Back to guilds"
@@ -16813,6 +16809,9 @@ msgid ""
 msgstr ""
 "Bilety kupione na wydarzenia w tej sferze pojawią się tutaj, gotowe do "
 "pokazania przy wejściu."
+
+#~ msgid "Enrolled"
+#~ msgstr "Zapisany"
 
 #, python-format
 #~ msgid "Responses (%(waiting_count)s)"

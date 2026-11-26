@@ -17,12 +17,7 @@
         <h3 class="font-semibold mb-3 text-foreground-secondary">
             {# A session that takes no sign-up has no limit to count against, #}
             {# so the fraction would read "1/0". #}
-            {% if event.use_participants_label %}
-                {% translate "Enrolled" context "session roster taking part" %}
-            {% else %}
-                {% translate "Enrolled" context "session roster playing" %}
-            {% endif %}
-            (<span data-roster-count>{{ data.enrolled_count }}</span>{% if data.takes_enrollment %}/<span data-roster-limit>{{ data.effective_participants_limit }}</span>{% endif %})
+            {% if event.use_participants_label %}{% translate "Enrolled" context "session roster taking part" %}{% else %}{% translate "Enrolled" context "session roster playing" %}{% endif %} (<span data-roster-count>{{ data.enrolled_count }}</span>{% if data.takes_enrollment %}/<span data-roster-limit>{{ data.effective_participants_limit }}</span>{% endif %})
         </h3>
         <div class="space-y-2 mb-6" data-roster-list>
             {% for participation in data.session_participations|dictsort:"creation_time" %}

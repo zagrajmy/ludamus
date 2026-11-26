@@ -21,6 +21,7 @@ from ludamus.pacts.enrollment import (
     AnonymousSessionContextDTO,
     EnrollmentWindowSnapshot,
 )
+from ludamus.pacts.event import EventDTO
 from ludamus.pacts.notifications import NotificationKind
 from ludamus.pacts.user import UserDTO
 from tests.integration.conftest import AgendaItemFactory, EventFactory, SessionFactory
@@ -244,6 +245,7 @@ class TestSessionEnrollmentAnonymousPageView:
             HTTPStatus.OK,
             context_data={
                 "session": _expected_session_dto(agenda_item, enrollment_config),
+                "event": EventDTO.model_validate(enrollment_config.event),
                 "event_slug": agenda_item.session.event.slug,
                 "user_name": UserDTO.model_validate(user).full_name,
                 "anonymous_code": user.slug.removeprefix("code_"),
@@ -280,6 +282,7 @@ class TestSessionEnrollmentAnonymousPageView:
             HTTPStatus.OK,
             context_data={
                 "session": _expected_session_dto(agenda_item, enrollment_config),
+                "event": EventDTO.model_validate(enrollment_config.event),
                 "event_slug": agenda_item.session.event.slug,
                 "user_name": UserDTO.model_validate(user).full_name,
                 "anonymous_code": user.slug.removeprefix("code_"),
