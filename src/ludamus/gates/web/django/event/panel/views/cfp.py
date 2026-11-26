@@ -32,7 +32,7 @@ class CFPPageView(EventPanelMixin, View):
         """
         context = self.panel_context()
 
-        context["active_nav"] = "cfp"
+        context["active_nav"] = "session-config"
         context["active_tab"] = "types"
         context["tab_urls"] = cfp_tab_urls(slug)
         page = self.request.services.proposal_categories.get_page_context(
@@ -62,7 +62,7 @@ class CFPCreatePageView(EventPanelMixin, View):
         """
         context = self.panel_context()
 
-        context["active_nav"] = "cfp"
+        context["active_nav"] = "session-config"
         context["form"] = ProposalCategoryForm()
         return TemplateResponse(self.request, "panel/cfp-create.html", context)
 
@@ -76,7 +76,7 @@ class CFPCreatePageView(EventPanelMixin, View):
 
         form = ProposalCategoryForm(self.request.POST)
         if not form.is_valid():
-            context["active_nav"] = "cfp"
+            context["active_nav"] = "session-config"
             context["form"] = form
             return TemplateResponse(self.request, "panel/cfp-create.html", context)
 

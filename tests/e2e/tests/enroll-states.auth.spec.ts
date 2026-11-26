@@ -37,10 +37,14 @@ const release = async (page: Page, title: string) => {
 // specs that mutate shared seed data (panel, confirmations, timetable, …).
 test.describe.configure({ mode: "serial" });
 
+// The enroll view, which the one-click footer posts to.
+const ENROLL_POST = "**/session/*/enrollment/";
+
 test.describe("Ways into a session while enrollment is open", () => {
   // Scoped to the session the test actually touched, so a restore never
   // reaches into a sibling's state.
   test.afterEach(async ({ page }, testInfo) => {
+    await page.unrouteAll({ behavior: "ignoreErrors" });
     await release(
       page,
       testInfo.title.includes("full session") ? "Waiting List Only Demo" : "Seat Available Demo",
@@ -80,5 +84,111 @@ test.describe("Ways into a session while enrollment is open", () => {
 
     await expect(footer.getByText("On the waiting list")).toBeVisible();
     await expect(footer.getByRole("button", { name: "Leave", exact: true })).toBeVisible();
+    const tab = dialog.getByRole("tab", { name: /Participants/ });
+    await expect(tab).toHaveAccessibleName("Participants 1 +1");
+    await tab.click();
+    await expect(dialog.getByRole("heading", { name: "Waiting List", exact: true })).toBeVisible();
+    await expect(dialog.getByText("You", { exact: true })).toBeVisible();
+  });
+
+  test("a full session keeps your waiting-list place when leaving never reaches the server", async ({
+    page,
+  }) => {
+    const { dialog, footer } = await openModal(page, "Waiting List Only Demo");
+    await footer.getByRole("button", { name: "Join waiting list" }).click();
+    await expect(footer.getByRole("button", { name: "Leave", exact: true })).toBeVisible();
+    const tab = dialog.getByRole("tab", { name: /Participants/ });
+    await tab.click();
+    await page.route(ENROLL_POST, (route) =>
+      route.request().method() === "POST" ? route.abort() : route.fallback(),
+    );
+    page.on("dialog", (confirmation) => confirmation.accept());
+
+    const aborted = page.waitForEvent("requestfailed");
+    await footer.getByRole("button", { name: "Leave", exact: true }).click();
+    await aborted;
+
+    // The row that comes back is yours, still first in line.
+    await expect(tab).toHaveAccessibleName("Participants 1 +1");
+    await expect(dialog.getByText("You", { exact: true })).toHaveCount(1);
+    await expect(dialog.getByLabel("Waiting list position 1")).toBeVisible();
+  });
+});
+
+test.describe("The participants tab answers an Enroll click at once", () => {
+  test.afterEach(async ({ page }) => {
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+    await release(page, "Seat Available Demo");
+  });
+
+  test("lists you before the server answers, and keeps you once it does", async ({ page }) => {
+    const { dialog, footer } = await openModal(page, "Seat Available Demo");
+    let answer = (): void => {};
+    const held = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    await page.route(ENROLL_POST, async (route) => {
+      if (route.request().method() !== "POST") return route.fallback();
+      await held;
+      return route.continue();
+    });
+    const tab = dialog.getByRole("tab", { name: /Participants/ });
+    await expect(tab).toHaveAccessibleName("Participants 0");
+
+    await footer.getByRole("button", { name: "Enroll", exact: true }).click();
+
+    // The request is still held here: only the client can have done this.
+    await expect(tab).toHaveAccessibleName("Participants 1");
+    await tab.click();
+    await expect(dialog.getByRole("heading", { name: "Enrolled (1/5)" })).toBeVisible();
+    await expect(dialog.getByText("You", { exact: true })).toBeVisible();
+    await expect(dialog.getByText("No participants enrolled yet.")).toBeHidden();
+    await expect(footer.getByText("You're enrolled")).toHaveCount(0);
+
+    answer();
+
+    await expect(footer.getByText("You're enrolled")).toBeVisible();
+    await expect(tab).toHaveAccessibleName("Participants 1");
+    await expect(dialog.getByText("You", { exact: true })).toBeVisible();
+  });
+
+  test("takes you back out when the enroll never reaches the server", async ({ page }) => {
+    const { dialog, footer } = await openModal(page, "Seat Available Demo");
+    await page.route(ENROLL_POST, (route) =>
+      route.request().method() === "POST" ? route.abort() : route.fallback(),
+    );
+    const tab = dialog.getByRole("tab", { name: /Participants/ });
+
+    await footer.getByRole("button", { name: "Enroll", exact: true }).click();
+
+    await expect(tab).toHaveAccessibleName("Participants 0");
+    await tab.click();
+    await expect(dialog.getByText("No participants enrolled yet.")).toBeVisible();
+    await expect(dialog.getByText("You", { exact: true })).toHaveCount(0);
+    await expect(footer.getByRole("button", { name: "Enroll", exact: true })).toBeVisible();
+  });
+
+  test("takes you back out when the answer replaces the footer without a roster update", async ({
+    page,
+  }) => {
+    const { dialog, footer } = await openModal(page, "Seat Available Demo");
+    // Stands in for any answer the enroll view did not word, such as a
+    // redirect htmx follows: it swaps the form away and says nothing of the
+    // roster.
+    await page.route(ENROLL_POST, (route) =>
+      route.request().method() === "POST"
+        ? route.fulfill({ status: 200, contentType: "text/html", body: "<div></div>" })
+        : route.fallback(),
+    );
+    const tab = dialog.getByRole("tab", { name: /Participants/ });
+
+    const answered = page.waitForResponse((response) => response.request().method() === "POST");
+    await footer.getByRole("button", { name: "Enroll", exact: true }).click();
+    await answered;
+
+    await expect(tab).toHaveAccessibleName("Participants 0");
+    await tab.click();
+    await expect(dialog.getByText("No participants enrolled yet.")).toBeVisible();
+    await expect(dialog.getByText("You", { exact: true })).toHaveCount(0);
   });
 });

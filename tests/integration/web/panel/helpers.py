@@ -359,7 +359,6 @@ def cfp_tab_urls(event):
         "types": reverse("panel:cfp", kwargs={"slug": event.slug}),
         "host": reverse("panel:personal-data-fields", kwargs={"slug": event.slug}),
         "session": reverse("panel:session-fields", kwargs={"slug": event.slug}),
-        "time_slots": reverse("panel:time-slots", kwargs={"slug": event.slug}),
     }
 
 
@@ -390,9 +389,9 @@ def time_slots_page_context(
     # inside it is what every caller so far asks for, so the empty orphan list
     # and the page-zero markers are written here rather than passed in.
     return {
-        **panel_context(event, active_nav="cfp", **stats),
-        "active_tab": "time_slots",
-        "tab_urls": cfp_tab_urls(event),
+        **panel_context(event, active_nav="settings", **stats),
+        "active_tab": "availability",
+        "tab_urls": settings_tab_urls(event),
         "time_slots": list(time_slots),
         "undeletable_slot_reasons": undeletable_slot_reasons or {},
         "days": days,
@@ -435,6 +434,7 @@ def settings_tab_urls(event):
         "proposals": reverse(
             "panel:event-proposal-settings", kwargs={"slug": event.slug}
         ),
+        "availability": reverse("panel:time-slots", kwargs={"slug": event.slug}),
         "enrollment": reverse(
             "panel:event-enrollment-settings", kwargs={"slug": event.slug}
         ),

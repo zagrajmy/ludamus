@@ -58,7 +58,7 @@ class PersonalDataFieldsPageView(EventPanelMixin, View):
         context = self.panel_context()
 
         service = self.request.services.personal_data_fields
-        context["active_nav"] = "cfp"
+        context["active_nav"] = "session-config"
         context["active_tab"] = "host"
         context["tab_urls"] = cfp_tab_urls(slug)
         summaries = service.list_summaries(self.current_event.pk)
@@ -82,7 +82,7 @@ class PersonalDataFieldCreatePageView(EventPanelMixin, View):
         """
         context = self.panel_context()
 
-        context["active_nav"] = "cfp"
+        context["active_nav"] = "session-config"
         context["form"] = PersonalDataFieldForm(
             initial={"max_length": DEFAULT_FIELD_MAX_LENGTH, "order": 0}
         )
@@ -100,7 +100,7 @@ class PersonalDataFieldCreatePageView(EventPanelMixin, View):
 
         form = PersonalDataFieldForm(self.request.POST)
         if not form.is_valid():
-            context["active_nav"] = "cfp"
+            context["active_nav"] = "session-config"
             context["form"] = form
             return TemplateResponse(
                 self.request, "panel/personal-data-field-create.html", context
@@ -149,7 +149,7 @@ class PersonalDataFieldEditPageView(EventPanelMixin, View):
             initial["is_multiple"] = field.is_multiple
             initial["allow_custom"] = field.allow_custom
 
-        context["active_nav"] = "cfp"
+        context["active_nav"] = "session-config"
         context["field"] = field
         context["form"] = PersonalDataFieldEditForm(initial=initial)
         context["can_switch_type"] = is_text_field_kind(field.field_type)
@@ -183,7 +183,7 @@ class PersonalDataFieldEditPageView(EventPanelMixin, View):
         form = PersonalDataFieldForm(data)
 
         def rerender() -> HttpResponse:
-            context["active_nav"] = "cfp"
+            context["active_nav"] = "session-config"
             context["field"] = field
             context["form"] = form
             context["can_switch_type"] = is_text_field_kind(field.field_type)

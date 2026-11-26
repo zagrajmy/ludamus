@@ -104,8 +104,15 @@ def build_party_detail_context(
         banned_event_ids=banned_event_ids,
         banned_presenter_ids=request.services.shadowban.banning_owner_ids(viewer_pk),
     )
+    party_listings = request.services.listings.party_listings(
+        party_id=pk, viewer_id=viewer_pk
+    )
     return {
         "party": party,
+        "member_rows": [
+            (member, party_listings.contacts.get(member.user_pk))
+            for member in party.members
+        ],
         "rename_form": (
             PartyNameForm(initial={"name": party.name}, auto_id=f"rename_{party.pk}_%s")
             if party.is_leader
@@ -128,5 +135,6 @@ def build_party_detail_context(
         ),
         "history": history,
         "enrolling_locked": detail.enrolling_locked,
+        "listings": party_listings.listings,
         "profile_active_tab": "parties",
     }

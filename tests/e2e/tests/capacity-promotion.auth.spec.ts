@@ -40,7 +40,7 @@ test("raising a full session's limit seats the first waiter, and only her", asyn
 
   for (const member of [first, second]) {
     const dialog = await openSession(member.page, title);
-    await expect(dialog.getByText("On the waiting list")).toBeVisible();
+    await expect(dialog.getByText("On the waiting list", { exact: true })).toBeVisible();
   }
 
   await page.goto(PANEL_URL);
@@ -66,7 +66,7 @@ test("raising a full session's limit seats the first waiter, and only her", asyn
 
   // One seat opened, so the second in the queue keeps waiting.
   const waiting = await openSession(second.page, title);
-  await expect(waiting.getByText("On the waiting list")).toBeVisible();
+  await expect(waiting.getByText("On the waiting list", { exact: true })).toBeVisible();
   await waiting.getByRole("tab", { name: /Participants/ }).click();
   const roster = waiting.getByRole("tabpanel");
   await expect(roster).toHaveText(
