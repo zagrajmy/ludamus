@@ -2,6 +2,7 @@ from contextlib import AbstractContextManager, nullcontext
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from ludamus.pacts.encounter import EncounterRSVPDTO
 from ludamus.pacts.enrollment import (
     PromotionMode,
     PromotionStateDTO,
@@ -133,6 +134,16 @@ def sphere_dto(**overrides) -> SphereDTO:
         "site": SiteDTO(domain="example.com", name="Example", pk=1),
     }
     return SphereDTO(**(defaults | overrides))
+
+
+def encounter_rsvp_dto(**overrides) -> EncounterRSVPDTO:
+    defaults = {
+        "creation_time": DEFAULT_JOINED,
+        "encounter_id": 1,
+        "pk": 1,
+        "user_id": 1,
+    }
+    return EncounterRSVPDTO(**(defaults | overrides))
 
 
 def agenda_item_dto(**overrides) -> AgendaItemDTO:
