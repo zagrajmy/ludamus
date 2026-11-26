@@ -124,7 +124,9 @@ test("a visitor signs up with a code, waits for a full session, and gives both b
   // The first browser sees both handed back, and is offered the way in again.
   await page.goto(EVENT_URL);
   const clearedDuel = await openSession(page, "Cellar Duel");
-  await expect(clearedDuel.locator("[data-roster]")).not.toContainText("waiting");
+  const clearedRoster = clearedDuel.locator("[data-roster]");
+  await expect(clearedRoster).toHaveAttribute("data-roster-waiting", "0");
+  await expect(clearedRoster.locator("[data-roster-waiting-block]")).toBeHidden();
   await closeSession(page, "Cellar Duel");
   const walk = await openRoster(page, "Lantern Walk");
   await expect(walk.roster.getByRole("img", { name })).toHaveCount(0);

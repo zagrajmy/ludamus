@@ -118,9 +118,8 @@ test.describe("Signing a companion up", () => {
     const regularOnly = await openSession(page, "Last Chair Saga");
     const seats = regularOnly.getByRole("button", { name: "Participants" });
     await expect(seats).toContainText("1/2");
-    // The popover always holds the "Waiting List" copy; the trigger is what
-    // must stop saying anyone is waiting once the companion has left.
-    await expect(seats).not.toContainText("waiting");
+    // The popover keeps Waiting List copy; the trigger's waiting block must hide.
+    await expect(regularOnly.locator("[data-roster-waiting-block]")).toBeHidden();
     await seats.click();
     const cleared = regularOnly.getByRole("dialog", { name: "Participants" });
     await expect(cleared.getByText(COMPANION, { exact: true })).toHaveCount(0);

@@ -12,8 +12,8 @@
     <button type="button"
             class="inline-flex items-center gap-2 min-w-0 rounded-lg cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             popovertarget="roster-popover-{{ data.session.pk }}"
-            aria-haspopup="dialog"
-            aria-label="{% translate "Participants" %}">
+            aria-haspopup="dialog">
+        <span class="sr-only">{% translate "Participants" %}</span>
         <span class="flex -space-x-2"
               data-roster-stack
               aria-hidden="true"

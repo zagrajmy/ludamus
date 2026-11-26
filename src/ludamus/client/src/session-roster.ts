@@ -115,17 +115,21 @@ interface PutSelf {
   show: boolean;
 }
 
+const clearMatching = (root: HTMLElement, selector: string): void => {
+  for (const row of root.querySelectorAll(selector)) row.remove();
+};
+
 // Drop every copy of the viewer's own node, then put one back when `show` —
 // either the saved placement (rollback / same-status sync) or a fresh clone,
 // unless `room` says the list is already full (the stack's four-face cap).
 const putSelf = (root: HTMLElement, spec: PutSelf): void => {
-  for (const row of root.querySelectorAll(spec.selector)) row.remove();
+  clearMatching(root, spec.selector);
   if (!spec.show) return;
   if (spec.placement) {
     spec.placement.list.insertBefore(spec.placement.row, spec.placement.next);
-  } else if (spec.room()) {
-    addFromTemplate(root, spec.kind, spec.listSelector);
+    return;
   }
+  if (spec.room()) addFromTemplate(root, spec.kind, spec.listSelector);
 };
 
 const showStackSelf = (root: HTMLElement, status: RosterStatus, saved?: Pending): void => {
