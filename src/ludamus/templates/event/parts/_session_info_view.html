@@ -1,14 +1,14 @@
 {% extends "event/parts/_session_info.html" %}
 {% load i18n tessera cfp_tags markdown_tags schedule_tags session_info_tags %}
 {% block host_section %}
-    {# Same guard shape as the card: a facilitator, or anyone enrolled. #}
-    {% if data.session.facilitator_name or data.takes_enrollment or data.session_participations %}{{ block.super }}{% endif %}
+    {# Same guard shape as the card: a public host label, or anyone enrolled. #}
+    {% if data.presenter.full_name or data.takes_enrollment or data.session_participations %}{{ block.super }}{% endif %}
 {% endblock host_section %}
 {% block host %}
     {# The whole row is guarded above, paired with the card's own guard: both #}
     {# rows appear or neither does, or the card-to-modal morph is left with #}
     {# unmatched groups. The roster stack sits in this same wrap row. #}
-    {% if data.session.facilitator_name %}
+    {% if data.presenter.full_name %}
         <span class="shrink-0 relative" data-morph="avatar">
             {% include "components/avatar.html" with user=data.presenter size="size-9" danger_ring=data.presenter_is_shadowbanned %}
             {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-bg-secondary" %}

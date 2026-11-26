@@ -41,12 +41,7 @@ class TestAuth0LoginCallbackActionView:
         client.get(self.URL, {"state": state_token})
         response = confirm_signup_age(client)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2F",
-            messages=[(messages.SUCCESS, "Please complete your profile.")],
-        )
+        assert_response(response, HTTPStatus.FOUND, url="http://testserver/")
         assert User.objects.get().username == f"auth0|{sub}"
         assert cache.get(f"oauth_state:{state_token}") is None
 
@@ -66,12 +61,7 @@ class TestAuth0LoginCallbackActionView:
         client.get(self.URL, {"state": state_token})
         response = confirm_signup_age(client)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2F",
-            messages=[(messages.SUCCESS, "Please complete your profile.")],
-        )
+        assert_response(response, HTTPStatus.FOUND, url="http://testserver/")
         assert User.objects.get().username == f"auth0|{sub}"
         assert cache.get(f"oauth_state:{state_token}") is None
         assert client.session.get("anonymous_user_code") is None
@@ -92,10 +82,7 @@ class TestAuth0LoginCallbackActionView:
             response,
             HTTPStatus.OK,
             template_name="user/signup_continue.html",
-            context_data={
-                "redirect_to": "https://www.testserver/crowd/profile/?next=%2F"
-            },
-            messages=[(messages.SUCCESS, "Please complete your profile.")],
+            context_data={"redirect_to": "https://www.testserver/a/b/c"},
         )
         assert User.objects.get().username == f"auth0|{sub}"
 
@@ -140,12 +127,7 @@ class TestAuth0LoginCallbackActionView:
         client.get(self.URL, {"state": state_token})
         response = confirm_signup_age(client)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2F",
-            messages=[(messages.SUCCESS, "Please complete your profile.")],
-        )
+        assert_response(response, HTTPStatus.FOUND, url="http://testserver/")
 
     @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_ok_complete_user(
@@ -175,12 +157,7 @@ class TestAuth0LoginCallbackActionView:
         client.get(self.URL, {"state": state_token})
         response = confirm_signup_age(client)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2F",
-            messages=[(messages.SUCCESS, "Please complete your profile.")],
-        )
+        assert_response(response, HTTPStatus.FOUND, url="http://testserver/")
         user = User.objects.get(username=f"auth0|{sub}")
         assert len(user.slug) <= User._meta.get_field("slug").max_length
 
@@ -199,12 +176,7 @@ class TestAuth0LoginCallbackActionView:
         client.get(self.URL, {"state": state_token})
         response = confirm_signup_age(client)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2F",
-            messages=[(messages.SUCCESS, "Please complete your profile.")],
-        )
+        assert_response(response, HTTPStatus.FOUND, url="http://testserver/")
         assert User.objects.get(username=username).slug != slugify(username)
 
     @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
@@ -374,12 +346,7 @@ class TestAuth0LoginCallbackActionView:
         client.get(self.URL, {"state": state_token})
         response = confirm_signup_age(client)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2F",
-            messages=[(messages.SUCCESS, "Please complete your profile.")],
-        )
+        assert_response(response, HTTPStatus.FOUND, url="http://testserver/")
         user = User.objects.get(username=f"auth0|{sub}")
         assert not user.avatar_url
 
@@ -425,12 +392,7 @@ class TestAuth0LoginCallbackActionView:
         client.get(self.URL, {"state": state_token})
         response = confirm_signup_age(client)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2F",
-            messages=[(messages.SUCCESS, "Please complete your profile.")],
-        )
+        assert_response(response, HTTPStatus.FOUND, url="http://testserver/")
         user = User.objects.get(username=f"auth0|{sub}")
         assert user.avatar_url == picture
 
@@ -474,12 +436,7 @@ class TestAuth0LoginCallbackActionView:
         client.get(self.URL, {"state": state_token})
         response = confirm_signup_age(client)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2F",
-            messages=[(messages.SUCCESS, "Please complete your profile.")],
-        )
+        assert_response(response, HTTPStatus.FOUND, url="http://testserver/")
         assert User.objects.get().username == f"auth0|{sub}"
 
     @patch("ludamus.gates.web.django.user.auth.oauth.auth0.userinfo")
@@ -518,11 +475,8 @@ class TestAuth0LoginCallbackActionView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2F",
-            messages=[
-                (messages.WARNING, EMAIL_CONFLICT_WARNING),
-                (messages.SUCCESS, "Please complete your profile."),
-            ],
+            url="http://testserver/",
+            messages=[(messages.WARNING, EMAIL_CONFLICT_WARNING)],
         )
         new_user = User.objects.get(username=f"auth0|{sub}")
         assert not new_user.email

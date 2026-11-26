@@ -1,4 +1,4 @@
-from typing import cast
+from typing import ClassVar, cast
 
 from django import forms
 from django.utils.translation import gettext_lazy as _
@@ -8,6 +8,7 @@ from ludamus.pacts.user import (
     AgeBand,
     UserData,
     UserType,
+    looks_like_email,
 )
 
 # Not an AgeBand: nobody under the minimum age holds an account, so this answer
@@ -33,7 +34,34 @@ class AgeRangeForm(forms.Form):
 
 
 class SignupAgeForm(AgeRangeForm):
+    name = forms.CharField(
+        label=_("Display name"),
+        max_length=255,
+        required=False,
+        help_text=_(
+            "How others see you on sessions and your profile. "
+            "A nickname is fine — not an email address."
+        ),
+    )
     confirmation_token = forms.CharField(widget=forms.HiddenInput())
+    field_order: ClassVar[list[str]] = ["name", "age_band", "confirmation_token"]
+
+    def clean(self) -> dict[str, object]:
+        cleaned = super().clean()
+        # Under the minimum age the account is never activated, so a display
+        # name is not collected. Eligible ages must pick one before we create
+        # the account — otherwise Auth0's email-as-name leaks into public UI.
+        if cleaned.get("age_band") is None:
+            cleaned["name"] = ""
+            return cleaned
+        name = (cleaned.get("name") or "").strip()
+        if not name:
+            self.add_error("name", _("Enter a display name."))
+        elif looks_like_email(name):
+            self.add_error("name", _("Enter a display name, not an email address."))
+        else:
+            cleaned["name"] = name
+        return cleaned
 
 
 class BaseUserForm(forms.Form):
@@ -44,6 +72,14 @@ class BaseUserForm(forms.Form):
             "and does not need to be your legal name."
         ),
     )
+
+    def clean_name(self) -> str:
+        name = self.cleaned_data["name"].strip()
+        if looks_like_email(name):
+            raise forms.ValidationError(
+                _("Enter a display name, not an email address.")
+            )
+        return name
 
     @property
     def user_data(self) -> UserData:
