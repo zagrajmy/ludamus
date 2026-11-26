@@ -8,6 +8,7 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
+from ludamus.gates.web.django.helpers import read_public_event
 from ludamus.pacts.enrollment import (
     AnonymousEnrollmentError,
     AnonymousEnrollmentErrorCode,
@@ -187,8 +188,10 @@ class SessionEnrollmentAnonymousPageView(View):
                 request, error, event_slug=event_slug, session_id=session_id
             )
 
+        event = read_public_event(request, event_slug)
         context = {
             "session": page.session,
+            "event": event,
             "event_slug": page.session.event_slug,
             "user_name": page.user_name,
             "anonymous_code": page.anonymous_code,
