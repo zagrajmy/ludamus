@@ -654,9 +654,7 @@ class TestSessionModalComponentView:
     def test_host_alone_in_their_party_is_sent_to_make_one(
         self, authenticated_client, active_user, agenda_item, event
     ):
-        Services().parties.create(
-            leader_pk=active_user.pk, name="Solo"
-        )
+        Services().parties.create(leader_pk=active_user.pk, name="Solo")
 
         response = authenticated_client.get(_url(event, agenda_item.session.pk))
 

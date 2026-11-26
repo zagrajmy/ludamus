@@ -134,9 +134,7 @@ _SAMPLES = {
     "notify_offer_expired": [lambda r: PromotionNotification(**r.seat)],
     "notify_party_invited": [
         lambda r, party=party: PartyInviteNotification(
-            recipient_user_id=r.user_id,
-            party_name=party,
-            actor_name="Kasia",
+            recipient_user_id=r.user_id, party_name=party, actor_name="Kasia"
         )
         for party in ("", "Smoki")
     ],

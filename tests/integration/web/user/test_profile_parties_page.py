@@ -1,7 +1,6 @@
 from http import HTTPStatus
 from unittest.mock import ANY
 
-import pytest
 from django.contrib import messages
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
@@ -297,8 +296,7 @@ class TestPartyCreateActionView:
         self, authenticated_client, active_user
     ):
         response = authenticated_client.post(
-            reverse("web:crowd:parties-create"),
-            data={"name": "Wtorkowa ekipa"},
+            reverse("web:crowd:parties-create"), data={"name": "Wtorkowa ekipa"}
         )
 
         party = Party.objects.get(name="Wtorkowa ekipa")

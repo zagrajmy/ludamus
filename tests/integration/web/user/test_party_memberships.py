@@ -197,8 +197,6 @@ class TestCompanionMembershipWriteThrough:
         assert not PartyMembership.objects.filter(member=companion).exists()
 
 
-
-
 class TestPartyConsentActionView:
     def _party_with_me_as_member(self, active_user):
         friend = UserFactory(username="friend", name="Frida Friend")

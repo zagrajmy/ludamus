@@ -239,8 +239,6 @@ class TestCrud:
         assert not parties.state.names
 
 
-
-
 class TestChat:
     """A party's chat follows every change to who is in the party."""
 
@@ -346,9 +344,7 @@ class TestInvite:
         ]
         assert notifier.invited == [
             PartyInviteNotification(
-                recipient_user_id=INVITEE_PK,
-                party_name="Ekipa",
-                actor_name="Lena",
+                recipient_user_id=INVITEE_PK, party_name="Ekipa", actor_name="Lena"
             )
         ]
 
@@ -436,18 +432,12 @@ class TestInviteLink:
 
         assert service.read_invitable_party(token="tok", viewer_pk=INVITEE_PK) == (
             InvitablePartyDTO(
-                pk=OWN_PARTY_PK,
-                name="Ekipa",
-                leader_name="Lena",
-                already_member=False,
+                pk=OWN_PARTY_PK, name="Ekipa", leader_name="Lena", already_member=False
             )
         )
         assert service.read_invitable_party(token="tok", viewer_pk=VIEWER_PK) == (
             InvitablePartyDTO(
-                pk=OWN_PARTY_PK,
-                name="Ekipa",
-                leader_name="Lena",
-                already_member=True,
+                pk=OWN_PARTY_PK, name="Ekipa", leader_name="Lena", already_member=True
             )
         )
         assert service.read_invitable_party(token="nope", viewer_pk=INVITEE_PK) is None

@@ -438,7 +438,7 @@ class TestPartyDetailSessionHistory:
                 context_data=_context(
                     _party_dto(party, active_user, [_member_dto(active_user, party)]),
                     invite_token=party.invite_token,
-                        history=[_history_group(response, session.event)],
+                    history=[_history_group(response, session.event)],
                 ),
                 template_name=TEMPLATE,
             )
