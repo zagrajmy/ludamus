@@ -58,7 +58,12 @@
                             aria-selected="false"
                             aria-controls="participants-{{ data.session.pk }}"
                             class="tab-trigger px-4 py-3 text-sm font-medium flex items-center gap-1.5 active:scale-100! [&[aria-selected=false]:hover]:text-foreground/80">
-                        {% icon "users" class="w-4 h-4" variant="mini" %} {% translate "Participants" %}
+                        {% icon "users" class="w-4 h-4" variant="mini" %}
+                        {% if event.use_participants_label %}
+                            {% translate "Participants" context "session roster taking part" %}
+                        {% else %}
+                            {% translate "Participants" context "session roster playing" %}
+                        {% endif %}
                         <span class="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-coral-100 dark:bg-coral-900/30 text-coral-700 dark:text-coral-400"
                               data-roster-badge="confirmed">{{ data.enrolled_count }}</span>
                         <span class="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-warning-light text-warning-text"
