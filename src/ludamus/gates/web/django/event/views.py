@@ -27,7 +27,6 @@ from ludamus.pacts.fields import SessionFieldValueData
 from ludamus.pacts.ids import SessionId
 from ludamus.pacts.images import stored_file
 from ludamus.pacts.sessions import (
-    ProposalScheduledError,
     SessionEditNotAllowedError,
     SessionStatus,
     SpaceTimeConflictError,
@@ -302,9 +301,6 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
                 ),
             )
             return self._render(request, context, form)
-        except ProposalScheduledError:
-            messages.info(request, _("This proposal is already on the timetable."))
-            return redirect("web:chronology:event", slug=context.event.slug)
 
         messages.success(
             request,

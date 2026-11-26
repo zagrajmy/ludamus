@@ -538,7 +538,9 @@ class TestProposalAcceptanceService:
 
     @pytest.fixture
     def agenda_items(self):
-        return MagicMock()
+        agenda_items = MagicMock()
+        agenda_items.read_by_session.return_value = None
+        return agenda_items
 
     @pytest.fixture
     def active_users(self):
@@ -570,7 +572,6 @@ class TestProposalAcceptanceService:
             sessions=sessions,
             agenda_items=agenda_items,
             schedule_change_logs=MagicMock(),
-            spaces=MagicMock(),
             active_users=active_users,
             spheres=spheres,
             events=events,
@@ -824,14 +825,6 @@ class _FakeSessions:
 
     def _related(self, kind):
         return [self.related[kind][pk] for pk in self.related_ids[kind]]
-
-
-class _FakeSpaces:
-    def __init__(self) -> None:
-        self.locked: list[int] = []
-
-    def lock(self, pk: int) -> None:
-        self.locked.append(pk)
 
 
 class _FakeAgendaItems:
@@ -1455,13 +1448,14 @@ class TestProposalAcceptanceWithFakes:
         return sessions
 
     @staticmethod
-    def _service(sessions, agenda_items, events=None, notifier=None, spaces=None):
+    def _service(
+        sessions, agenda_items, events=None, notifier=None, schedule_change_logs=None
+    ):
         return ProposalAcceptanceService(
             transaction=FakeTransaction(),
             sessions=sessions,
             agenda_items=agenda_items,
-            schedule_change_logs=MagicMock(),
-            spaces=spaces or _FakeSpaces(),
+            schedule_change_logs=schedule_change_logs or MagicMock(),
             active_users=FakeUsers(_user_dto(slug="manager")),
             spheres=_FakeSpheres(managers=[(3, "manager")]),
             events=events or _FakeEvents(sessions.event),
@@ -1575,7 +1569,6 @@ class TestProposalAcceptanceWithFakes:
             sessions=sessions,
             agenda_items=agenda_items,
             schedule_change_logs=MagicMock(),
-            spaces=_FakeSpaces(),
             active_users=FakeUsers(_user_dto(slug="manager")),
             spheres=_FakeSpheres(
                 managers=[(3, "manager")], require_session_space=False
@@ -1600,9 +1593,8 @@ class TestProposalAcceptanceWithFakes:
         sessions = self._sessions()
         agenda_items = _FakeAgendaItems()
         events = _FakeEvents(sessions.event)
-        spaces = _FakeSpaces()
 
-        self._service(sessions, agenda_items, events, spaces=spaces).accept_session(
+        self._service(sessions, agenda_items, events).accept_session(
             session_id=_SESSION_PK,
             space_id=7,
             start_time=_NOW,
@@ -1611,7 +1603,6 @@ class TestProposalAcceptanceWithFakes:
         )
 
         assert sessions.calls["locked"] == [_SESSION_PK]
-        assert spaces.locked == [7]
         assert agenda_items.overlap_queries == [(7, _NOW, _END, _SESSION_PK)]
         assert events.updates == {sessions.event.pk: {"end_time": _END}}
         assert sessions.updates == {
@@ -1645,11 +1636,11 @@ class TestProposalAcceptanceWithFakes:
             schedule_confirmed=True,
         )
         agenda_items = _FakeAgendaItems(placed)
-        spaces = _FakeSpaces()
+        logs = _FakeScheduleChangeLogs()
         notifier = _RecordingNotifier()
 
         self._service(
-            sessions, agenda_items, spaces=spaces, notifier=notifier
+            sessions, agenda_items, notifier=notifier, schedule_change_logs=logs
         ).accept_session(
             session_id=_SESSION_PK,
             space_id=7,
@@ -1660,6 +1651,7 @@ class TestProposalAcceptanceWithFakes:
 
         assert not agenda_items.created
         assert not sessions.updates
+        assert not logs.rows
         assert not notifier.sent
 
     def test_accept_session_tells_the_presenter_once(self):
@@ -1677,18 +1669,132 @@ class TestProposalAcceptanceWithFakes:
 
         assert [sent.placed for sent in notifier.sent] == [True]
 
-    def test_accepting_an_already_accepted_session_raises(self):
+    def test_an_accepted_session_with_no_slot_is_placed_without_telling_anyone(self):
         sessions = self._sessions()
-        sessions.rows[_SESSION_PK] = _session_dto(status=SessionStatus.ACCEPTED)
+        sessions.rows[_SESSION_PK] = _session_dto(
+            pk=_SESSION_PK, status=SessionStatus.ACCEPTED, facilitator_name="Alice"
+        )
+        agenda_items = _FakeAgendaItems()
+        logs = _FakeScheduleChangeLogs()
+        notifier = _RecordingNotifier()
+
+        self._service(
+            sessions, agenda_items, notifier=notifier, schedule_change_logs=logs
+        ).accept_session(
+            session_id=_SESSION_PK,
+            space_id=7,
+            start_time=_NOW,
+            user_slug="manager",
+            sphere_id=3,
+        )
+
+        assert sessions.updates == {_SESSION_PK: {"schedule_confirmed": True}}
+        assert agenda_items.created == [
+            {
+                "space_id": 7,
+                "session_id": _SESSION_PK,
+                "session_confirmed": True,
+                "start_time": _NOW,
+                "end_time": _END,
+            }
+        ]
+        assert logs.rows == [
+            {
+                "event_id": sessions.event.pk,
+                "session_id": _SESSION_PK,
+                "user_id": 1,
+                "action": ScheduleChangeAction.ASSIGN,
+                "new_space_id": 7,
+                "new_start_time": _NOW,
+                "new_end_time": _END,
+                "moved_from_id": None,
+            }
+        ]
+        assert not notifier.sent
+
+    def test_an_accepted_session_placed_elsewhere_moves_without_telling_anyone(self):
+        sessions = self._sessions()
+        sessions.rows[_SESSION_PK] = _session_dto(
+            pk=_SESSION_PK, status=SessionStatus.ACCEPTED, facilitator_name="Alice"
+        )
+        earlier = _NOW - timedelta(hours=2)
+        placed = AgendaItemDTO(
+            pk=4,
+            space_id=7,
+            session_id=_SESSION_PK,
+            start_time=earlier,
+            end_time=earlier + timedelta(hours=1),
+            schedule_confirmed=True,
+        )
+        agenda_items = _FakeAgendaItems(placed)
+        logs = _FakeScheduleChangeLogs()
+        notifier = _RecordingNotifier()
+
+        self._service(
+            sessions, agenda_items, notifier=notifier, schedule_change_logs=logs
+        ).accept_session(
+            session_id=_SESSION_PK,
+            space_id=7,
+            start_time=_NOW,
+            user_slug="manager",
+            sphere_id=3,
+        )
+
+        assert placed.pk not in agenda_items.rows
+        assert sessions.updates == {_SESSION_PK: {"schedule_confirmed": False}}
+        assert agenda_items.created == [
+            {
+                "space_id": 7,
+                "session_id": _SESSION_PK,
+                "session_confirmed": False,
+                "start_time": _NOW,
+                "end_time": _END,
+            }
+        ]
+        assert logs.rows == [
+            {
+                "event_id": sessions.event.pk,
+                "session_id": _SESSION_PK,
+                "user_id": 1,
+                "action": ScheduleChangeAction.UNASSIGN,
+                "old_space_id": 7,
+                "old_start_time": earlier,
+                "old_end_time": earlier + timedelta(hours=1),
+            },
+            {
+                "event_id": sessions.event.pk,
+                "session_id": _SESSION_PK,
+                "user_id": 1,
+                "action": ScheduleChangeAction.ASSIGN,
+                "new_space_id": 7,
+                "new_start_time": _NOW,
+                "new_end_time": _END,
+                "moved_from_id": 1,
+            },
+        ]
+        assert not notifier.sent
+
+    @pytest.mark.parametrize("status", (SessionStatus.REJECTED, SessionStatus.ON_HOLD))
+    def test_a_session_that_is_neither_pending_nor_accepted_is_refused(self, status):
+        sessions = self._sessions()
+        sessions.rows[_SESSION_PK] = _session_dto(status=status)
+        agenda_items = _FakeAgendaItems()
+        logs = _FakeScheduleChangeLogs()
 
         with pytest.raises(ProposalScheduledError):
-            self._service(sessions, _FakeAgendaItems()).accept_session(
+            self._service(
+                sessions, agenda_items, schedule_change_logs=logs
+            ).accept_session(
                 session_id=_SESSION_PK,
                 space_id=7,
                 start_time=_NOW,
                 user_slug="manager",
                 sphere_id=3,
             )
+
+        assert not sessions.updates
+        assert not agenda_items.created
+        assert not logs.rows
 
     def test_another_spheres_session_has_no_accept_context(self):
         sessions = self._sessions()
