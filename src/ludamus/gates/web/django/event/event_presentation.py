@@ -489,10 +489,11 @@ def present_party_history(
 
 
 def _party_history_card(item: PartySessionHistoryDTO, *, now: datetime) -> SessionData:
-    if item.presenter is not None:
-        presenter = _user_info(item.presenter)
-    else:
-        presenter = UserInfo.from_public_label(item.session.facilitator_name)
+    presenter = (
+        _user_info(item.presenter)
+        if item.presenter is not None
+        else UserInfo.from_public_label(item.session.facilitator_name)
+    )
     return SessionData(
         agenda_item=item.agenda_item,
         is_enrollment_available=False,
@@ -529,10 +530,11 @@ def present_session_modal(
     access: EnrollmentAccessDTO,
     guild: GuildMarkDTO | None = None,
 ) -> SessionData:
-    if dto.presenter is not None:
-        presenter = _user_info(dto.presenter)
-    else:
-        presenter = UserInfo.from_public_label(dto.session.facilitator_name)
+    presenter = (
+        _user_info(dto.presenter)
+        if dto.presenter is not None
+        else UserInfo.from_public_label(dto.session.facilitator_name)
+    )
     card = SessionData(
         agenda_item=dto.agenda_item,
         is_enrollment_available=access.seats(dto.enrollment_window_ids),

@@ -420,10 +420,11 @@ class EventPageView(TemplateView):
         sessions_data = {}
         for card in cards:
             session = card.session
-            if card.presenter is not None:
-                presenter = UserInfo.from_user_dto(card.presenter)
-            else:
-                presenter = UserInfo.from_public_label(session.facilitator_name or "")
+            presenter = (
+                UserInfo.from_user_dto(card.presenter)
+                if card.presenter is not None
+                else UserInfo.from_public_label(session.facilitator_name or "")
+            )
             sessions_data[session.pk] = SessionData(
                 can_edit=(
                     edit_allowed

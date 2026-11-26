@@ -46,7 +46,7 @@ class SignupAgeForm(AgeRangeForm):
     confirmation_token = forms.CharField(widget=forms.HiddenInput())
     field_order: ClassVar[list[str]] = ["name", "age_band", "confirmation_token"]
 
-    def clean(self) -> dict[str, object]:
+    def clean(self):
         cleaned = super().clean()
         # Under the minimum age the account is never activated, so a display
         # name is not collected. Eligible ages must pick one before we create
@@ -54,8 +54,7 @@ class SignupAgeForm(AgeRangeForm):
         if cleaned.get("age_band") is None:
             cleaned["name"] = ""
             return cleaned
-        name = (cleaned.get("name") or "").strip()
-        if not name:
+        if not (name := (cleaned.get("name") or "").strip()):
             self.add_error("name", _("Enter a display name."))
         elif looks_like_email(name):
             self.add_error("name", _("Enter a display name, not an email address."))
