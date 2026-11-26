@@ -25,7 +25,8 @@
   został…", "osoba dostała…").
 - **gracze:** keep "gracze"/"graczy" for seeking players and similar board
   copy — do **not** swap in "drużyny" there (unclear) and do **not** write
-  "graczy/ek". Prefer "osoby…" when naming people ("osoby, które znasz z
-  wydarzeń", "osoby towarzyszące", "osoby uczestniczące").
+  "graczy/ek". Prefer "osoby…" when naming people ("osoby towarzyszące",
+  "osoby uczestniczące"); the safety list of past co-players is
+  "Spotkani w przeszłości".
 - **shadowban action** → "Zbanuj" (not "Cichy ban" on the button); the
   feature noun can still say "cichy ban" in longer help text.

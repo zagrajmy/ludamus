@@ -16719,7 +16719,7 @@ msgstr ""
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Players you have met"
-msgstr "Osoby, które znasz z wydarzeń"
+msgstr "Spotkani w przeszłości"
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowbanned"
