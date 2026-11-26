@@ -1824,7 +1824,7 @@ msgstr "Przypisany do"
 #: src/ludamus/templates/event/propose/parts/review.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Presenter name"
-msgstr "Osoba prowadząca"
+msgstr "Prowadzi"
 
 #: src/ludamus/gates/web/django/event/panel/views/columns.py
 #: src/ludamus/gates/web/django/event/panel/views/google_docs_import.py
@@ -3617,7 +3617,7 @@ msgstr "Tytuł jest wymagany."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Presenter name is required."
-msgstr "Podaj osobę prowadzącą."
+msgstr "Podaj, kto prowadzi."
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/event/parts/session-edit-form.html
@@ -8272,6 +8272,11 @@ msgstr "Organizujesz"
 
 #: src/ludamus/templates/components/encounter_card.html
 #, python-format
+#: src/ludamus/templates/event/parts/_session_info_view.html
+msgctxt "session host"
+msgid "Leads"
+msgstr "Prowadzi"
+
 msgid "Hosted by %(name)s"
 msgstr "Prowadzi %(name)s"
 
@@ -9819,6 +9824,26 @@ msgstr "Zapisz"
 msgid "Waiting list position"
 msgstr "Pozycja na liście oczekujących"
 
+#: src/ludamus/templates/event/parts/session-modal.html
+msgctxt "session roster taking part"
+msgid "Participants"
+msgstr "Udział biorą"
+
+#: src/ludamus/templates/event/parts/session-modal.html
+msgctxt "session roster playing"
+msgid "Participants"
+msgstr "Grają"
+
+#: src/ludamus/templates/event/parts/_session_participants_panel.html
+msgctxt "session roster taking part"
+msgid "Enrolled"
+msgstr "Udział biorą"
+
+#: src/ludamus/templates/event/parts/_session_participants_panel.html
+msgctxt "session roster playing"
+msgid "Enrolled"
+msgstr "Grają"
+
 #: src/ludamus/templates/event/parts/_session_participants_panel.html
 msgid "Enrolled"
 msgstr "Zapisany"
@@ -10379,7 +10404,7 @@ msgstr "Wybierz widok strony"
 
 #: src/ludamus/templates/landing/_aud_switch.html
 msgid "For players"
-msgstr "Dla osób uczestniczących"
+msgstr "Weź udział"
 
 #: src/ludamus/templates/landing/druk.html
 msgid "Ctrl+P and done"
