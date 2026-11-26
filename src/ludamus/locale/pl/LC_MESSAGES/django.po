@@ -488,7 +488,7 @@ msgstr "Poczekaj chwilę przed ponownym zapisem."
 
 #: src/ludamus/gates/web/django/encounter/views.py
 msgid "You have already signed up."
-msgstr "Już się zapisałeś/aś."
+msgstr "Już jesteś na liście."
 
 #: src/ludamus/gates/web/django/encounter/views.py
 msgid "You have signed up!"
@@ -496,7 +496,7 @@ msgstr "Zapisano!"
 
 #: src/ludamus/gates/web/django/encounter/views.py
 msgid "You have been removed from this encounter."
-msgstr "Zostałeś/aś wypisany/a z tego spotkania."
+msgstr "Wypisano Cię z tego spotkania."
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "That event isn't available."
@@ -508,7 +508,7 @@ msgstr "Krytyczna porażka!"
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "You rolled a nat 1 on your Navigation check!"
-msgstr "Wyrzuciłeś naturalną 1 na teście Nawigacji!"
+msgstr "Wypadła naturalna 1 na teście Nawigacji!"
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "The path you seek has vanished into the mists."
@@ -556,7 +556,7 @@ msgstr "Poza mapą!"
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "You've wandered off the edge of the campaign map"
-msgstr "Zabłądziłeś poza krawędź mapy kampanii"
+msgstr "Ścieżka zeszła poza krawędź mapy kampanii"
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "Here be dragons... and 404 errors."
@@ -581,7 +581,7 @@ msgstr "Nieudana Teleportacja!"
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "You've accidentally teleported to the wrong website"
-msgstr "Przypadkowo teleportowałeś się na złą stronę internetową"
+msgstr "Przypadkowa teleportacja na złą stronę internetową"
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "The page you seek exists on another plane of existence."
@@ -655,7 +655,7 @@ msgstr "Strona Która Nie Powinna Istnieć"
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "You've stumbled upon knowledge that was never meant to exist"
-msgstr "Natknąłeś się na wiedzę, która nigdy nie miała istnieć"
+msgstr "Tu jest wiedza, która nigdy nie miała istnieć"
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "Your sanity takes 1d10 damage."
@@ -973,15 +973,13 @@ msgid ""
 "Cannot enroll: You are already enrolled in another session that conflicts "
 "with this time slot."
 msgstr ""
-"Nie można się zapisać: Jesteś już zapisany na inny punkt programu, który "
-"koliduje z tym terminem."
+"Nie można się zapisać: jesteś już na innym punkcie programu w tym samym "
+"terminie."
 
 #: src/ludamus/gates/web/django/event/anonymous.py
 #, python-format
 msgid "Session is full. You have been added to the waiting list for: %(title)s"
-msgstr ""
-"Punkt programu jest pełny. Zostałeś dodany do listy oczekujących na: "
-"%(title)s"
+msgstr "Punkt programu jest pełny. Jesteś na liście oczekujących na: %(title)s"
 
 #: src/ludamus/gates/web/django/event/anonymous.py
 #, python-format
@@ -1306,7 +1304,7 @@ msgstr "Anuluj"
 
 #: src/ludamus/gates/web/django/event/enroll_presentation.py
 msgid "You're enrolled"
-msgstr "Jesteś zapisany/a"
+msgstr "Jesteś na liście"
 
 #: src/ludamus/gates/web/django/event/enroll_presentation.py
 msgid "Leave"
@@ -5458,7 +5456,7 @@ msgstr "dziś"
 
 #: src/ludamus/gates/web/django/templatetags/enroll_tags.py
 msgid "Already enrolled"
-msgstr "Już zapisany"
+msgstr "Już na liście"
 
 #: src/ludamus/gates/web/django/templatetags/enroll_tags.py
 msgid "Seat held — awaiting their approval"
@@ -5786,7 +5784,8 @@ msgid ""
 "You're already signed in. Log out first to claim this profile into a new "
 "account."
 msgstr ""
-"Jesteś już zalogowany(-a). Wyloguj się, aby przejąć ten profil na nowe konto."
+"To konto jest już zalogowane. Wyloguj się, aby przejąć ten profil na nowe "
+"konto."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Mention emails turned on."
@@ -6441,7 +6440,7 @@ msgstr "Masz miejsce: zwolniło się miejsce w %(session)s"
 
 #: src/ludamus/links/db/django/notifications.py
 msgid "A confirmed spot opened up and you have been enrolled automatically."
-msgstr "Zwolniło się potwierdzone miejsce i zostałeś automatycznie zapisany."
+msgstr "Zwolniło się potwierdzone miejsce — jesteś teraz na liście."
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
@@ -6693,13 +6692,14 @@ msgid ""
 "Someone you shadowbanned signed up to %(session)s, where you are playing: "
 "%(players)s."
 msgstr ""
-"Ktoś, kogo cicho zbanowałeś, zapisał się na %(session)s, gdzie grasz: "
+"Ktoś z Twojej listy cichego banu zapisał się na %(session)s, gdzie grasz: "
 "%(players)s."
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
 msgid "Someone you shadowbanned signed up to %(event)s: %(players)s."
-msgstr "Ktoś, kogo cicho zbanowałeś, zapisał się na %(event)s: %(players)s."
+msgstr ""
+"Ktoś z Twojej listy cichego banu zapisał się na %(event)s: %(players)s."
 
 #: src/ludamus/links/db/django/notifications.py
 msgid "They have not been notified. Review the event if you need to."
@@ -8522,7 +8522,7 @@ msgstr "Zajmij moje miejsce"
 
 #: src/ludamus/templates/dashboard/_role.html
 msgid "You're signed up"
-msgstr "Jesteś zapisany/a"
+msgstr "Jesteś na liście"
 
 #: src/ludamus/templates/dashboard/_role.html
 #, python-format
@@ -8928,7 +8928,7 @@ msgstr "Kopiuj szczegóły"
 
 #: src/ludamus/templates/encounter/_rsvp_inline.html
 msgid "You're signed up!"
-msgstr "Jesteś zapisany/a!"
+msgstr "Jesteś na liście!"
 
 #: src/ludamus/templates/encounter/_rsvp_inline.html
 msgid "Save the date so you don't forget:"
@@ -9318,7 +9318,7 @@ msgstr "Zapisz się na punkt programu"
 
 #: src/ludamus/templates/event/anonymous_enroll.html
 msgid "is already enrolled in this session."
-msgstr "jest już zapisany na ten punkt programu."
+msgstr "jest już na tym punkcie programu."
 
 #: src/ludamus/templates/event/anonymous_enroll.html
 msgid "Status: On waiting list"
@@ -9360,7 +9360,7 @@ msgstr "Zapisy"
 
 #: src/ludamus/templates/event/enroll_select.html
 msgid "Players you shadowbanned are already signed up here"
-msgstr "Gracze, których cicho zbanowałeś, są już tutaj zapisani"
+msgstr "Gracze z Twojej listy cichego banu są już tutaj na liście"
 
 #: src/ludamus/templates/event/enroll_select.html
 #, python-format
@@ -9484,23 +9484,19 @@ msgid_plural ""
 "                            "
 msgstr[0] ""
 "\n"
-"                                Jesteś zapisany na %(counter)s punkt "
-"programu!\n"
+"                                Jesteś na %(counter)s punkcie programu!\n"
 "                            "
 msgstr[1] ""
 "\n"
-"                                Jesteś zapisany na %(counter)s punkty "
-"programu!\n"
+"                                Jesteś na %(counter)s punktach programu!\n"
 "                            "
 msgstr[2] ""
 "\n"
-"                                Jesteś zapisany na %(counter)s punktów "
-"programu!\n"
+"                                Jesteś na %(counter)s punktach programu!\n"
 "                            "
 msgstr[3] ""
 "\n"
-"                                Jesteś zapisany na %(counter)s punktów "
-"programu!\n"
+"                                Jesteś na %(counter)s punktach programu!\n"
 "                            "
 
 #: src/ludamus/templates/event/event.html
@@ -9574,12 +9570,12 @@ msgid "Enrollment unavailable"
 msgstr "Zapisy niedostępne"
 
 #: src/ludamus/templates/event/event.html
-msgid "I am enrolled"
-msgstr "Jestem zapisany"
+msgid "Your enrollments"
+msgstr "Twoje zapisy"
 
 #: src/ludamus/templates/event/event.html
-msgid "I am waiting"
-msgstr "Oczekuję"
+msgid "Your waiting list"
+msgstr "Twoja lista oczekujących"
 
 #: src/ludamus/templates/event/event.html
 msgid "all rooms"
@@ -9866,7 +9862,7 @@ msgstr "Nie udało się otworzyć edytora. Spróbuj ponownie."
 
 #: src/ludamus/templates/event/parts/session-modal.html
 msgid "You are enrolled in this session"
-msgstr "Jesteś zapisany na ten punkt programu"
+msgstr "Jesteś na tym punkcie programu"
 
 #: src/ludamus/templates/event/parts/session-modal.html
 msgid "You are on the waiting list"
@@ -15924,7 +15920,7 @@ msgstr "Wymagane logowanie"
 
 #: src/ludamus/templates/user/login_required.html
 msgid "You need to be logged in to access this page."
-msgstr "Musisz być zalogowany, aby uzyskać dostęp do tej strony."
+msgstr "Zaloguj się, aby uzyskać dostęp do tej strony."
 
 #: src/ludamus/templates/user/signup_age.html
 msgid "Create your account"
@@ -16729,7 +16725,7 @@ msgstr ""
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Players you have met"
-msgstr "Gracze, których spotkałeś"
+msgstr "Spotkani gracze"
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowbanned"

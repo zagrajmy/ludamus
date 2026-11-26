@@ -366,8 +366,8 @@
                                             <option value="{{ availability.IN_PROGRESS }}">{% translate "In progress" %}</option>
                                             <option value="{{ availability.UNAVAILABLE }}">{% translate "Enrollment unavailable" %}</option>
                                             <option value="{{ availability.ENDED }}">{% translate "Ended" %}</option>
-                                            <option value="my-enrolled">{% translate "I am enrolled" %}</option>
-                                            <option value="my-waiting">{% translate "I am waiting" %}</option>
+                                            <option value="my-enrolled">{% translate "Your enrollments" %}</option>
+                                            <option value="my-waiting">{% translate "Your waiting list" %}</option>
                                             {# Bookmark toggles exist only on the compact layouts, so the #}
                                             {# filter option would always be empty on card-grid events. #}
                                             {% if current_user and compact_schedule %}
