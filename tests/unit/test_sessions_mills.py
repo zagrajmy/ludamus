@@ -1,4 +1,3 @@
-import contextlib
 from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, call
@@ -30,7 +29,6 @@ from ludamus.pacts.sessions import (
     ProposalScheduledError,
     SessionContentEditData,
     SessionStatus,
-    SpaceTimeConflictError,
 )
 from ludamus.pacts.sphere import SphereRole
 from ludamus.pacts.timetable import AgendaItemDTO, ScheduleChangeAction
@@ -658,7 +656,7 @@ class TestProposalAcceptanceService:
         events.lock.assert_called_once_with(9)
         events.update.assert_called_once_with(9, {"end_time": _END})
 
-    def test_accept_session_raises_on_space_time_conflict(
+    def test_accept_session_places_into_a_room_another_session_holds(
         self, service, sessions, agenda_items, active_users, spheres
     ):
         self._arrange_accept(sessions)
@@ -668,17 +666,12 @@ class TestProposalAcceptanceService:
         active_users.read.return_value = _user_dto()
         spheres.manager_role.return_value = SphereRole.MANAGER
 
-        with pytest.raises(SpaceTimeConflictError):
-            service.accept_session(
-                session_id=5,
-                space_id=7,
-                start_time=_NOW,
-                user_slug="manager",
-                sphere_id=3,
-            )
+        service.accept_session(
+            session_id=5, space_id=7, start_time=_NOW, user_slug="manager", sphere_id=3
+        )
 
-        sessions.update.assert_not_called()
-        agenda_items.create.assert_not_called()
+        sessions.update.assert_called_once()
+        agenda_items.create.assert_called_once()
 
     def test_accept_session_allowed_for_superuser(
         self, service, sessions, agenda_items, active_users, spheres
@@ -1493,7 +1486,7 @@ class TestProposalAcceptanceWithFakes:
             pytest.param(9, False, id="the-session-own-placement"),
         ),
     )
-    def test_the_context_marks_busy_exactly_what_accepting_refuses(
+    def test_the_context_marks_a_room_another_session_holds_and_accepting_places(
         self, space_pk, taken
     ):
         def placed(pk, space_id, session_id, start):
@@ -1512,14 +1505,12 @@ class TestProposalAcceptanceWithFakes:
             SpaceOptionDTO(pk=8, name="Attic", group=""),
             SpaceOptionDTO(pk=9, name="Cellar", group=""),
         ]
-        service = self._service(
-            sessions,
-            _FakeAgendaItems(
-                placed(1, 7, 90, _NOW + timedelta(minutes=30)),
-                placed(2, 8, 91, _NOW - timedelta(hours=1)),
-                placed(3, 9, _SESSION_PK, _NOW),
-            ),
+        agenda_items = _FakeAgendaItems(
+            placed(1, 7, 90, _NOW + timedelta(minutes=30)),
+            placed(2, 8, 91, _NOW - timedelta(hours=1)),
+            placed(3, 9, _SESSION_PK, _NOW),
         )
+        service = self._service(sessions, agenda_items)
 
         context = service.get_accept_context(
             session_id=_SESSION_PK, user_slug="manager", sphere_id=3
@@ -1531,17 +1522,16 @@ class TestProposalAcceptanceWithFakes:
             if window.start < _END and window.end > _NOW
         ]
         assert bool(busy_then) is taken
-        refusal = (
-            pytest.raises(SpaceTimeConflictError) if taken else contextlib.nullcontext()
+
+        service.accept_session(
+            session_id=_SESSION_PK,
+            space_id=space_pk,
+            start_time=_NOW,
+            user_slug="manager",
+            sphere_id=3,
         )
-        with refusal:
-            service.accept_session(
-                session_id=_SESSION_PK,
-                space_id=space_pk,
-                start_time=_NOW,
-                user_slug="manager",
-                sphere_id=3,
-            )
+
+        assert [item["space_id"] for item in agenda_items.created] == [space_pk]
 
     def test_accepting_without_a_space_is_refused_where_one_is_required(self):
         agenda_items = _FakeAgendaItems()
@@ -1598,7 +1588,6 @@ class TestProposalAcceptanceWithFakes:
             sphere_id=3,
         )
 
-        assert agenda_items.overlap_queries == [(7, _NOW, _END, _SESSION_PK)]
         assert events.updates == {sessions.event.pk: {"end_time": _END}}
         assert sessions.updates == {
             _SESSION_PK: {

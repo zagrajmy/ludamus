@@ -117,6 +117,56 @@ def _span(item: AgendaItemDTO) -> tuple[float, float]:
     return (item.start_time.timestamp(), item.end_time.timestamp())
 
 
+def _lane_key(item: AgendaItemDTO) -> tuple[float, float, str, int]:
+    start, end = _span(item)
+    return (start, end, item.session_title.casefold(), item.pk)
+
+
+def _lanes_in_column(items: list[AgendaItemDTO]) -> dict[int, tuple[int, int]]:
+    # Supported, not advised: sessions that share a room and a time sit
+    # side by side in that column so both stay visible. Touching ends do
+    # not share a lane group. Compared as instants, as the rows are.
+    ordered = sorted(items, key=_lane_key)
+    assigned: dict[int, tuple[int, int]] = {}
+    component: list[AgendaItemDTO] = []
+    component_end = 0.0
+
+    def close() -> None:
+        if not component:
+            return
+        lane_ends: list[float] = []
+        placed: list[tuple[int, int]] = []
+        for item in component:
+            start, end = _span(item)
+            lane_index = next(
+                (
+                    index
+                    for index, lane_end in enumerate(lane_ends)
+                    if lane_end <= start
+                ),
+                len(lane_ends),
+            )
+            if lane_index == len(lane_ends):
+                lane_ends.append(end)
+            else:
+                lane_ends[lane_index] = end
+            placed.append((item.pk, lane_index))
+        count = len(lane_ends)
+        for item_pk, lane_index in placed:
+            assigned[item_pk] = (lane_index, count)
+        component.clear()
+
+    for item in ordered:
+        start, end = _span(item)
+        if component and start >= component_end:
+            close()
+            component_end = 0.0
+        component.append(item)
+        component_end = max(component_end, end)
+    close()
+    return assigned
+
+
 def _spaceless_lanes(items: list[AgendaItemDTO]) -> list[list[AgendaItemDTO]]:
     # Nothing keeps sessions without a space apart in time, and tiles sharing
     # a column paint over each other, so each lane takes the next session
@@ -149,6 +199,11 @@ def _timetable_pages(
         for index, (_, column_items) in enumerate(columns, start=1)
         for item in column_items
     }
+    lanes = {
+        item_pk: lane
+        for _, column_items in columns
+        for item_pk, lane in _lanes_in_column(column_items).items()
+    }
     if not (items := [item for _, column_items in columns for item in column_items]):
         return []
     instants = {
@@ -165,6 +220,7 @@ def _timetable_pages(
 
         def tile(item: AgendaItemDTO) -> PrintTimetableTileDTO:
             row = line[max(item.start_time.timestamp(), first)]
+            lane_index, lane_count = lanes[item.pk]
             return PrintTimetableTileDTO(
                 session=_to_session(item),
                 start_time=item.start_time,
@@ -172,6 +228,8 @@ def _timetable_pages(
                 col=col[item.pk],
                 row=row,
                 span=line[min(item.end_time.timestamp(), last)] - row,
+                lane_index=lane_index,
+                lane_count=lane_count,
             )
 
         return PrintTimetablePageDTO(

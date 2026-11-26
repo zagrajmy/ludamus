@@ -350,6 +350,7 @@ def main() -> None:
     _seed_room_pager_event(sphere=sphere, event_day=event_day)
     _seed_problems_event(sphere=sphere, event_day=event_day)
     _seed_room_clash_event(sphere=sphere, event_day=event_day)
+    _seed_shared_hearth(sphere=sphere, event_day=event_day)
 
 
 def _seed_room_pager_event(*, sphere, event_day) -> None:
@@ -541,6 +542,60 @@ def _seed_room_clash_event(*, sphere, event_day) -> None:
                 "space": room,
                 "start_time": start,
                 "end_time": start + timedelta(hours=1),
+            },
+        )
+
+
+def _seed_shared_hearth(*, sphere, event_day) -> None:
+    # Two sessions in one room at different hours, for the overlap spec.
+    # That spec moves one onto the other and back, so it has its own event.
+    local_tz = get_current_timezone()
+    start = datetime.combine(event_day, time(10, 0), tzinfo=local_tz)
+    event, _ = Event.objects.get_or_create(
+        sphere=sphere,
+        slug="shared-hearth",
+        defaults={
+            "name": "Shared Hearth",
+            "description": "One room, two sittings, an hour apart.",
+            "start_time": start,
+            "end_time": start + timedelta(hours=4),
+            "publication_time": timezone.now() - timedelta(days=2),
+        },
+    )
+    hall, _ = Space.objects.get_or_create(
+        event=event, parent=None, slug="hearth-hall", defaults={"name": "Hearth Hall"}
+    )
+    room, _ = Space.objects.get_or_create(
+        event=event,
+        parent=hall,
+        slug="hearth-room",
+        defaults={"name": "Hearth Room", "capacity": 12},
+    )
+    category, _ = ProposalCategory.objects.get_or_create(
+        event=event, slug="sitting", defaults={"name": "Sitting"}
+    )
+    for title, hour in (("Morning Hearth", 10), ("Later Hearth", 12)):
+        when = datetime.combine(event_day, time(hour, 0), tzinfo=local_tz)
+        session, _ = Session.objects.get_or_create(
+            event=event,
+            slug=title.lower().replace(" ", "-"),
+            defaults={
+                "title": title,
+                "facilitator_name": "Nell Crane",
+                "description": f"{title}, in the Hearth Room.",
+                "duration": "PT1H",
+                "participants_limit": 8,
+                "min_age": 0,
+                "status": "accepted",
+                "category": category,
+            },
+        )
+        AgendaItem.objects.get_or_create(
+            session=session,
+            defaults={
+                "space": room,
+                "start_time": when,
+                "end_time": when + timedelta(hours=1),
             },
         )
 

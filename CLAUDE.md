@@ -127,6 +127,14 @@ constructor, and own transactional boundaries.
 
 ## Rules
 
+- Room overlap is supported, not advised. Organizers may put two sessions
+  in one space at overlapping times. `accept_session` and `assign_session`
+  must not refuse that write (`RoomBookingConflict`, not a
+  `PlacementRejection` and not an application error). The existing
+  booking-conflict UI — timetable conflict panel and problems page,
+  `ConflictType.SPACE_OVERLAP` — is the warning. Do not add a new warning,
+  and do not "fix" this by refusing the booking. The participant schedule
+  and the printed timetable show both sessions side by side in the room.
 - Functions/methods with 3+ parameters (excluding `self`) take them as
   keyword-only:
 

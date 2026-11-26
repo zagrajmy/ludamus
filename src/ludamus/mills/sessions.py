@@ -45,7 +45,6 @@ from ludamus.pacts.sessions import (
     SessionEditNotAllowedError,
     SessionSelfEditContext,
     SessionStatus,
-    SpaceTimeConflictError,
 )
 from ludamus.pacts.timetable import ScheduleChangeAction, ScheduleChangeLogData
 from ludamus.specs.sessions import resolve_event_toggle
@@ -308,8 +307,9 @@ def _placement_minutes(session: SessionDTO) -> int:
 def _placement_availability(
     *, space_ids: set[int], placed: Sequence[AgendaItemDTO]
 ) -> PlacementAvailabilityDTO:
-    # The windows list_overlapping_in_space tests at accept time, so a space
-    # shown free at the start time picked is one accepting will not refuse.
+    # Supported, not advised: these windows mark a room another session
+    # holds. Accepting into one still places the session. The
+    # booking-conflict UI (RoomBookingConflict) is the warning.
     return PlacementAvailabilityDTO(
         busy_by_space={
             pk: [
@@ -400,6 +400,12 @@ class ProposalAcceptanceService:
         user_slug: str,
         sphere_id: int,
     ) -> None:
+        """Accept a proposal onto the timetable.
+
+        A room another session already holds is a ``RoomBookingConflict``:
+        supported, not advised. The write still happens. The
+        booking-conflict UI is the warning.
+        """
         if not self._can_accept(user_slug=user_slug, sphere_id=sphere_id):
             raise ProposalAcceptDeniedError
         session = self._sessions.read(session_id)
@@ -427,13 +433,6 @@ class ProposalAcceptanceService:
                 start=start_time,
                 end=end_time,
             )
-            if (
-                space_id is not None
-                and self._agenda.agenda_items.list_overlapping_in_space(
-                    space_id, start_time, end_time, exclude_session_pk=session_id
-                )
-            ):
-                raise SpaceTimeConflictError
             # The session already has a unique slug from proposal creation;
             # regenerating it here dropped the uniqueness suffix and collided.
             self._sessions.update(

@@ -428,6 +428,23 @@ class TestBuildTimetable:
         assert page.space_range_name is None
         assert [(t.session.title, t.col) for t in page.tiles] == [("Board games", 1)]
 
+    def test_overlapping_sessions_in_one_room_sit_side_by_side(self):
+        items = [
+            _item(1, 1, 10, 12, title="Long", confirmed=True),
+            _item(2, 1, 10, 11, title="Beside", confirmed=True),
+            _item(3, 1, 12, 13, title="After", confirmed=True),
+        ]
+        service = _service(spaces=[_space(1, "Alfa", 0)], items=items)
+
+        (page,) = _timetable(service).pages
+
+        by_title = {tile.session.title: tile for tile in page.tiles}
+        assert page.space_names == ["Alfa"]
+        assert by_title["Beside"].col == by_title["Long"].col == 1
+        assert (by_title["Beside"].lane_index, by_title["Beside"].lane_count) == (0, 2)
+        assert (by_title["Long"].lane_index, by_title["Long"].lane_count) == (1, 2)
+        assert (by_title["After"].lane_index, by_title["After"].lane_count) == (0, 1)
+
     def test_overlapping_sessions_without_a_space_take_lanes_after_the_rooms(self):
         # Nothing stops two of them at once, and tiles in one column would
         # paint over each other; a lane frees as its session ends.

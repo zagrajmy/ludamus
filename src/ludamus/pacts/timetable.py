@@ -21,6 +21,14 @@ if TYPE_CHECKING:
 
 
 class PlacementRejection(StrEnum):
+    """Why a placement was refused.
+
+    A room overlap is not one of these. Two sessions may share a space at
+    overlapping times: supported, not advised. That is
+    ``RoomBookingConflict``, shown in the booking-conflict UI, and the
+    write still succeeds.
+    """
+
     NAIVE_DATETIME = "naive_datetime"
     END_NOT_AFTER_START = "end_not_after_start"
     SESSION_NOT_ACCEPTED = "session_not_accepted"
@@ -266,7 +274,15 @@ class AgendaItemRepositoryProtocol(Protocol):
         start_time: datetime,
         end_time: datetime,
         exclude_session_pk: int | None = None,
-    ) -> list[AgendaItemDTO]: ...
+    ) -> list[AgendaItemDTO]:
+        """Sessions already in this space during ``[start_time, end_time)``.
+
+        A non-empty result is ``RoomBookingConflict``: supported, not
+        advised. Show it in the booking-conflict UI. Do not refuse a
+        placement because of it. Touching ends do not count.
+        """
+        ...
+
     @staticmethod
     def update(pk: int, data: AgendaItemUpdateData) -> None: ...
     @staticmethod
@@ -448,6 +464,18 @@ class ConflictType(StrEnum):
     SPACE_OVERLAP = auto()
     FACILITATOR_OVERLAP = auto()
     CAPACITY_EXCEEDED = auto()
+
+
+class RoomBookingConflict:
+    """Supported, not advised.
+
+    Organizers may put two sessions in one space at overlapping times.
+    The booking-conflict UI shows that as ``ConflictType.SPACE_OVERLAP``.
+    Accepting or moving a session must not refuse the write, and this is
+    not a ``PlacementRejection``.
+    """
+
+    KIND = ConflictType.SPACE_OVERLAP
 
 
 class ConflictSeverity(StrEnum):

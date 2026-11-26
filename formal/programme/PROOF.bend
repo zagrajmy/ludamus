@@ -5,7 +5,7 @@ import Base
 import ./room.bend as Room
 import ./LAWS.bend as Laws
 
-def Laws.serial_accepts_never_share_a_slot():
+def Laws.accepts_may_share_a_slot():
   {==}
 
 def Laws.serial_reaccept_is_refused():

@@ -3288,10 +3288,6 @@ msgid "Your changes are saved."
 msgstr "Zmiany zapisane."
 
 #: src/ludamus/gates/web/django/event/views.py
-msgid "There is already a session scheduled at this space and time."
-msgstr "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
-
-#: src/ludamus/gates/web/django/event/views.py
 #, python-brace-format
 msgid "Proposal '{}' has been accepted and added to the agenda."
 msgstr "Zgłoszenie '{}' zostało zaakceptowane i dodane do programu."
@@ -16827,6 +16823,9 @@ msgid ""
 msgstr ""
 "Bilety kupione na wydarzenia w tej sferze pojawią się tutaj, gotowe do "
 "pokazania przy wejściu."
+
+#~ msgid "There is already a session scheduled at this space and time."
+#~ msgstr "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
 
 #~ msgid "Enrolled"
 #~ msgstr "Zapisany"
