@@ -15,7 +15,9 @@
                 {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-bg-secondary" %}
             </span>
             <div class="flex items-center gap-x-3 gap-y-0.5 flex-wrap min-w-0">
-                <div class="font-medium text-foreground" data-morph="host" data-ph-mask>{{ data.presenter.full_name }}</div>
+                <div class="font-medium text-foreground"
+                     data-morph="host"
+                     data-ph-mask>{{ data.presenter.full_name }}</div>
                 {% if data.presenter.pk and data.presenter.discord_username %}
                     <span class="text-foreground-muted/70 select-none" aria-hidden="true">·</span>
                     {% include "user/user/parts/discord_username.html" with discord_username=data.presenter.discord_username %}
