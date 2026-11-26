@@ -103,6 +103,7 @@ from ludamus.mills.parley_mentions import ParleyMentionMailService
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
+from ludamus.mills.proposal_acceptance import ProposalAcceptanceService
 from ludamus.mills.proposal_categories import ProposalCategoriesService
 from ludamus.mills.propose.field_layout import ImportFieldLayoutService
 from ludamus.mills.propose.import_log import ImportLogService
@@ -119,7 +120,6 @@ from ludamus.mills.propose.wizard import ProposeSessionService
 from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.session_modal import SessionModalService
 from ludamus.mills.sessions import (
-    ProposalAcceptanceService,
     ProposalStatusService,
     SessionConfirmationService,
     SessionContentEditService,
