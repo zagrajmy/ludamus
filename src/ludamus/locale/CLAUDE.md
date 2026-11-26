@@ -32,8 +32,8 @@
   uczestniczące"). `use_participants_label` picks the roster pair:
   off → "Grają", on → "Udział biorą". Presenter field → "Prowadzi".
   "osoby…" stays fine where no activity label fits ("osoby towarzyszące",
-  "Osoby z cichym banem"). Safety list of past co-players:
-  "Spotkani w przeszłości". Landing audience switch: "Dla organizacji" /
-  "Weź udział".
+  "Osoby z cichym banem"). Safety list of past co-players: "Spotkane
+  osoby". Landing audience switch: "Dla organizacji" / "Dla
+  uczestniczących".
 - **shadowban action** → "Zbanuj" (not "Cichy ban" on the button); the
   feature noun can still say "cichy ban" in longer help text.

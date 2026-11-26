@@ -10404,7 +10404,7 @@ msgstr "Wybierz widok strony"
 
 #: src/ludamus/templates/landing/_aud_switch.html
 msgid "For players"
-msgstr "Weź udział"
+msgstr "Dla uczestniczących"
 
 #: src/ludamus/templates/landing/druk.html
 msgid "Ctrl+P and done"
@@ -16744,7 +16744,7 @@ msgstr ""
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Players you have met"
-msgstr "Spotkani w przeszłości"
+msgstr "Spotkane osoby"
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowbanned"
