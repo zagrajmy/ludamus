@@ -26,6 +26,7 @@ from ludamus.pacts.sphere import SiteDTO, SphereDTO
 from ludamus.pacts.timetable import AgendaItemDTO
 from ludamus.pacts.tracks import TrackDTO
 from ludamus.pacts.user import AgeBand, UserDTO, UserType
+from ludamus.pacts.venues import SpaceDTO
 
 DEFAULT_JOINED = datetime(2024, 1, 1, tzinfo=UTC)
 DEFAULT_START = datetime(2026, 6, 1, 9, 0, tzinfo=UTC)
@@ -273,6 +274,20 @@ def track_dto(**overrides) -> TrackDTO:
         "slug": "track",
     }
     return TrackDTO(**(defaults | overrides))
+
+
+def space_dto(**overrides) -> SpaceDTO:
+    pk = overrides.get("pk", 1)
+    defaults = {
+        "capacity": None,
+        "creation_time": DEFAULT_START,
+        "modification_time": DEFAULT_START,
+        "name": f"Room {pk}",
+        "order": pk,
+        "pk": pk,
+        "slug": f"room-{pk}",
+    }
+    return SpaceDTO(**(defaults | overrides))
 
 
 def category(

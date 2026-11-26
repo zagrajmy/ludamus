@@ -1,5 +1,5 @@
 from contextlib import nullcontext
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -19,8 +19,8 @@ from ludamus.pacts.timetable import (
     TimetableRepos,
 )
 from ludamus.pacts.tracks import TrackRepositoryProtocol
-from ludamus.pacts.venues import SpaceDTO, SpaceRepositoryProtocol
-from tests.unit.factories import sphere_dto
+from ludamus.pacts.venues import SpaceRepositoryProtocol
+from tests.unit.factories import event_dto, sphere_dto, track_dto
 
 
 def spheres_stub(*, require_session_space: bool) -> MagicMock:
@@ -89,16 +89,26 @@ def event_track(*, event_pk):
     return track
 
 
-def space_dto(pk, parent_id=None, capacity=None):
-    return SpaceDTO(
+def con_event(**overrides):
+    return event_dto(
+        **{
+            "end_time": END + timedelta(days=1),
+            "name": "Con",
+            "slug": "con",
+            "sphere_id": 3,
+            "start_time": START - timedelta(days=1),
+            **overrides,
+        }
+    )
+
+
+def numbered_track(pk, name="Track"):
+    return track_dto(
+        creation_time=START,
+        modification_time=START,
+        name=name,
         pk=pk,
-        parent_id=parent_id,
-        capacity=capacity,
-        creation_time=datetime(2026, 1, 1, tzinfo=UTC),
-        modification_time=datetime(2026, 1, 1, tzinfo=UTC),
-        name=f"Room {pk}",
-        order=pk,
-        slug=f"room-{pk}",
+        slug=f"track-{pk}",
     )
 
 
@@ -170,3 +180,4 @@ class FakeAgendaItems:
 
 
 START = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+END = datetime(2026, 1, 1, 11, 0, tzinfo=UTC)
