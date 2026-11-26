@@ -516,7 +516,7 @@ msgstr "Ścieżka której szukasz zniknęła we mgle."
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "No-Show Player"
-msgstr "Gracz nie przyszedł"
+msgstr "Osoba nie przyszła"
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "Page didn't show up to the session"
@@ -5800,11 +5800,11 @@ msgstr "Subskrypcja ponownie aktywna."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "If a matching player exists, they have been shadowbanned."
-msgstr "Jeśli pasujący gracz istnieje, został cicho zbanowany."
+msgstr "Jeśli pasująca osoba istnieje, została cicho zbanowana."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Player shadowbanned."
-msgstr "Gracz został cicho zbanowany."
+msgstr "Nadano cichy ban."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Shadowban removed."
@@ -6674,12 +6674,12 @@ msgstr ""
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
 msgid "A shadowbanned player joined %(session)s with you"
-msgstr "Cicho zbanowany gracz dołączył razem z tobą do %(session)s"
+msgstr "Osoba z cichym banem dołączyła razem z tobą do %(session)s"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
 msgid "A shadowbanned player joined %(event)s"
-msgstr "Cicho zbanowany gracz dołączył do %(event)s"
+msgstr "Osoba z cichym banem dołączyła do %(event)s"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
@@ -6958,7 +6958,7 @@ msgid ""
 "Players post a game night, send friends one link, and see who's coming and "
 "how many seats are left. It takes less time than setting up the board."
 msgstr ""
-"Gracze ogłaszają wieczór z grą, wysyłają znajomym jeden link i widzą, kto "
+"Osoby ogłaszają wieczór z grą, wysyłają znajomym jeden link i widzą, kto "
 "przyjdzie i ile zostało miejsc. Zajmuje to mniej czasu niż rozłożenie "
 "planszy."
 
@@ -7082,7 +7082,7 @@ msgstr ""
 
 #: src/ludamus/templates/about.html
 msgid "Players who invite others to a game night with an Encounter"
-msgstr "Gracze, którzy zapraszają innych na wieczór z grą przez Spotkanie"
+msgstr "Osoby, które zapraszają innych na wieczór z grą przez Spotkanie"
 
 #
 #: src/ludamus/templates/about.html
@@ -7709,7 +7709,7 @@ msgstr "Czekają (%(count)s)"
 
 #: src/ludamus/templates/board/index.html
 msgid "GMs, players and groups looking for each other."
-msgstr "MG, gracze i grupy szukają siebie nawzajem."
+msgstr "MG, osoby i grupy szukają siebie nawzajem."
 
 #: src/ludamus/templates/board/index.html src/ludamus/templates/board/mine.html
 msgid "My listings"
@@ -8483,7 +8483,7 @@ msgstr "Informacje publiczne"
 #: src/ludamus/templates/components/visibility-header.html
 #: src/ludamus/templates/landing/_aud_switch.html
 msgid "For organizers"
-msgstr "Dla organizatorów"
+msgstr "Dla organizacji"
 
 #: src/ludamus/templates/components/visibility-icon.html
 #: src/ludamus/templates/components/visibility-legend.html
@@ -9356,12 +9356,12 @@ msgstr "Zapisy"
 
 #: src/ludamus/templates/event/enroll_select.html
 msgid "Players you shadowbanned are already signed up here"
-msgstr "Gracze z Twojej listy cichego banu są już tutaj na liście"
+msgstr "Osoby z Twojej listy cichego banu są już tutaj na liście"
 
 #: src/ludamus/templates/event/enroll_select.html
 #, python-format
 msgid "shadowbanned on %(date)s"
-msgstr "cicho zbanowany %(date)s"
+msgstr "z cichym banem od %(date)s"
 
 #: src/ludamus/templates/event/enroll_select.html
 msgid "Gets a seat"
@@ -11684,7 +11684,7 @@ msgstr ""
 "wydarzeniu jest niebezpieczna. Zbanowana osoba nie może zapisać się na żaden "
 "punkt programu: wydarzenie po prostu wydaje się dla niej pełne i nie jest "
 "informowana, że jest zbanowana. W przypadku łagodniejszego dyskomfortu "
-"gracze mogą zamiast tego cicho banować się nawzajem we własnych ustawieniach."
+"osoby mogą zamiast tego cicho banować się nawzajem we własnych ustawieniach."
 
 #: src/ludamus/templates/panel/bans.html
 msgid "Banned people"
@@ -12561,7 +12561,7 @@ msgid ""
 "proposal's presenter name."
 msgstr ""
 "Nazwa zapisana przez kreator zgłoszeń. Kanonicznym podpisem jest nazwa "
-"prowadzącego w zgłoszeniu."
+"osoby prowadzącej w zgłoszeniu."
 
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid ""
@@ -12598,7 +12598,7 @@ msgid ""
 "to change the byline."
 msgstr ""
 "Nazwa zapisana przez kreator zgłoszeń — aby zmienić podpis, edytuj nazwę "
-"prowadzącego w zgłoszeniu."
+"osoby prowadzącej w zgłoszeniu."
 
 #: src/ludamus/templates/panel/facilitator-merge.html
 msgid "Merge Facilitators"
@@ -15326,16 +15326,16 @@ msgid_plural ""
 "Sessions are untouched."
 msgstr[0] ""
 "Jej znak przestanie się pokazywać na kartach programu %(counter)s "
-"prowadzącego. Punkty programu zostają nietknięte."
+"osoby prowadzącej. Punkty programu zostają nietknięte."
 msgstr[1] ""
 "Jej znak przestanie się pokazywać na kartach programu %(counter)s "
-"prowadzących. Punkty programu zostają nietknięte."
+"osób prowadzących. Punkty programu zostają nietknięte."
 msgstr[2] ""
 "Jej znak przestanie się pokazywać na kartach programu %(counter)s "
-"prowadzących. Punkty programu zostają nietknięte."
+"osób prowadzących. Punkty programu zostają nietknięte."
 msgstr[3] ""
 "Jej znak przestanie się pokazywać na kartach programu %(counter)s "
-"prowadzącego. Punkty programu zostają nietknięte."
+"osoby prowadzącej. Punkty programu zostają nietknięte."
 
 #: src/ludamus/templates/sphere/panel/guilds/edit.html
 msgid "Back to guilds"
@@ -15360,7 +15360,7 @@ msgstr ""
 
 #: src/ludamus/templates/sphere/panel/guilds/edit.html
 msgid "Add presenter"
-msgstr "Dodaj prowadzącego"
+msgstr "Dodaj osobę prowadzącą"
 
 #: src/ludamus/templates/sphere/panel/guilds/edit.html
 #, python-format
@@ -16712,9 +16712,9 @@ msgid ""
 "join, and we never tell them. You get an email when one of them signs up at "
 "an event where you run a session, or into a session you play in."
 msgstr ""
-"Punkty programu, które prowadzisz, zawsze wyglądają dla cicho zbanowanych "
-"graczy na pełne, więc nigdy nie mogą dołączyć — i nigdy im o tym nie mówimy. "
-"Dostaniesz e-mail, gdy któryś z nich zapisze się na wydarzeniu, na którym "
+"Punkty programu, które prowadzisz, zawsze wyglądają dla osób z cichym banem "
+"na pełne, więc nigdy nie mogą dołączyć — i nigdy im o tym nie mówimy. "
+"Dostaniesz e-mail, gdy któraś z nich zapisze się na wydarzeniu, na którym "
 "coś prowadzisz, albo na punkt programu, w którym grasz."
 
 #: src/ludamus/templates/user/user/safety.html
@@ -16723,7 +16723,7 @@ msgstr "Spotkani w przeszłości"
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowbanned"
-msgstr "Cicho zbanowany"
+msgstr "Z cichym banem"
 
 #: src/ludamus/templates/user/user/safety.html
 #, python-format

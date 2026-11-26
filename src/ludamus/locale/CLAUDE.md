@@ -23,10 +23,13 @@
   "zapisany/a", "zalogowany(-a)") or marked "inclusive" spellings ("*a",
   "_ka", "·a"). Grammatical agreement with a noun is fine ("gracz
   został…", "osoba dostała…").
-- **gracze:** keep "gracze"/"graczy" for seeking players and similar board
-  copy — do **not** swap in "drużyny" there (unclear) and do **not** write
-  "graczy/ek". Prefer "osoby…" when naming people ("osoby towarzyszące",
-  "osoby uczestniczące"); the safety list of past co-players is
-  "Spotkani w przeszłości".
+- **gracze:** keep plural "graczy" for seeking players and similar board
+  copy ("Szuka graczy", filter "Graczy", "znajdź graczy") — do **not**
+  swap in "drużyny" there (unclear) and do **not** write "graczy/ek".
+  Other cases of the lemma can use "osoby…" ("MG, osoby i grupy…",
+  "Osoby, które zapraszają…"). Prefer "osoby…" when naming people
+  ("osoby towarzyszące", "osoby uczestniczące"); the safety list of past
+  co-players is "Spotkani w przeszłości". Landing audience switch:
+  "Dla organizacji" / "Dla osób uczestniczących".
 - **shadowban action** → "Zbanuj" (not "Cichy ban" on the button); the
   feature noun can still say "cichy ban" in longer help text.
