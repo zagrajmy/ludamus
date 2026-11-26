@@ -13,7 +13,13 @@
             class="inline-flex items-center gap-2 min-w-0 rounded-lg cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             popovertarget="roster-popover-{{ data.session.pk }}"
             aria-haspopup="dialog">
-        <span class="sr-only">{% translate "Participants" %}</span>
+        <span class="sr-only">
+            {% if event.use_participants_label %}
+                {% translate "Participants" context "session roster taking part" %}
+            {% else %}
+                {% translate "Participants" context "session roster playing" %}
+            {% endif %}
+        </span>
         <span class="flex -space-x-2"
               data-roster-stack
               aria-hidden="true"
@@ -56,14 +62,16 @@
     <div id="roster-popover-{{ data.session.pk }}"
          popover="auto"
          role="dialog"
-         aria-label="{% translate "Participants" %}"
+         aria-label="{% if event.use_participants_label %}{% translate "Participants" context "session roster taking part" %}{% else %}{% translate "Participants" context "session roster playing" %}{% endif %}"
          data-roster-popover
          class="m-0 border-0 bg-transparent p-0 text-inherit overflow-visible">
         <div class="w-80 max-w-[calc(100vw-2rem)] max-h-96 overflow-y-auto rounded-xl border border-border bg-bg-secondary p-4 shadow-(--shadow-elevated)">
             <section data-roster-group="confirmed"
                      {% if not data.enrolled_count %}hidden{% endif %}>
                 <h3 class="font-semibold mb-3 text-foreground-secondary">
-                    {% translate "Enrolled" %} (<span data-roster-count>{{ data.enrolled_count }}</span>{% if data.takes_enrollment %}/<span data-roster-limit>{{ data.effective_participants_limit }}</span>{% endif %})
+                    {# A session that takes no sign-up has no limit to count against, #}
+                    {# so the fraction would read "1/0". #}
+                    {% if event.use_participants_label %}{% translate "Enrolled" context "session roster taking part" %}{% else %}{% translate "Enrolled" context "session roster playing" %}{% endif %} (<span data-roster-count>{{ data.enrolled_count }}</span>{% if data.takes_enrollment %}/<span data-roster-limit>{{ data.effective_participants_limit }}</span>{% endif %})
                 </h3>
                 <div class="space-y-2 mb-4" data-roster-list>
                     {% for participation in data.session_participations|dictsort:"creation_time" %}
