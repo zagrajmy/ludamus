@@ -23,7 +23,7 @@ function saveSpot({ x, y }: Spot): void {
   try {
     localStorage.setItem(SPOT_KEY, `${x},${y}`);
   } catch {
-    // NOTE: with storage off, the window opens over the button next time.
+    // NOTE: with storage off, the window opens over the button on the next page.
   }
 }
 
@@ -33,7 +33,7 @@ export function useFloatingWindow() {
 
   const drag = (event: PointerEvent<HTMLDivElement>) => {
     const target = event.target as Element;
-    const handle = target.closest<HTMLElement>("[data-parley-drag]");
+    const handle = target.closest("[data-parley-drag]");
     if (
       !event.isPrimary ||
       event.button !== 0 ||
@@ -42,7 +42,10 @@ export function useFloatingWindow() {
       !matchMedia(FLOATING).matches
     )
       return;
-    const box = frame.current!.getBoundingClientRect();
+    // NOTE: held by the window, not the header, which each view brings its
+    // own of: a view that changes mid-drag would end the drag with it.
+    const held = frame.current!;
+    const box = held.getBoundingClientRect();
     const grip = { x: event.clientX - box.left, y: event.clientY - box.top };
     let last: Spot | null = null;
     const move = (moved: globalThis.PointerEvent) => {
@@ -54,7 +57,7 @@ export function useFloatingWindow() {
     };
     // Saved where the edges stopped it, not where the pointer went.
     const stop = () => {
-      handle.removeEventListener("pointermove", move);
+      held.removeEventListener("pointermove", move);
       const moved = last;
       if (moved === null || frame.current === null) return;
       flushSync(() => setSpot(moved));
@@ -62,9 +65,9 @@ export function useFloatingWindow() {
       setSpot({ x: left, y: top });
       saveSpot({ x: left, y: top });
     };
-    handle.setPointerCapture(event.pointerId);
-    handle.addEventListener("pointermove", move);
-    handle.addEventListener("lostpointercapture", stop, { once: true });
+    held.setPointerCapture(event.pointerId);
+    held.addEventListener("pointermove", move);
+    held.addEventListener("lostpointercapture", stop, { once: true });
   };
 
   // A smaller viewport pushes the window back inside, without moving its spot.
