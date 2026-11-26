@@ -93,8 +93,6 @@ class PrintTimetableTileDTO(BaseModel):
     col: int
     row: int
     span: int
-    # Side by side inside the room column when several sessions share it.
-    # Supported, not advised: a room overlap stays visible, both tiles.
     lane_index: int = 0
     lane_count: int = 1
 

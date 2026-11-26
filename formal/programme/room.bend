@@ -1,11 +1,9 @@
 # Two proposals, P and Q, accepted into the same space and time slot.
 #
-# A room overlap is supported, not advised. accept_session places the
-# proposal even when the other proposal already holds the slot. The
-# booking-conflict UI warns; the write is not refused.
-# ProposalAcceptPageView still refuses a session that is no longer PENDING.
-# AgendaItem.session is one-to-one, so a second item for the same session
-# fails. That double-submit is finding_double_submit.bend.
+# accepts_may_share_a_slot: a room overlap is supported, not advised, so
+# Accept of the other proposal places it. A session that is no longer
+# PENDING is refused. AgendaItem.session is one-to-one, so a second item
+# for the same session fails (finding_double_submit.bend).
 
 import Base
 
@@ -116,9 +114,6 @@ def commit(+l: Lane, +r: Room, q: Request) -> Room:
 def step(+r: Room, e: Op) -> Room:
   match e:
     case Accept{+l, +p}:
-      # The same proposal already placed is refused (one agenda item).
-      # The other proposal in the slot is not: a room overlap is supported,
-      # not advised.
       ok = is_idle(lane(l, r)) && Bool.not(placed(p, r))
       pick(ok, set_lane(l, r, Places{p}), r)
     case Commit{+l}:

@@ -548,9 +548,9 @@ class TimetableService(TimetableServiceProtocol):
     ) -> None:
         """Place or move a session.
 
-        A room another session already holds is a ``RoomBookingConflict``:
-        supported, not advised. The space lock still serialises the write.
-        The write is not refused. The booking-conflict UI is the warning.
+        A room another session already holds is a ``RoomBookingConflict``
+        (supported, not advised). The space lock still serialises the write.
+        The session is still placed.
         """
         self._require_aware(placement.start_time, placement.end_time)
         with self._transaction.atomic():
@@ -848,8 +848,6 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
     def _space_conflicts(
         item: AgendaItemDTO, items_by_space: dict[int, list[AgendaItemDTO]]
     ) -> list[ConflictDTO]:
-        # RoomBookingConflict: supported, not advised. Reported here, in the
-        # booking-conflict UI. Never a reason to refuse the placement.
         return [
             ConflictDTO(
                 type=RoomBookingConflict.KIND,

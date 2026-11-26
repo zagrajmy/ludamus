@@ -238,8 +238,6 @@
                                                      data-col="{{ forloop.counter }}"></div>
                                             {% endfor %}
                                         {% endfor %}
-                                        {# NOTE: a room overlap is supported, not advised. Tiles that share #}
-                                        {# a room and a time sit side by side so both stay visible. #}
                                         {% for tile in page.tiles %}
                                             <article class="m-[0.5mm] min-w-0 rounded-sm border border-neutral-900 bg-white p-[1mm]"
                                                      aria-label="{{ tile.session.title }}"

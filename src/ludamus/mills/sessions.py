@@ -307,9 +307,6 @@ def _placement_minutes(session: SessionDTO) -> int:
 def _placement_availability(
     *, space_ids: set[int], placed: Sequence[AgendaItemDTO]
 ) -> PlacementAvailabilityDTO:
-    # Supported, not advised: these windows mark a room another session
-    # holds. Accepting into one still places the session. The
-    # booking-conflict UI (RoomBookingConflict) is the warning.
     return PlacementAvailabilityDTO(
         busy_by_space={
             pk: [
@@ -402,9 +399,8 @@ class ProposalAcceptanceService:
     ) -> None:
         """Accept a proposal onto the timetable.
 
-        A room another session already holds is a ``RoomBookingConflict``:
-        supported, not advised. The write still happens. The
-        booking-conflict UI is the warning.
+        A room another session already holds is a ``RoomBookingConflict``
+        (supported, not advised). The session is still placed.
         """
         if not self._can_accept(user_slug=user_slug, sphere_id=sphere_id):
             raise ProposalAcceptDeniedError

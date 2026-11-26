@@ -123,9 +123,8 @@ def _lane_key(item: AgendaItemDTO) -> tuple[float, float, str, int]:
 
 
 def _lanes_in_column(items: list[AgendaItemDTO]) -> dict[int, tuple[int, int]]:
-    # Supported, not advised: sessions that share a room and a time sit
-    # side by side in that column so both stay visible. Touching ends do
-    # not share a lane group. Compared as instants, as the rows are.
+    # Touching ends take one lane. Compared as instants, as the rows are:
+    # on the night the clocks go back the wall clock overlaps.
     ordered = sorted(items, key=_lane_key)
     assigned: dict[int, tuple[int, int]] = {}
     component: list[AgendaItemDTO] = []
