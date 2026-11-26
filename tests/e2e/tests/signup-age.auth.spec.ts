@@ -26,13 +26,15 @@ for (const [scenario, choice] of [
         if (/posthog\.com/.test(request.url())) analyticsRequests.push(request.url());
       });
       await page.goto(AGE_URL);
-      await expect(page.getByRole("heading", { name: "Confirm your age range" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
+      await expect(page.getByLabel("Display name")).toBeVisible();
       await page.setViewportSize({ width: 390, height: 844 });
       await attachArtifacts(testInfo, {
         name: `signup-age-${scenario}-mobile`,
         region: page.getByRole("main"),
         facts: { ageRange: choice },
       });
+      await page.getByLabel("Display name").fill(`Age ${scenario}`);
       await page.getByRole("radio", { name: choice, exact: true }).check();
       await page.getByRole("button", { name: "Continue", exact: true }).click();
       await page.waitForURL((url) => url.pathname === "/");
@@ -86,6 +88,7 @@ test.describe("Signup from a convention sphere", () => {
   test.use({ storageState: state("cross-sphere") });
   test("returns to the convention without a blocked form redirect", async ({ page }, testInfo) => {
     await page.goto(AGE_URL);
+    await page.getByLabel("Display name").fill("Cross Sphere");
     await page.getByRole("radio", { name: "13–15", exact: true }).check();
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     await page.waitForURL("http://another.localhost:8000/");
@@ -104,6 +107,7 @@ test.describe("Under thirteen", () => {
       route.fulfill({ body: "Signed out" }),
     );
     await page.goto(AGE_URL);
+    await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
     await page.getByRole("radio", { name: "Under 13", exact: true }).check();
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     await expect(

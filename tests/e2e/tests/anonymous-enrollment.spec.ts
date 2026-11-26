@@ -36,10 +36,12 @@ const closeSession = async (page: Page, title: string) => {
   await expect(dialog).toBeHidden();
 };
 
-const participants = async (page: Page, title: string) => {
+const openRoster = async (page: Page, title: string) => {
   const dialog = await openSession(page, title);
-  await dialog.getByRole("tab", { name: /Participants/ }).click();
-  return dialog.getByRole("tabpanel");
+  await dialog.getByRole("button", { name: "Participants" }).click();
+  const roster = dialog.getByRole("dialog", { name: "Participants" });
+  await expect(roster).toBeVisible();
+  return { dialog, roster };
 };
 
 // Errors and warnings are alerts, successes are statuses; both land here.
@@ -73,7 +75,8 @@ test("a visitor signs up with a code, waits for a full session, and gives both b
   await page.getByRole("button", { name: "Complete Enrollment" }).click();
   await expect(page).toHaveURL(new RegExp(`${EVENT_URL}$`));
   await expect(flash(page, "Successfully enrolled in session: Lantern Walk")).toBeVisible();
-  await expect((await participants(page, "Lantern Walk")).getByText(name)).toBeVisible();
+  const lantern = await openRoster(page, "Lantern Walk");
+  await expect(lantern.roster.getByRole("img", { name })).toBeVisible();
   await closeSession(page, "Lantern Walk");
 
   // The code already carries a name, so the second signup asks for none.
@@ -83,9 +86,13 @@ test("a visitor signs up with a code, waits for a full session, and gives both b
   await expect(
     flash(page, "Session is full. You have been added to the waiting list for: Cellar Duel"),
   ).toBeVisible();
-  const duel = await participants(page, "Cellar Duel");
-  await expect(duel.getByRole("heading", { name: "Enrolled (1/1)" })).toBeVisible();
-  await expect(duel.getByText(name)).toBeVisible();
+  const duel = await openRoster(page, "Cellar Duel");
+  await expect(duel.dialog.locator("[data-roster]")).toContainText("1/1");
+  await expect(duel.dialog.locator("[data-roster]")).toContainText("1 waiting");
+  // Waiting is a count on the trigger; the person lands under Waiting List.
+  await expect(duel.roster.getByRole("heading", { name: "Waiting List" })).toBeVisible();
+  await expect(duel.roster.getByText(name, { exact: true })).toBeVisible();
+  await closeSession(page, "Cellar Duel");
 
   // Another browser knows nothing about the first one; the code is all it has.
   const other = await browser.newContext();
@@ -116,16 +123,18 @@ test("a visitor signs up with a code, waits for a full session, and gives both b
 
   // The first browser sees both handed back, and is offered the way in again.
   await page.goto(EVENT_URL);
-  await expect((await participants(page, "Cellar Duel")).getByText(name)).toHaveCount(0);
+  const clearedDuel = await openSession(page, "Cellar Duel");
+  const clearedRoster = clearedDuel.locator("[data-roster]");
+  await expect(clearedRoster).toHaveAttribute("data-roster-waiting", "0");
+  await expect(clearedRoster.locator("[data-roster-waiting-block]")).toBeHidden();
   await closeSession(page, "Cellar Duel");
-  const walk = await participants(page, "Lantern Walk");
-  await expect(walk.getByText(name)).toHaveCount(0);
-  const walkDialog = page.getByRole("dialog", { name: "Lantern Walk" });
-  await expect(walkDialog.getByRole("link", { name: "Enroll Anonymously" })).toBeVisible();
+  const walk = await openRoster(page, "Lantern Walk");
+  await expect(walk.roster.getByRole("img", { name })).toHaveCount(0);
+  await expect(walk.dialog.getByRole("link", { name: "Enroll Anonymously" })).toBeVisible();
 
   await attachArtifacts(testInfo, {
     name: "anonymous-enrollment",
-    region: walkDialog,
-    facts: { code, name, lanternWalk: (await walk.innerText()).trim() },
+    region: walk.dialog,
+    facts: { code, name, lanternWalk: (await walk.dialog.innerText()).trim() },
   });
 });

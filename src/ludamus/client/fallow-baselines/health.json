@@ -414,7 +414,7 @@
         "count": 4
       },
       "crap_high": {
-        "count": 4
+        "count": 3
       },
       "crap_moderate": {
         "count": 4
@@ -491,29 +491,30 @@
   "target_keys": [
     "src/parley/parley.tsx:complexity",
     "src/parley/conversation.tsx:complexity",
-    "src/space-tree.ts:untested risk",
     "src/parley/message-item.tsx:complexity",
     "src/parley/format.ts:high impact",
+    "src/sheet-dialog.ts:high impact",
+    "src/space-tree.ts:untested risk",
     "src/flash.ts:untested risk",
+    "src/session-filters.ts:complexity",
+    "src/menu.ts:untested risk",
     "src/propose-copy.ts:untested risk",
     "src/programme-space-order.ts:untested risk",
-    "src/privacy-controller.ts:untested risk",
-    "src/markdown-editor.ts:untested risk",
-    "src/menu.ts:untested risk",
     "src/command-menu.ts:untested risk",
-    "src/session-edit.ts:untested risk",
-    "src/konwencik-preview.ts:complexity",
+    "src/privacy-controller.ts:untested risk",
     "src/duration-list.ts:untested risk",
-    "src/enroll-preview.ts:complexity",
-    "src/sound.ts:untested risk",
+    "src/markdown-editor.ts:untested risk",
+    "src/konwencik-preview.ts:complexity",
     "src/schedule-fold.ts:untested risk",
+    "src/session-edit.ts:untested risk",
+    "src/sound.ts:untested risk",
     "src/write-in-chips.ts:untested risk",
-    "src/dropzone.ts:untested risk",
-    "src/staging-inbox.ts:untested risk",
-    "src/nav-progress.ts:untested risk",
-    "src/show-when.ts:untested risk",
-    "src/session-filters.ts:complexity",
     "src/combobox.ts:complexity",
-    "src/room-lanes.ts:complexity"
+    "src/enroll-preview.ts:complexity",
+    "src/show-when.ts:untested risk",
+    "src/nav-progress.ts:untested risk",
+    "src/staging-inbox.ts:untested risk",
+    "src/room-lanes.ts:complexity",
+    "src/dropzone.ts:untested risk"
   ]
 }

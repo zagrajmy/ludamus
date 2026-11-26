@@ -238,13 +238,7 @@ class TestClaimRedemptionOnLogin:
         assert User.objects.filter(
             username=f"auth0|{sub}", user_type=UserType.ACTIVE
         ).exists()
-        # No claim messages — just the ordinary fresh-account onboarding nudge.
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url="http://testserver/crowd/profile/?next=%2F",
-            messages=[(messages.SUCCESS, "Please complete your profile.")],
-        )
+        assert_response(response, HTTPStatus.FOUND, url="http://testserver/")
 
     @patch("ludamus.gates.web.django.user.auth.oauth.auth0.authorize_access_token")
     def test_refuses_when_recipient_already_has_account(
