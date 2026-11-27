@@ -113,6 +113,48 @@ test("A chat opened in a background tab marks nothing read", async ({ page }) =>
   expect(worker.called("markRead")).toHaveLength(0);
 });
 
+test("A feed the Worker keeps dropping redials ever more slowly, and at once when the tab shows again", async ({
+  page,
+}) => {
+  await page.clock.install();
+  await routeBootstrap(page);
+  let dials = 0;
+  await page.routeWebSocket(/^wss?:\/\/[^/]+\/agents\/parley-sphere-agent\//u, (socket) => {
+    dials += 1;
+    void socket.close({ code: 1011, reason: "test" });
+  });
+  await page.goto("/");
+  await page.clock.runFor(3000);
+  await expect.poll(() => dials).toBeGreaterThan(0);
+
+  // Redialled every 10 s at most, as partysocket does on its own, the feed
+  // would dial about 60 times in these ten minutes.
+  await page.clock.runFor("10:00");
+  expect(dials).toBeLessThanOrEqual(12);
+
+  const waiting = dials;
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await expect.poll(() => dials).toBe(waiting + 1);
+});
+
+test("A tab woken after its pass lapsed fetches a new one", async ({ page }) => {
+  const start = Date.now();
+  await page.clock.install({ time: start });
+  const served = await routeBootstrap(page, [
+    { capabilityToken: passExpiring(Math.floor(start / 1000) + 3600) },
+    {},
+  ]);
+  await FakeWorker.install(page);
+  await page.goto("/");
+  await page.clock.runFor(3000);
+  await expect.poll(served.count).toBe(1);
+
+  // The computer sleeps past the pass: the wall clock moves on, its timers do not.
+  await page.clock.setSystemTime(start + 2 * 3600 * 1000);
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await expect.poll(served.count).toBe(2);
+});
+
 test("A revoked or expired pass is swapped for a new one", async ({ page }) => {
   const served = await routeBootstrap(page);
   const worker = await FakeWorker.install(page);
