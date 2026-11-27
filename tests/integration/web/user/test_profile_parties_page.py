@@ -1,7 +1,6 @@
 from http import HTTPStatus
 from unittest.mock import ANY
 
-import pytest
 from django.contrib import messages
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
@@ -67,7 +66,6 @@ def _party_dto(party, viewer, members):
         ),
         created_at=party.created_at,
         members=members,
-        enrolls_together=party.enrolls_together,
     )
 
 
@@ -103,7 +101,6 @@ def _base_context(**overrides):
         "can_add_companion": True,
         "create_companion_form": ANY,
         "party_form": ANY,
-        "play_party_form": ANY,
         "profile_active_tab": "parties",
     }
     context.update(overrides)
@@ -299,8 +296,7 @@ class TestPartyCreateActionView:
         self, authenticated_client, active_user
     ):
         response = authenticated_client.post(
-            reverse("web:crowd:parties-create"),
-            data={"name": "Wtorkowa ekipa", "enrolls_together": "True"},
+            reverse("web:crowd:parties-create"), data={"name": "Wtorkowa ekipa"}
         )
 
         party = Party.objects.get(name="Wtorkowa ekipa")
@@ -315,36 +311,8 @@ class TestPartyCreateActionView:
         assert membership.member_id == active_user.pk
         assert membership.status == PartyMembershipStatus.ACTIVE
 
-    @pytest.mark.parametrize(
-        ("button_value", "enrolls_together"), (("True", True), ("False", False))
-    )
-    def test_post_takes_the_setting_from_the_chosen_button(
-        self, authenticated_client, button_value, enrolls_together
-    ):
-        authenticated_client.post(
-            reverse("web:crowd:parties-create"),
-            data={"name": "Ekipa", "enrolls_together": button_value},
-        )
-
-        assert Party.objects.get().enrolls_together is enrolls_together
-
     def test_post_requires_name(self, authenticated_client):
-        response = authenticated_client.post(
-            reverse("web:crowd:parties-create"), data={"enrolls_together": "True"}
-        )
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url=URL,
-            messages=[(messages.ERROR, CREATE_FAILED)],
-        )
-        assert not Party.objects.exists()
-
-    def test_post_requires_the_setting(self, authenticated_client):
-        response = authenticated_client.post(
-            reverse("web:crowd:parties-create"), data={"name": "Ekipa"}
-        )
+        response = authenticated_client.post(reverse("web:crowd:parties-create"))
 
         assert_response(
             response,

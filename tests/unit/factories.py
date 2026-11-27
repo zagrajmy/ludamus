@@ -2,6 +2,7 @@ from contextlib import AbstractContextManager, nullcontext
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from ludamus.pacts.encounter import EncounterRSVPDTO
 from ludamus.pacts.enrollment import (
     PromotionMode,
     PromotionStateDTO,
@@ -26,6 +27,7 @@ from ludamus.pacts.sphere import SiteDTO, SphereDTO
 from ludamus.pacts.timetable import AgendaItemDTO
 from ludamus.pacts.tracks import TrackDTO
 from ludamus.pacts.user import AgeBand, UserDTO, UserType
+from ludamus.pacts.venues import SpaceDTO
 
 DEFAULT_JOINED = datetime(2024, 1, 1, tzinfo=UTC)
 DEFAULT_START = datetime(2026, 6, 1, 9, 0, tzinfo=UTC)
@@ -133,6 +135,16 @@ def sphere_dto(**overrides) -> SphereDTO:
         "site": SiteDTO(domain="example.com", name="Example", pk=1),
     }
     return SphereDTO(**(defaults | overrides))
+
+
+def encounter_rsvp_dto(**overrides) -> EncounterRSVPDTO:
+    defaults = {
+        "creation_time": DEFAULT_JOINED,
+        "encounter_id": 1,
+        "pk": 1,
+        "user_id": 1,
+    }
+    return EncounterRSVPDTO(**(defaults | overrides))
 
 
 def agenda_item_dto(**overrides) -> AgendaItemDTO:
@@ -273,6 +285,20 @@ def track_dto(**overrides) -> TrackDTO:
         "slug": "track",
     }
     return TrackDTO(**(defaults | overrides))
+
+
+def space_dto(**overrides) -> SpaceDTO:
+    pk = overrides.get("pk", 1)
+    defaults = {
+        "capacity": None,
+        "creation_time": DEFAULT_START,
+        "modification_time": DEFAULT_START,
+        "name": f"Room {pk}",
+        "order": pk,
+        "pk": pk,
+        "slug": f"room-{pk}",
+    }
+    return SpaceDTO(**(defaults | overrides))
 
 
 def category(

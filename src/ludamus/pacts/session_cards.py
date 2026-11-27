@@ -88,7 +88,6 @@ class PartyEventHistoryDTO(BaseModel):
 class PartyDetailDTO(BaseModel):
     party: PartyDTO
     history: list[PartyEventHistoryDTO]
-    enrolling_locked: bool
 
 
 class PartySessionHistoryRepositoryProtocol(Protocol):

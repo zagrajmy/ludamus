@@ -62,7 +62,6 @@ def _context(party_dto, contacts=None, **overrides):
         "companion_form": ANY if party_dto.is_active_member else None,
         "invite_token": "",
         "history": [],
-        "enrolling_locked": False,
         "listings": [],
         "profile_active_tab": "parties",
     }
@@ -122,7 +121,7 @@ class TestPartyDetailPageView:
             template_name=TEMPLATE,
             contains=[
                 "Leave party",
-                "Allow direct enrollment",
+                "Allow direct signup",
                 "Add companion",
                 "Invite a member",
             ],
@@ -337,7 +336,6 @@ class TestPartyDetailSessionHistory:
                     [_member_dto(active_user, party), _member_dto(companion, party)],
                 ),
                 invite_token=party.invite_token,
-                enrolling_locked=True,
                 history=[_history_group(response, session.event)],
             ),
             template_name=TEMPLATE,
@@ -372,7 +370,6 @@ class TestPartyDetailSessionHistory:
             context_data=_context(
                 _party_dto(party, active_user, [_member_dto(active_user, party)]),
                 invite_token=party.invite_token,
-                enrolling_locked=True,
                 history=[_history_group(response, session.event)],
             ),
             template_name=TEMPLATE,
@@ -408,7 +405,6 @@ class TestPartyDetailSessionHistory:
             context_data=_context(
                 _party_dto(party, active_user, [_member_dto(active_user, party)]),
                 invite_token=party.invite_token,
-                enrolling_locked=True,
                 history=[
                     _history_group(response, session.event),
                     _history_group(response, other_event, index=1),
@@ -442,7 +438,6 @@ class TestPartyDetailSessionHistory:
                 context_data=_context(
                     _party_dto(party, active_user, [_member_dto(active_user, party)]),
                     invite_token=party.invite_token,
-                    enrolling_locked=True,
                     history=[_history_group(response, session.event)],
                 ),
                 template_name=TEMPLATE,
@@ -533,7 +528,6 @@ class TestPartyDetailSessionHistory:
                     [_member_dto(active_user, party), _member_dto(companion, party)],
                 ),
                 invite_token=party.invite_token,
-                enrolling_locked=True,
                 history=[_history_group(response, session.event)],
             ),
             template_name=TEMPLATE,
