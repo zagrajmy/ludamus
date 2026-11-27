@@ -12,9 +12,8 @@ import {
   snippet,
   type UnreadMention,
 } from "./mention-mail";
-import { passOf, passOnConnect, sendWhere } from "./passes";
+import { admittedPass, passOf, sendWhere } from "./passes";
 import {
-  PASS_REVOKED,
   type Capability,
   type ConnectionState,
   type RoomActivity,
@@ -64,12 +63,13 @@ export class ParleyInboxAgent extends Agent<Env> {
     connection: Connection<ConnectionState>,
     context: ConnectionContext,
   ): Promise<void> {
-    const capability = await passOnConnect(connection, context.request, this.env);
+    const capability = await admittedPass({
+      connection,
+      env: this.env,
+      reaches: (pass) => pass.sub === this.name,
+      request: context.request,
+    });
     if (capability === null) return;
-    if (capability.sub !== this.name) {
-      connection.close(PASS_REVOKED, "Not this person's inbox");
-      return;
-    }
     connection.setState({ admitted: true, capability });
   }
 

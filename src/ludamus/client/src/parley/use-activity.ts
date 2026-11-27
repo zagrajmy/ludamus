@@ -1,15 +1,8 @@
 import { useAgent } from "agents/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import {
-  agentUrl,
-  type Bootstrap,
-  type Event,
-  passCloseHandlers,
-  type Result,
-  type RoomActivity,
-} from "./protocol";
-import { useRedial } from "./use-redial";
+import { agentUrl, type Bootstrap, type Event, type Result, type RoomActivity } from "./protocol";
+import { REDIAL_BY_HAND, useRedial } from "./use-redial";
 
 export type Activity = {
   activity: Record<string, RoomActivity>;
@@ -32,9 +25,9 @@ export function useActivity(
     host: url.host,
     name: "inbox" in source ? bootstrap.user.id : source.sphere,
     protocol: url.protocol === "https:" ? "wss" : "ws",
-    ...passCloseHandlers(onPassClosed),
+    ...REDIAL_BY_HAND,
   });
-  useRedial(agent);
+  useRedial(agent, { onPassClosed });
   useEffect(() => {
     void agent.call<Result<Record<string, RoomActivity>>>("getActivity").then((result) => {
       if (result.ok) setActivity(result.value);

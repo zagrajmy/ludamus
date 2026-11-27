@@ -63,19 +63,29 @@ export function closeRevokedIn(
 }
 
 // SAFETY: thrown from onConnect, a refusal closes the socket as a server
-// error, which the browser redials every ten seconds for as long as the tab
-// stays open, keeping the room awake. A pass close sends it for a new pass.
-export async function passOnConnect(
-  connection: Connection<ConnectionState>,
-  request: Request,
-  env: AuthEnv,
-): Promise<Capability | null> {
-  const token = capabilityCookie(request);
-  const capability = token === null ? null : await verifyCapability(token, env).catch(() => null);
-  if (capability === null) {
-    const reason = token === null ? "Pass missing" : "Pass invalid";
+// error, which the browser redials with the same pass. A pass close sends it
+// for a new one instead: none, one that no longer verifies, or one older than
+// this person's way into the room.
+export async function admittedPass({
+  connection,
+  env,
+  reaches,
+  request,
+}: {
+  connection: Connection<ConnectionState>;
+  env: AuthEnv;
+  reaches: (capability: Capability) => boolean;
+  request: Request;
+}): Promise<Capability | null> {
+  const refuse = (code: number, reason: string) => {
     console.warn(`parley socket refused: ${reason}`);
-    connection.close(PASS_EXPIRED, reason);
-  }
+    connection.close(code, reason);
+    return null;
+  };
+  const token = capabilityCookie(request);
+  if (token === null) return refuse(PASS_EXPIRED, "Pass missing");
+  const capability = await verifyCapability(token, env).catch(() => null);
+  if (capability === null) return refuse(PASS_EXPIRED, "Pass invalid");
+  if (!reaches(capability)) return refuse(PASS_REVOKED, "Pass does not reach this room");
   return capability;
 }

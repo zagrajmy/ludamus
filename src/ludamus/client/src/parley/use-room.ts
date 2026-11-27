@@ -1,14 +1,7 @@
 import type { CallOptions, StreamOptions } from "agents/client";
 
 import { useAgent } from "agents/react";
-import {
-  type Dispatch,
-  type SetStateAction,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type Dispatch, type SetStateAction, useCallback, useEffect, useState } from "react";
 
 import type { RoomCache } from "./room-cache";
 
@@ -17,12 +10,11 @@ import {
   answerOf,
   type Event,
   type Message,
-  passCloseHandlers,
   type ReactionChange,
   type Result,
   type Room,
 } from "./protocol";
-import { useRedial } from "./use-redial";
+import { REDIAL_BY_HAND, useRedial } from "./use-redial";
 
 type MessageListener = (event: MessageEvent<string>) => void;
 
@@ -54,10 +46,6 @@ type RoomAgent = {
 };
 
 const PAGE = 50;
-// NOTE: the Agents SDK takes every 4xxx close as final, so a conversation
-// that shut this person out is redialled by hand, ever more slowly.
-const REDIAL_FROM = 1000;
-const REDIAL_MAX = 30_000;
 const AGENTS = {
   conversation: "ParleyConversationAgent",
   event: "ParleyEventAgent",
@@ -203,27 +191,15 @@ export function useRoom({
   const [typing, setTyping] = useState<Record<string, number>>({});
   const [muted, setMuted] = useState<Muted>(null);
   const [offline, setOffline] = useState(false);
-  const redials = useRef(0);
-  const redial = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latest = useRef<RoomAgent | null>(null);
-  const refused = () =>
-    void onRefused().then((member) => {
-      if (!member) return;
-      const delay = Math.min(REDIAL_FROM * 2 ** redials.current, REDIAL_MAX);
-      redials.current += 1;
-      redial.current = setTimeout(() => latest.current?.reconnect(), delay);
-    });
-  useEffect(() => () => clearTimeout(redial.current ?? undefined), []);
   const agent: RoomAgent = useAgent({
     agent: AGENTS[room.kind],
     host: url.host,
     // NOTE: everything after the kind; a session room's name is "<sphere>:<session>".
     name: room.id.slice(room.id.indexOf(":") + 1),
     protocol: url.protocol === "https:" ? "wss" : "ws",
-    ...passCloseHandlers(onPassClosed, refused),
+    ...REDIAL_BY_HAND,
   });
-  useRedial(agent);
-  latest.current = agent;
+  useRedial(agent, { onPassClosed, onRefused });
   const { earlier, history, loadEarlier, messages, setMessages } = useHistory({
     agent,
     cache,
@@ -276,14 +252,11 @@ export function useRoom({
     return () => agent.removeEventListener("message", listener);
   }, [agent, setMessages, userId]);
 
-  // NOTE: useAgent's connectionError is set only by a close it will not
-  // retry; a dropped socket it keeps redialling shows only through these.
+  // NOTE: useAgent's connectionError is set by every close, since useRedial
+  // does the redialling; whether the socket is up shows only through these.
   useEffect(() => {
     const lost = () => setOffline(true);
-    const back = () => {
-      redials.current = 0;
-      setOffline(false);
-    };
+    const back = () => setOffline(false);
     agent.addEventListener("close", lost);
     agent.addEventListener("open", back);
     return () => {

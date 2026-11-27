@@ -1,7 +1,7 @@
 import { exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 
-import { openWithCookie } from "./support";
+import { open, openWithCookie, pass } from "./support";
 
 describe("agent routes", () => {
   it.each([
@@ -26,9 +26,9 @@ describe("agent routes", () => {
   );
 });
 
-// A socket closed as a server error is redialled every ten seconds, which
-// keeps its Durable Object awake for as long as the tab stays open.
-describe("a socket without a pass that verifies", () => {
+// Closed as a server error, a socket is redialled with the same pass, and
+// each try wakes its Durable Object; a pass close sends it for a new one.
+describe("a socket its pass does not let in", () => {
   it.each([
     ["no pass", "theme=dark"],
     ["a pass that does not verify", "parley_capability=not.a.pass"],
@@ -47,4 +47,13 @@ describe("a socket without a pass that verifies", () => {
     },
     20_000,
   );
+
+  it("is sent for a new pass when the pass does not reach the room", async () => {
+    const elsewhere = await pass("7", "41");
+    for (const path of ["parley-sphere-agent/47", "parley-event-agent/47:1"]) {
+      const socket = await open(path, elsewhere);
+
+      await expect(socket.closed).resolves.toBe(4403);
+    }
+  }, 20_000);
 });
