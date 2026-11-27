@@ -273,19 +273,11 @@ export function passCloseHandlers(onPassClosed: () => void, onRefused: () => voi
       if (PASS_CLOSED.has(event.code)) onPassClosed();
       if (event.code === NOT_A_MEMBER) onRefused();
     },
-    shouldReconnectOnClose: (event: CloseEvent) => !PASS_CLOSED.has(event.code),
+    // NOTE: useRedial redials instead; partysocket's own wait cannot be cut
+    // short when the person comes back.
+    shouldReconnectOnClose: () => false,
   };
 }
-
-// NOTE: partysocket's own retries never stop and wait at most 10 s, so one
-// tab that cannot get in kept its Durable Objects awake all day. These wait
-// 1 s, then twice as long each time, up to 2 h; useRedialOnReturn skips the
-// wait once the person is back.
-export const RECONNECT_BACKOFF = {
-  maxReconnectionDelay: 7_200_000,
-  minReconnectionDelay: 1000,
-  reconnectionDelayGrowFactor: 2,
-};
 
 // Local hosts, *.localhost included (RFC 6761 keeps them on loopback), talk
 // plain http/ws; everything else gets TLS.

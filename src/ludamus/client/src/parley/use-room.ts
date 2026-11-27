@@ -19,11 +19,10 @@ import {
   type Message,
   passCloseHandlers,
   type ReactionChange,
-  RECONNECT_BACKOFF,
   type Result,
   type Room,
 } from "./protocol";
-import { useRedialOnReturn } from "./use-redial";
+import { useRedial } from "./use-redial";
 
 type MessageListener = (event: MessageEvent<string>) => void;
 
@@ -39,19 +38,18 @@ type MessageListener = (event: MessageEvent<string>) => void;
 // instead of inferred.
 type RoomAgent = {
   addEventListener: {
+    (type: "close" | "open", listener: (event: globalThis.Event) => void): void;
     (type: "message", listener: MessageListener): void;
-    (type: "close" | "open", listener: () => void): void;
   };
   call: <T = unknown>(
     method: string,
     args?: unknown[],
     options?: CallOptions | StreamOptions,
   ) => Promise<T>;
-  readyState: number;
   reconnect: () => void;
   removeEventListener: {
+    (type: "close" | "open", listener: (event: globalThis.Event) => void): void;
     (type: "message", listener: MessageListener): void;
-    (type: "close" | "open", listener: () => void): void;
   };
 };
 
@@ -222,10 +220,9 @@ export function useRoom({
     // NOTE: everything after the kind; a session room's name is "<sphere>:<session>".
     name: room.id.slice(room.id.indexOf(":") + 1),
     protocol: url.protocol === "https:" ? "wss" : "ws",
-    ...RECONNECT_BACKOFF,
     ...passCloseHandlers(onPassClosed, refused),
   });
-  useRedialOnReturn(agent);
+  useRedial(agent);
   latest.current = agent;
   const { earlier, history, loadEarlier, messages, setMessages } = useHistory({
     agent,

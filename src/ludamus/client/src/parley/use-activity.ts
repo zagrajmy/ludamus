@@ -6,11 +6,10 @@ import {
   type Bootstrap,
   type Event,
   passCloseHandlers,
-  RECONNECT_BACKOFF,
   type Result,
   type RoomActivity,
 } from "./protocol";
-import { useRedialOnReturn } from "./use-redial";
+import { useRedial } from "./use-redial";
 
 export type Activity = {
   activity: Record<string, RoomActivity>;
@@ -33,10 +32,9 @@ export function useActivity(
     host: url.host,
     name: "inbox" in source ? bootstrap.user.id : source.sphere,
     protocol: url.protocol === "https:" ? "wss" : "ws",
-    ...RECONNECT_BACKOFF,
     ...passCloseHandlers(onPassClosed),
   });
-  useRedialOnReturn(agent);
+  useRedial(agent);
   useEffect(() => {
     void agent.call<Result<Record<string, RoomActivity>>>("getActivity").then((result) => {
       if (result.ok) setActivity(result.value);
