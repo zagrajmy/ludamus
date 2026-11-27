@@ -584,6 +584,7 @@ ignore_names = [
     "is_unlimited",
     "is_repeated",
     "item_name",
+    "lane_indices",
     "location_crumbs",
     "location_label",
     "marks_now",

@@ -3288,10 +3288,6 @@ msgid "Your changes are saved."
 msgstr "Zmiany zapisane."
 
 #: src/ludamus/gates/web/django/event/views.py
-msgid "There is already a session scheduled at this space and time."
-msgstr "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
-
-#: src/ludamus/gates/web/django/event/views.py
 #, python-brace-format
 msgid "Proposal '{}' has been accepted and added to the agenda."
 msgstr "Zgłoszenie '{}' zostało zaakceptowane i dodane do programu."
@@ -16772,6 +16768,13 @@ msgstr ""
 "Bilety kupione na wydarzenia w tej sferze pojawią się tutaj, gotowe do "
 "pokazania przy wejściu."
 
+#~ msgid "There is already a session scheduled at this space and time."
+#~ msgstr ""
+#~ "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
+
+#~ msgid "Invalid redirect URL."
+#~ msgstr "Nieprawidłowy adres URL przekierowania."
+
 #~ msgid "The leader can now enroll you directly."
 #~ msgstr "Od teraz lider może zapisywać Cię bezpośrednio."
 
@@ -16879,9 +16882,6 @@ msgstr ""
 
 #~ msgid "A party is a group you play with. You can leave anytime."
 #~ msgstr "Drużyna to grupa, z którą grasz. Możesz odejść w dowolnej chwili."
-
-#~ msgid "Invalid redirect URL."
-#~ msgstr "Nieprawidłowy adres URL przekierowania."
 
 #~ msgid "Information"
 #~ msgstr "Informacje"

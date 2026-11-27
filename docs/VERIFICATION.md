@@ -51,9 +51,14 @@ A test or model that exposes a bug on `main` is kept, not skipped:
 
 | Area | Finding | Evidence |
 | --- | --- | --- |
-| Programme | Two accepts at once put two proposals in one room and slot | `formal/programme/finding_two_accepts.bend` |
 | Programme | A double-submitted accept answers with a 500 | `formal/programme/finding_double_submit.bend` |
 | Announcements | Overlapping sweeps announce an event twice (also printables reminders) | `formal/announcements/finding_overlapping_sweeps.bend` |
+
+A room overlap is supported, not advised. Two accepts of different proposals
+into one space and slot both place; `formal/programme/LAWS.bend`
+(`accepts_may_share_a_slot`) states that. The booking-conflict UI warns.
+The write is not refused. `finding_two_accepts.bend` recorded that trace as
+a bug and is retired.
 
 ## Limits
 
