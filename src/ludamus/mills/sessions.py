@@ -5,40 +5,22 @@ field management) bounded contexts. Split per `plans/hex_refactor.md` if
 the file grows past ~12 top-level members or 1000 lines.
 """
 
-import logging
-from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, NamedTuple
+from datetime import timedelta
+from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter
 
-from ludamus.mills.event import (
-    require_session_in_event,
-    require_session_in_sphere,
-    widen_event_dates,
-)
-from ludamus.mills.sphere import can_write_programme
+from ludamus.mills.event import require_session_in_event
+from ludamus.mills.proposal_acceptance import announce_acceptance
 from ludamus.pacts.availability import DayPart
-from ludamus.pacts.durations import (
-    DEFAULT_DURATION_MINUTES,
-    MINUTES_PER_HOUR,
-    duration_minutes,
-    parse_duration,
-)
+from ludamus.pacts.durations import MINUTES_PER_HOUR, parse_duration
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.fields import SessionFieldValueData
 from ludamus.pacts.integrations import SourceQuestion
 from ludamus.pacts.propose import is_empty_answer
-from ludamus.pacts.session_cards import (
-    BusyWindowDTO,
-    PlacementAvailabilityDTO,
-    ProposalAcceptContextDTO,
-)
 from ludamus.pacts.sessions import (
-    AnonymousProposalAcceptedNotification,
     ContentChangeNotLatestError,
     ContentChangeNotRevertibleError,
-    ProposalAcceptDeniedError,
-    ProposalAcceptedNotification,
     ProposalScheduledError,
     SessionContentEditData,
     SessionDTO,
@@ -51,14 +33,11 @@ from ludamus.specs.sessions import resolve_event_toggle
 
 _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 
-logger = logging.getLogger(__name__)
-
 if TYPE_CHECKING:
-    from collections.abc import Sequence
 
     from ludamus.pacts.availability import AvailabilityDTO
     from ludamus.pacts.enrollment import WaitlistPromotionServiceProtocol
-    from ludamus.pacts.event import EventDTO, EventRepositoryProtocol
+    from ludamus.pacts.event import EventDTO
     from ludamus.pacts.fields import (
         SessionFieldRepositoryProtocol,
         SessionFieldValueDTO,
@@ -76,68 +55,8 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.sphere import SphereRepositoryProtocol
     from ludamus.pacts.timetable import (
-        AgendaItemDTO,
         AgendaItemRepositoryProtocol,
         ScheduleChangeLogRepositoryProtocol,
-    )
-    from ludamus.pacts.user import UserRepositoryProtocol
-
-
-def _announce_acceptance(
-    *,
-    sessions: SessionRepositoryProtocol,
-    notifier: ProposalAcceptedNotifierProtocol,
-    session: SessionDTO,
-    event: EventDTO,
-    placed: bool,
-) -> None:
-    # Everyone who runs the session hears about it: the account that proposed
-    # it and any facilitator profile linked to an account. A proposal sent
-    # without an account is answered at the address it was sent from.
-    facilitators = sessions.read_facilitators(session.pk)
-    candidate_ids = (session.presenter_id, *(f.user_id for f in facilitators))
-    recipient_ids = {user_id for user_id in candidate_ids if user_id is not None}
-    if not recipient_ids:
-        _announce_to_contact(
-            notifier=notifier, session=session, event=event, placed=placed
-        )
-        return
-    for recipient_id in sorted(recipient_ids):
-        notifier.notify_proposal_accepted(
-            ProposalAcceptedNotification(
-                recipient_user_id=recipient_id,
-                session_id=session.pk,
-                session_title=session.title,
-                event_name=event.name,
-                event_slug=event.slug,
-                placed=placed,
-            )
-        )
-
-
-def _announce_to_contact(
-    *,
-    notifier: ProposalAcceptedNotifierProtocol,
-    session: SessionDTO,
-    event: EventDTO,
-    placed: bool,
-) -> None:
-    # NOTE: only the propose form records a language, and only its copy
-    # promises an answer at the address given; an imported or hand-entered
-    # contact never asked to be mailed.
-    if not (session.contact_email and session.contact_language):
-        logger.info("Accepted session %s has no one to notify", session.pk)
-        return
-    notifier.notify_anonymous_proposal_accepted(
-        AnonymousProposalAcceptedNotification(
-            contact_email=session.contact_email,
-            language=session.contact_language,
-            session_id=session.pk,
-            session_title=session.title,
-            event_name=event.name,
-            event_slug=event.slug,
-            placed=placed,
-        )
     )
 
 
@@ -283,190 +202,12 @@ class ProposalStatusService:
                 status == SessionStatus.ACCEPTED
                 and session.status != SessionStatus.ACCEPTED
             ):
-                _announce_acceptance(
+                announce_acceptance(
                     sessions=self._sessions,
                     notifier=self._notifier,
                     session=session,
                     event=event,
                     placed=placed,
-                )
-
-
-class _AgendaWrites(NamedTuple):
-    # Where an acceptance puts the session: the placement, its log, and the
-    # event's dates when the placement falls outside them.
-    agenda_items: AgendaItemRepositoryProtocol
-    schedule_change_logs: ScheduleChangeLogRepositoryProtocol
-    events: EventRepositoryProtocol
-
-
-def _placement_minutes(session: SessionDTO) -> int:
-    return duration_minutes(session.duration) or DEFAULT_DURATION_MINUTES
-
-
-def _placement_availability(
-    *, space_ids: set[int], placed: Sequence[AgendaItemDTO]
-) -> PlacementAvailabilityDTO:
-    return PlacementAvailabilityDTO(
-        busy_by_space={
-            pk: [
-                BusyWindowDTO(start=start, end=end)
-                for start, end in sorted(
-                    (item.start_time, item.end_time)
-                    for item in placed
-                    if item.space_id == pk
-                )
-            ]
-            for pk in sorted(space_ids)
-        }
-    )
-
-
-class ProposalAcceptanceService:
-    def __init__(
-        self,
-        *,
-        transaction: TransactionProtocol,
-        sessions: SessionRepositoryProtocol,
-        agenda_items: AgendaItemRepositoryProtocol,
-        schedule_change_logs: ScheduleChangeLogRepositoryProtocol,
-        active_users: UserRepositoryProtocol,
-        spheres: SphereRepositoryProtocol,
-        events: EventRepositoryProtocol,
-        notifier: ProposalAcceptedNotifierProtocol,
-    ) -> None:
-        self._transaction = transaction
-        self._sessions = sessions
-        self._agenda = _AgendaWrites(agenda_items, schedule_change_logs, events)
-        self._active_users = active_users
-        self._spheres = spheres
-        self._notifier = notifier
-
-    def get_accept_context(
-        self, *, session_id: int, user_slug: str, sphere_id: int
-    ) -> ProposalAcceptContextDTO | None:
-        try:
-            session = self._sessions.read(session_id)
-            event = require_session_in_sphere(
-                sessions=self._sessions, session_pk=session.pk, sphere_id=sphere_id
-            )
-        except NotFoundError:
-            return None
-        space_options = self._sessions.read_space_options(session.pk)
-        space_required = self._requires_space(event)
-        return ProposalAcceptContextDTO(
-            session=session,
-            event=event,
-            presenter=self._sessions.read_presenter(session.pk),
-            space_options=space_options,
-            availability=self._sessions.read_availability(session.pk),
-            duration_minutes=_placement_minutes(session),
-            space_required=space_required,
-            placements=_placement_availability(
-                space_ids={option.pk for option in space_options},
-                placed=[
-                    item
-                    for item in self._agenda.agenda_items.list_by_event(event.pk)
-                    if item.session_id != session.pk
-                ],
-            ),
-            field_values=self._sessions.read_field_values(session.pk),
-            can_accept=self._can_accept(user_slug=user_slug, sphere_id=sphere_id),
-        )
-
-    def _requires_space(self, event: EventDTO) -> bool:
-        return resolve_event_toggle(
-            event_override=event.require_session_space,
-            sphere_default=self._spheres.read(event.sphere_id).require_session_space,
-        )
-
-    def _can_accept(self, *, user_slug: str, sphere_id: int) -> bool:
-        return can_write_programme(
-            users=self._active_users,
-            spheres=self._spheres,
-            sphere_id=sphere_id,
-            user_slug=user_slug,
-        )
-
-    def accept_session(
-        self,
-        *,
-        session_id: int,
-        space_id: int | None,
-        start_time: datetime,
-        user_slug: str,
-        sphere_id: int,
-    ) -> None:
-        """Accept a proposal onto the timetable.
-
-        A room another session already holds is a ``RoomBookingConflict``
-        (supported, not advised). The session is still placed.
-        """
-        if not self._can_accept(user_slug=user_slug, sphere_id=sphere_id):
-            raise ProposalAcceptDeniedError
-        session = self._sessions.read(session_id)
-        event = require_session_in_sphere(
-            sessions=self._sessions, session_pk=session_id, sphere_id=sphere_id
-        )
-        if space_id is None:
-            if self._requires_space(event):
-                raise NotFoundError
-        elif space_id not in {
-            option.pk for option in self._sessions.read_space_options(session_id)
-        }:
-            raise NotFoundError
-        end_time = start_time + timedelta(minutes=_placement_minutes(session))
-        # Same rule as assign_session: the event decides whether a first
-        # placement counts as agreed. Acceptance is always a first placement,
-        # so the move exemption that path carries does not apply here.
-        confirmed = event.auto_confirm_sessions
-        with self._transaction.atomic():
-            # Accepting on to a time the event does not cover yet moves the
-            # event, the same way dragging a card past its edge does.
-            widen_event_dates(
-                events=self._agenda.events,
-                event_pk=event.pk,
-                start=start_time,
-                end=end_time,
-            )
-            # The session already has a unique slug from proposal creation;
-            # regenerating it here dropped the uniqueness suffix and collided.
-            self._sessions.update(
-                session_id,
-                {
-                    "status": SessionStatus.ACCEPTED,
-                    "facilitator_name": session.facilitator_name,
-                    "schedule_confirmed": confirmed,
-                },
-            )
-            self._agenda.agenda_items.create(
-                {
-                    "space_id": space_id,
-                    "session_id": session_id,
-                    "session_confirmed": confirmed,
-                    "start_time": start_time,
-                    "end_time": end_time,
-                }
-            )
-            # NOTE: errata are read from these logs, so a placement made here must
-            # leave the same trace as one made on the timetable.
-            log_data: ScheduleChangeLogData = {
-                "event_id": event.pk,
-                "session_id": session_id,
-                "user_id": self._active_users.read(user_slug).pk,
-                "action": ScheduleChangeAction.ASSIGN,
-                "new_space_id": space_id,
-                "new_start_time": start_time,
-                "new_end_time": end_time,
-            }
-            self._agenda.schedule_change_logs.create(log_data)
-            if session.status != SessionStatus.ACCEPTED:
-                _announce_acceptance(
-                    sessions=self._sessions,
-                    notifier=self._notifier,
-                    session=session,
-                    event=event,
-                    placed=True,
                 )
 
 

@@ -21,8 +21,6 @@ from ludamus.pacts.timetable import (
 )
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from django.db.models import QuerySet
 
 _SELECT_RELATED = ("session", "session__category", "space")
@@ -142,20 +140,6 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
         except AgendaItem.DoesNotExist:
             return None
         return _to_dto(item)
-
-    @staticmethod
-    def list_overlapping_in_space(
-        space_pk: int,
-        start_time: datetime,
-        end_time: datetime,
-        exclude_session_pk: int | None = None,
-    ) -> list[AgendaItemDTO]:
-        qs = AgendaItem.objects.filter(
-            space_id=space_pk, start_time__lt=end_time, end_time__gt=start_time
-        ).select_related(*_SELECT_RELATED)
-        if exclude_session_pk is not None:
-            qs = qs.exclude(session_id=exclude_session_pk)
-        return [_to_dto(item) for item in qs]
 
     @staticmethod
     def update(pk: int, data: AgendaItemUpdateData) -> None:

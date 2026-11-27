@@ -263,20 +263,6 @@ class AgendaItemRepositoryProtocol(Protocol):
     @staticmethod
     def read_by_session(session_pk: int) -> AgendaItemDTO | None: ...
     @staticmethod
-    def list_overlapping_in_space(
-        space_pk: int,
-        start_time: datetime,
-        end_time: datetime,
-        exclude_session_pk: int | None = None,
-    ) -> list[AgendaItemDTO]:
-        """Other sessions in this space during ``[start_time, end_time)``.
-
-        A non-empty result is a ``RoomBookingConflict`` (supported, not
-        advised). It does not refuse the placement. Touching ends do not count.
-        """
-        ...
-
-    @staticmethod
     def update(pk: int, data: AgendaItemUpdateData) -> None: ...
     @staticmethod
     def count_confirmations_by_track(event_pk: int) -> list[ConfirmationCountsRow]: ...

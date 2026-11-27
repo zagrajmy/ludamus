@@ -122,47 +122,30 @@ def _lane_key(item: AgendaItemDTO) -> tuple[float, float, str, int]:
     return (start, end, item.session_title.casefold(), item.pk)
 
 
-def _lanes_in_column(items: list[AgendaItemDTO]) -> dict[int, tuple[int, int]]:
-    # Touching ends take one lane. Compared as instants, as the rows are:
-    # on the night the clocks go back the wall clock overlaps.
-    ordered = sorted(items, key=_lane_key)
-    assigned: dict[int, tuple[int, int]] = {}
-    component: list[AgendaItemDTO] = []
-    component_end = 0.0
-
-    def close() -> None:
-        if not component:
-            return
-        lane_ends: list[float] = []
-        placed: list[tuple[int, int]] = []
-        for item in component:
-            start, end = _span(item)
-            lane_index = next(
-                (
-                    index
-                    for index, lane_end in enumerate(lane_ends)
-                    if lane_end <= start
-                ),
-                len(lane_ends),
-            )
-            if lane_index == len(lane_ends):
-                lane_ends.append(end)
-            else:
-                lane_ends[lane_index] = end
-            placed.append((item.pk, lane_index))
-        count = len(lane_ends)
-        for item_pk, lane_index in placed:
-            assigned[item_pk] = (lane_index, count)
-        component.clear()
-
-    for item in ordered:
+def _overlap_groups(items: list[AgendaItemDTO]) -> list[list[AgendaItemDTO]]:
+    # Runs of sessions joined by overlap; touching ends start a new run.
+    groups: list[list[AgendaItemDTO]] = []
+    group_end = 0.0
+    for item in sorted(items, key=_lane_key):
         start, end = _span(item)
-        if component and start >= component_end:
-            close()
-            component_end = 0.0
-        component.append(item)
-        component_end = max(component_end, end)
-    close()
+        if groups and start < group_end:
+            groups[-1].append(item)
+            group_end = max(group_end, end)
+        else:
+            groups.append([item])
+            group_end = end
+    return groups
+
+
+def _lanes_in_column(items: list[AgendaItemDTO]) -> dict[int, tuple[int, int]]:
+    # Each run splits its tile width only between its own lanes, so a session
+    # clear of every other keeps the full column.
+    assigned: dict[int, tuple[int, int]] = {}
+    for group in _overlap_groups(items):
+        lanes = _spaceless_lanes(group)
+        for lane_index, lane in enumerate(lanes):
+            for item in lane:
+                assigned[item.pk] = (lane_index, len(lanes))
     return assigned
 
 

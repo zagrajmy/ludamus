@@ -735,18 +735,6 @@ class TestAssignSession:
                 "session_confirmed": True,
             }
         )
-
-    def test_assign_places_into_a_room_another_session_holds(self, service, mock_uow):
-        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
-        placement = self._placement()
-        mock_uow.agenda_items.list_overlapping_in_space.return_value = [
-            agenda_item_dto(pk=9, space_id=placement.space_pk, session_id=80)
-        ]
-
-        service.assign_session(session_pk=4, placement=placement, event_pk=1, user_pk=9)
-
-        mock_uow.spaces.lock.assert_called_once_with(placement.space_pk)
-        mock_uow.agenda_items.create.assert_called_once()
         mock_uow.schedule_change_logs.create.assert_called_once_with(
             {
                 "event_id": 1,
