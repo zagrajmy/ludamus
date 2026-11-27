@@ -47,6 +47,7 @@ from ludamus.specs.email_verification import (
 
 if TYPE_CHECKING:
     from ludamus.pacts.dashboard import SphereSubscriptionRepositoryProtocol
+    from ludamus.pacts.images import UploadedFileProtocol
     from ludamus.pacts.parley import ParleyRevocationServiceProtocol
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.user import (
@@ -543,6 +544,12 @@ class ProfileService(ProfileServiceProtocol):
     def set_avatar_preference(self, user_slug: str, *, use_gravatar: bool) -> None:
         with self._transaction.atomic():
             self._users.update(user_slug, UserData(use_gravatar=use_gravatar))
+
+    def set_uploaded_avatar(
+        self, user_slug: str, avatar: UploadedFileProtocol | str
+    ) -> None:
+        with self._transaction.atomic():
+            self._users.set_uploaded_avatar(user_slug, avatar)
 
 
 class CompanionsService(CompanionsServiceProtocol):

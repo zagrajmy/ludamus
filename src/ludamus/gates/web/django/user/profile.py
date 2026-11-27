@@ -19,13 +19,18 @@ from django.views.generic.base import ContextMixin, View
 from django.views.generic.detail import SingleObjectTemplateResponseMixin
 from django.views.generic.edit import FormMixin, ProcessFormView
 
-from ludamus.gates.web.django.user.forms import CompanionForm, UserForm
+from ludamus.gates.web.django.user.forms import (
+    CompanionForm,
+    UploadedAvatarForm,
+    UserForm,
+)
 from ludamus.gates.web.django.user.helpers import (
     COMPANION_CREATE_AUTO_ID,
     build_parties_context,
     companion_edit_auto_id,
 )
 from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
 from ludamus.pacts.party import MAX_COMPANIONS
 from ludamus.pacts.user import ChangeRequestOutcome, UserDTO
 
@@ -294,22 +299,38 @@ class ClaimPageView(View):
         return redirect(f"{login_url}?{urlencode({'next': next_url})}")
 
 
+def _avatar_page(
+    request: AuthenticatedRootRequest, *, upload_form: UploadedAvatarForm | None = None
+) -> TemplateResponse:
+    avatar = request.services.profile.read_avatar(request.context.current_user_slug)
+    if upload_form is None:
+        upload_form = UploadedAvatarForm(
+            initial={
+                "uploaded_avatar": stored_file(
+                    avatar.user.uploaded_avatar_url,
+                    avatar.user.uploaded_avatar_original_name,
+                )
+            }
+        )
+    return TemplateResponse(
+        request,
+        "user/user/avatar.html",
+        {
+            "user": avatar.user,
+            "gravatar_url": avatar.gravatar_url,
+            "has_auth0_avatar": avatar.has_auth0_avatar,
+            "upload_form": upload_form,
+            "profile_active_tab": "avatar",
+        },
+    )
+
+
 class ProfileAvatarPageView(LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
     @staticmethod
     def get(request: AuthenticatedRootRequest) -> TemplateResponse:
-        avatar = request.services.profile.read_avatar(request.context.current_user_slug)
-        return TemplateResponse(
-            request,
-            "user/user/avatar.html",
-            {
-                "user": avatar.user,
-                "gravatar_url": avatar.gravatar_url,
-                "has_auth0_avatar": avatar.has_auth0_avatar,
-                "profile_active_tab": "avatar",
-            },
-        )
+        return _avatar_page(request)
 
     @staticmethod
     def post(request: AuthenticatedRootRequest) -> HttpResponse:
@@ -317,6 +338,38 @@ class ProfileAvatarPageView(LoginRequiredMixin, View):
         request.services.profile.set_avatar_preference(
             request.context.current_user_slug, use_gravatar=use_gravatar
         )
+        return redirect("web:crowd:profile-avatar")
+
+
+class ProfileAvatarUploadActionView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def post(request: AuthenticatedRootRequest) -> HttpResponse:
+        form = UploadedAvatarForm(request.POST, request.FILES)
+        if not form.is_valid():
+            logger.info(
+                "Avatar upload rejected: user=%s errors=%s",
+                request.context.current_user_id,
+                form.errors.as_json(),
+            )
+            messages.warning(request, _("Please correct the errors below."))
+            return _avatar_page(request, upload_form=form)
+
+        avatar = resolve_uploaded_file_field(form.cleaned_data["uploaded_avatar"])
+        if avatar is None:
+            messages.info(request, _("Choose a photo to upload first."))
+            return redirect("web:crowd:profile-avatar")
+        request.services.profile.set_uploaded_avatar(
+            request.context.current_user_slug, avatar
+        )
+        removed = isinstance(avatar, str)
+        logger.info(
+            "Avatar %s: user=%s",
+            "removed" if removed else "uploaded",
+            request.context.current_user_id,
+        )
+        messages.success(request, _("Photo removed.") if removed else _("Photo saved."))
         return redirect("web:crowd:profile-avatar")
 
 

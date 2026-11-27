@@ -5736,6 +5736,18 @@ msgstr "Nazwa wyświetlana osoby towarzyszącej"
 msgid "Enter one of your companions exactly as they are named."
 msgstr "Wpisz dokładną nazwę jednej z osób towarzyszących."
 
+#: src/ludamus/gates/web/django/user/forms.py
+msgid "Your photo"
+msgstr "Twoje zdjęcie"
+
+#: src/ludamus/gates/web/django/user/forms.py
+msgid ""
+"A square photo of at least 256×256 works best. We show it in a circle. Max 8 "
+"MB. JPG, PNG, WebP, or AVIF."
+msgstr ""
+"Najlepiej kwadratowe zdjęcie, co najmniej 256×256. Pokazujemy je w kółku. "
+"Maks. 8 MB. JPG, PNG, WebP lub AVIF."
+
 #: src/ludamus/gates/web/django/user/profile.py
 msgid ""
 "This email address is already in use. Please use a different email address."
@@ -5794,6 +5806,18 @@ msgid ""
 msgstr ""
 "To konto jest już zalogowane. Wyloguj się, aby przejąć ten profil na nowe "
 "konto."
+
+#: src/ludamus/gates/web/django/user/profile.py
+msgid "Choose a photo to upload first."
+msgstr "Najpierw wybierz zdjęcie do przesłania."
+
+#: src/ludamus/gates/web/django/user/profile.py
+msgid "Photo removed."
+msgstr "Usunięto zdjęcie."
+
+#: src/ludamus/gates/web/django/user/profile.py
+msgid "Photo saved."
+msgstr "Zapisano zdjęcie."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Mention emails turned on."
@@ -16196,6 +16220,19 @@ msgid "Avatar"
 msgstr "Awatar"
 
 #: src/ludamus/templates/user/user/avatar.html
+msgid "Save photo"
+msgstr "Zapisz zdjęcie"
+
+#: src/ludamus/templates/user/user/avatar.html
+msgid "When you have no photo"
+msgstr "Gdy nie masz zdjęcia"
+
+#: src/ludamus/templates/user/user/avatar.html
+msgid "Your photo is shown now. Without it, we show the picture chosen below."
+msgstr ""
+"Teraz widać Twoje zdjęcie. Bez niego pokazujemy obrazek wybrany poniżej."
+
+#: src/ludamus/templates/user/user/avatar.html
 msgid "Provider avatar"
 msgstr "Awatar z konta"
 
@@ -16222,10 +16259,6 @@ msgstr "Zmień go na gravatar.com"
 #: src/ludamus/templates/user/user/avatar.html
 msgid "Add an email address to your profile to use Gravatar."
 msgstr "Dodaj adres e-mail do swojego profilu, aby korzystać z Gravatara."
-
-#: src/ludamus/templates/user/user/avatar.html
-msgid "Your avatar is provided by Gravatar, based on your email address."
-msgstr "Twój awatar pochodzi z Gravatara, na podstawie Twojego adresu email."
 
 #: src/ludamus/templates/user/user/avatar.html
 msgid ""
@@ -16771,6 +16804,10 @@ msgid ""
 msgstr ""
 "Bilety kupione na wydarzenia w tej sferze pojawią się tutaj, gotowe do "
 "pokazania przy wejściu."
+
+#~ msgid "Your avatar is provided by Gravatar, based on your email address."
+#~ msgstr ""
+#~ "Twój awatar pochodzi z Gravatara, na podstawie Twojego adresu email."
 
 #~ msgid "The leader can now enroll you directly."
 #~ msgstr "Od teraz lider może zapisywać Cię bezpośrednio."

@@ -116,6 +116,11 @@ crowd_urlpatterns: list[URLPattern | URLResolver] = [
         name="profile-avatar",
     ),
     path(
+        "profile/avatar/do/upload",
+        profile.ProfileAvatarUploadActionView.as_view(),
+        name="profile-avatar-upload",
+    ),
+    path(
         "profile/shadowbans/",
         RedirectView.as_view(pattern_name="web:crowd:profile-safety", permanent=True),
     ),

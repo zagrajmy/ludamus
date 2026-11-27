@@ -39,6 +39,7 @@ class UserInfo:
             avatar_url=display_avatar_url(
                 email=user_dto.email,
                 avatar_url=user_dto.avatar_url,
+                uploaded_avatar_url=user_dto.uploaded_avatar_url,
                 use_gravatar=user_dto.use_gravatar,
             )
             or None,

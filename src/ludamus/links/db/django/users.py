@@ -7,6 +7,7 @@ from django.db.models.functions import Lower
 
 from ludamus.links.db.django.companions import active_companions, sponsor_of
 from ludamus.links.db.django.models import PartyMembership, User
+from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.party import PartyConsentMode
 from ludamus.pacts.user import (
@@ -30,10 +31,15 @@ if TYPE_CHECKING:
 
     from django.db.models import QuerySet
 
+    from ludamus.pacts.images import UploadedFileProtocol
+
 
 def display_avatar_url(user: User) -> str:
     return avatar_rule(
-        email=user.email, avatar_url=user.avatar_url, use_gravatar=user.use_gravatar
+        email=user.email,
+        avatar_url=user.avatar_url,
+        uploaded_avatar_url=user.uploaded_avatar_url,
+        use_gravatar=user.use_gravatar,
     )
 
 
@@ -121,6 +127,14 @@ class UserRepository(UserRepositoryProtocol):
     @staticmethod
     def update(user_slug: str, user_data: UserData) -> None:
         User.objects.filter(slug=user_slug).update(**user_data)
+
+    @staticmethod
+    def set_uploaded_avatar(user_slug: str, avatar: UploadedFileProtocol | str) -> None:
+        try:
+            user = User.objects.get(slug=user_slug)
+        except User.DoesNotExist as exception:
+            raise NotFoundError from exception
+        save_replacing_files(user, {"uploaded_avatar": avatar})
 
     @staticmethod
     def set_age_band(user_slug: str, age_band: AgeBand) -> AgeBand:

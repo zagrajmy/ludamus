@@ -38,7 +38,9 @@ def _eligible() -> Q:
 
 def _person(user: User) -> ParleyPersonDTO:
     return ParleyPersonDTO(
-        id=str(user.pk), name=user.get_full_name(), avatar_url=user.avatar_url
+        id=str(user.pk),
+        name=user.get_full_name(),
+        avatar_url=user.uploaded_avatar_url or user.avatar_url,
     )
 
 

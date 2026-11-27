@@ -19,6 +19,7 @@ What could go wrong, and so what the tests below check:
 
 from datetime import datetime, timedelta
 
+from django.db.models.fields.files import FieldFile
 from django.urls import reverse
 from django.utils import timezone
 from zeal import zeal_ignore
@@ -384,7 +385,7 @@ def test_making_someone_staff_in_the_admin_brings_them_into_case_threads(client)
         if isinstance(value, datetime):
             data[f"{name}_0"] = value.date().isoformat()
             data[f"{name}_1"] = value.time().strftime("%H:%M:%S")
-        elif value is not None and not isinstance(value, (list, tuple)):
+        elif value is not None and not isinstance(value, (list, tuple, FieldFile)):
             data[name] = value
 
     client.post(url, data | {"is_staff": "on", "password": "!unusable"})

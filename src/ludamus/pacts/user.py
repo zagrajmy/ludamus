@@ -9,13 +9,16 @@ on the same row, so enrollment history is preserved.
 import hashlib
 from datetime import datetime, timedelta
 from enum import StrEnum
-from typing import Protocol, TypedDict
+from typing import TYPE_CHECKING, Protocol, TypedDict
 from urllib.parse import urlencode
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from ludamus.pacts.ids import UserId
+
+if TYPE_CHECKING:
+    from ludamus.pacts.images import UploadedFileProtocol
 
 MAX_CONNECTED_USERS = 6  # Maximum number of connected users per manager
 MAX_AVATAR_URL_LENGTH = 500  # Column width; a longer provider URL is dropped
@@ -74,6 +77,8 @@ class UserDTO(BaseModel):
     name: str
     pk: UserId
     slug: str
+    uploaded_avatar_original_name: str = ""
+    uploaded_avatar_url: str = ""
     use_gravatar: bool
     user_type: UserType
     username: str
@@ -128,6 +133,10 @@ class UserRepositoryProtocol(Protocol):
     def read_by_email(self, email: str) -> UserDTO: ...
     @staticmethod
     def update(user_slug: str, user_data: UserData) -> None: ...
+    @staticmethod
+    def set_uploaded_avatar(
+        user_slug: str, avatar: UploadedFileProtocol | str
+    ) -> None: ...
     @staticmethod
     def set_age_band(user_slug: str, age_band: AgeBand) -> AgeBand: ...
     @staticmethod
@@ -267,11 +276,15 @@ def display_avatar_url(
     *,
     email: str,
     avatar_url: str,
+    uploaded_avatar_url: str,
     use_gravatar: bool,
     gravatar: AvatarUrlProviderProtocol = gravatar_url,
 ) -> str:
-    # The one avatar rule: the member's Gravatar choice wins; otherwise the
-    # provider picture, falling back to Gravatar when there is none.
+    # The one avatar rule: a photo the member uploaded wins; then their
+    # Gravatar choice; otherwise the provider picture, falling back to
+    # Gravatar when there is none.
+    if uploaded_avatar_url:
+        return uploaded_avatar_url
     if use_gravatar:
         return gravatar(email) or ""
     return avatar_url or gravatar(email) or ""
@@ -288,6 +301,9 @@ class ProfileServiceProtocol(Protocol):
     def update(self, user_slug: str, data: UserData) -> None: ...
     def read_avatar(self, user_slug: str) -> AvatarPageDTO: ...
     def set_avatar_preference(self, user_slug: str, *, use_gravatar: bool) -> None: ...
+    def set_uploaded_avatar(
+        self, user_slug: str, avatar: UploadedFileProtocol | str
+    ) -> None: ...
 
 
 class EmailVerificationAction(StrEnum):

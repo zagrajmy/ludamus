@@ -1,4 +1,5 @@
 from http import HTTPStatus
+from unittest.mock import ANY
 
 from django.urls import reverse
 
@@ -20,6 +21,7 @@ class TestProfileAvatarPageView:
                 "user": UserDTO.model_validate(active_user),
                 "gravatar_url": gravatar_url(active_user.email),
                 "has_auth0_avatar": False,
+                "upload_form": ANY,
                 "profile_active_tab": "avatar",
             },
             template_name="user/user/avatar.html",
@@ -40,6 +42,7 @@ class TestProfileAvatarPageView:
                 "user": UserDTO.model_validate(active_user),
                 "gravatar_url": gravatar_url(active_user.email),
                 "has_auth0_avatar": True,
+                "upload_form": ANY,
                 "profile_active_tab": "avatar",
             },
             template_name="user/user/avatar.html",
@@ -72,6 +75,7 @@ class TestProfileAvatarPageView:
                 "user": UserDTO.model_validate(active_user),
                 "gravatar_url": gravatar_url(""),
                 "has_auth0_avatar": False,
+                "upload_form": ANY,
                 "profile_active_tab": "avatar",
             },
             template_name="user/user/avatar.html",
@@ -95,6 +99,7 @@ class TestProfileAvatarPageView:
                 "user": UserDTO.model_validate(active_user),
                 "gravatar_url": gravatar_url(""),
                 "has_auth0_avatar": True,
+                "upload_form": ANY,
                 "profile_active_tab": "avatar",
             },
             template_name="user/user/avatar.html",

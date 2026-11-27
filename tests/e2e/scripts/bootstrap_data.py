@@ -296,6 +296,28 @@ def _create_test_user() -> User:
     return user
 
 
+def _create_avatar_upload_scenario() -> None:
+    """Seed a user of its own for avatar-upload.auth.spec.
+
+    The spec changes this user's photo, which every avatar of theirs shows, so
+    the shared e2e user (whose navbar avatar-fallback.auth.spec checks) stays
+    untouched.
+    """
+    uploader = User.objects.create_user(
+        username="e2e-avatar",
+        email="e2e-avatar@test.local",
+        password="e2e-avatar-123",
+        name="Iris Lens",
+        slug="e2e-avatar",
+        age_band=AgeBand.SIXTEEN_PLUS,
+    )
+    _write_storage_state(
+        uploader,
+        domain=_cookie_domain(),
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-avatar.json",
+    )
+
+
 def _create_party_companion_scenario() -> None:
     """Seed a party leader with one companion, for party-companion.auth.spec.
 
@@ -2508,6 +2530,7 @@ def main() -> None:
     _create_event_deletion_scenario()
 
     _create_party_companion_scenario()
+    _create_avatar_upload_scenario()
 
     # Seats held after the enrollment window shut, for the late-resignation e2e.
     _create_closed_enrollment_scenario(sphere, tester=tester)

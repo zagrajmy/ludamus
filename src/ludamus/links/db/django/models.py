@@ -210,6 +210,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=False,
         help_text=_("Use Gravatar instead of provider avatar"),
     )
+    uploaded_avatar = models.ImageField(upload_to=unique_upload_to, blank=True)
+    uploaded_avatar_original_name = models.CharField(
+        max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
+    )
     # Single-use handle that lets the intended person sign in and take over a
     # managed companion row as their own account. Mirrors the waitlist-offer
     # claim_token pattern. Empty for active accounts.
@@ -243,6 +247,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def full_name(self) -> str:
         return self.get_full_name()
+
+    @property
+    def uploaded_avatar_url(self) -> str:
+        return self.uploaded_avatar.url if self.uploaded_avatar else ""
 
     class Meta:
         db_table = "user"

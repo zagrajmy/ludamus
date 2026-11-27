@@ -7,6 +7,7 @@ import pytest
 from django.contrib import messages
 from django.contrib.admin import helpers
 from django.db import connection
+from django.db.models.fields.files import FieldFile
 from django.urls import reverse
 from django.utils.html import escape
 from zeal import zeal_ignore
@@ -189,7 +190,7 @@ def _change_data(response):
             data[f"{name}_1"] = value.time().strftime("%H:%M:%S")
         elif isinstance(value, (list, tuple)):
             data[name] = [str(getattr(item, "pk", item)) for item in value]
-        elif value is not None:
+        elif value is not None and not isinstance(value, FieldFile):
             data[name] = value
     return data
 

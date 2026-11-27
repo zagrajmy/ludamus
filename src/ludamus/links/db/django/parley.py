@@ -185,7 +185,7 @@ class ParleyRepository(ParleyRepositoryProtocol):
         return ParleyAccessDTO(
             user_id=user.pk,
             user_name=user.get_full_name(),
-            user_avatar_url=user.avatar_url,
+            user_avatar_url=user.uploaded_avatar_url or user.avatar_url,
             rooms=rooms,
         )
 

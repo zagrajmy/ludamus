@@ -3,6 +3,9 @@ from typing import cast
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
+from ludamus.gates.uploads import validate_uploaded_image
+from ludamus.gates.web.django.forms import DropzoneFileInput
+from ludamus.pacts.images import IMAGE_ACCEPT
 from ludamus.pacts.user import (
     PROFILE_DISCORD_USERNAME_MAX_LENGTH,
     AgeBand,
@@ -127,4 +130,17 @@ class PartyCompanionForm(forms.Form):
         label=_("Companion display name"),
         help_text=_("Enter one of your companions exactly as they are named."),
         max_length=255,
+    )
+
+
+class UploadedAvatarForm(forms.Form):
+    uploaded_avatar = forms.ImageField(
+        label=_("Your photo"),
+        required=False,
+        validators=[validate_uploaded_image],
+        help_text=_(
+            "A square photo of at least 256×256 works best. We show it in a "
+            "circle. Max 8 MB. JPG, PNG, WebP, or AVIF."
+        ),
+        widget=DropzoneFileInput(attrs={"accept": IMAGE_ACCEPT}, fit="contain"),
     )
