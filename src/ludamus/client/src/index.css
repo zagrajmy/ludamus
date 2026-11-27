@@ -369,7 +369,10 @@ body {
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   scroll-padding-bottom: var(--toolbar-cover);
-  -webkit-overflow-scrolling: touch;
+  /* NOTE: no -webkit-overflow-scrolling: touch here. iOS Safari gives a
+     scroller carrying it its own stacking context, which traps everything on
+     the page (the cookie card among it) under the fixed chat button. iOS 13+
+     scrolls with momentum without it. */
 }
 
 /* Hold the page's last box off the bar from inside it, so the strip is painted
