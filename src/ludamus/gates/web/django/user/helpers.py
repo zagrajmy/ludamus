@@ -72,12 +72,7 @@ def build_parties_context(
         "create_companion_form": (
             create_form or CompanionForm(auto_id=COMPANION_CREATE_AUTO_ID)
         ),
-        "party_form": PartyCreateForm(
-            auto_id="party_%s", initial={"enrolls_together": True}
-        ),
-        "play_party_form": PartyCreateForm(
-            auto_id="play_party_%s", initial={"enrolls_together": False}
-        ),
+        "party_form": PartyCreateForm(auto_id="party_%s"),
         "profile_active_tab": "parties",
     }
 
@@ -134,7 +129,6 @@ def build_party_detail_context(
             else ""
         ),
         "history": history,
-        "enrolling_locked": detail.enrolling_locked,
         "listings": party_listings.listings,
         "profile_active_tab": "parties",
     }

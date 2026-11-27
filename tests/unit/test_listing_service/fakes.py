@@ -307,7 +307,7 @@ class FakeParties:
         self.members: set[tuple[int, int]] = set()
         self.active: set[tuple[int, int]] = set()
 
-    def create(self, *, leader_pk, name, enrolls_together=True):
+    def create(self, *, leader_pk, name):
         pk = 100 + len(self.listings.parties)
         self.listings.parties[pk] = (leader_pk, name)
         self.members.add((pk, leader_pk))

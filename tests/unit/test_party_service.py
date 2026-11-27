@@ -23,7 +23,6 @@ from ludamus.pacts.party import (
     PartyJoinResult,
     PartyMemberDTO,
     PartyMembershipStatus,
-    SetEnrollsTogetherOutcome,
 )
 from ludamus.pacts.user import AgeBand, CompanionDTO, UserType
 from tests.unit.factories import FakeTransaction
@@ -50,8 +49,6 @@ class FakeParties:
             invite_token="",
             pending={MEMBERSHIP_PK: INVITEE_PK},
             consent={},
-            enrolls_together={OWN_PARTY_PK: True},
-            enrolled=set(),
         )
 
     def overview(self, viewer_pk):
@@ -82,21 +79,11 @@ class FakeParties:
     def find_invitable_users(self, identifier):
         return [user for user in self.invitable if identifier in user.email]
 
-    def create(self, *, leader_pk, name, enrolls_together):
+    def create(self, *, leader_pk, name):
         assert leader_pk == VIEWER_PK
         pk = max(self.state.names, default=0) + 1
         self.state.names[pk] = name
-        self.state.enrolls_together[pk] = enrolls_together
         return pk
-
-    def has_enrollments(self, *, leader_pk, party_pk):
-        return leader_pk == VIEWER_PK and party_pk in self.state.enrolled
-
-    def set_enrolls_together(self, *, leader_pk, party_pk, enrolls_together):
-        if leader_pk != VIEWER_PK or party_pk not in self.state.names:
-            return False
-        self.state.enrolls_together[party_pk] = enrolls_together
-        return True
 
     def rename(self, *, leader_pk, party_pk, name):
         if leader_pk != VIEWER_PK or party_pk not in self.state.names:
@@ -128,7 +115,6 @@ class FakeParties:
             name=self.state.names[OWN_PARTY_PK],
             leader_name="Lena",
             already_member=(OWN_PARTY_PK, viewer_pk) in self.state.members,
-            enrolls_together=True,
         )
 
     def join_via_token(self, *, token, user_pk):
@@ -226,12 +212,9 @@ class TestCrud:
     def test_create_returns_the_new_pk(self):
         parties = FakeParties()
 
-        pk = _service(parties).create(
-            leader_pk=VIEWER_PK, name="Nowa", enrolls_together=False
-        )
+        pk = _service(parties).create(leader_pk=VIEWER_PK, name="Nowa")
 
         assert parties.state.names[pk] == "Nowa"
-        assert parties.state.enrolls_together[pk] is False
 
     def test_rename_only_own_party(self):
         parties = FakeParties()
@@ -254,54 +237,6 @@ class TestCrud:
             DeletePartyOutcome.DELETED
         )
         assert not parties.state.names
-
-
-class TestSetEnrollsTogether:
-    @staticmethod
-    def _set(parties, *, leader_pk=VIEWER_PK, enrolls_together):
-        return _service(parties).set_enrolls_together(
-            leader_pk=leader_pk,
-            party_pk=OWN_PARTY_PK,
-            enrolls_together=enrolls_together,
-        )
-
-    def test_party_without_enrollments_turns_off(self):
-        parties = FakeParties()
-
-        outcome = self._set(parties, enrolls_together=False)
-
-        assert outcome == SetEnrollsTogetherOutcome.UPDATED
-        assert parties.state.enrolls_together[OWN_PARTY_PK] is False
-
-    def test_any_enrollment_keeps_it_on(self):
-        parties = FakeParties()
-        parties.state.enrolled.add(OWN_PARTY_PK)
-
-        outcome = self._set(parties, enrolls_together=False)
-
-        assert outcome == SetEnrollsTogetherOutcome.LOCKED
-        assert parties.state.enrolls_together[OWN_PARTY_PK] is True
-
-    def test_turning_on_ignores_the_lock(self):
-        parties = FakeParties()
-        parties.state.enrolls_together[OWN_PARTY_PK] = False
-        parties.state.enrolled.add(OWN_PARTY_PK)
-
-        outcome = self._set(parties, enrolls_together=True)
-
-        assert outcome == SetEnrollsTogetherOutcome.UPDATED
-        assert parties.state.enrolls_together[OWN_PARTY_PK] is True
-
-    def test_someone_elses_party_is_not_found(self):
-        parties = FakeParties()
-        parties.state.enrolled.add(OWN_PARTY_PK)
-
-        outcome = self._set(
-            parties, leader_pk=FOREIGN_LEADER_PK, enrolls_together=False
-        )
-
-        assert outcome == SetEnrollsTogetherOutcome.NOT_FOUND
-        assert parties.state.enrolls_together[OWN_PARTY_PK] is True
 
 
 class TestChat:
@@ -409,10 +344,7 @@ class TestInvite:
         ]
         assert notifier.invited == [
             PartyInviteNotification(
-                recipient_user_id=INVITEE_PK,
-                recipient_email="ann@example.com",
-                party_name="Ekipa",
-                actor_name="Lena",
+                recipient_user_id=INVITEE_PK, party_name="Ekipa", actor_name="Lena"
             )
         ]
 
@@ -500,20 +432,12 @@ class TestInviteLink:
 
         assert service.read_invitable_party(token="tok", viewer_pk=INVITEE_PK) == (
             InvitablePartyDTO(
-                pk=OWN_PARTY_PK,
-                name="Ekipa",
-                leader_name="Lena",
-                already_member=False,
-                enrolls_together=True,
+                pk=OWN_PARTY_PK, name="Ekipa", leader_name="Lena", already_member=False
             )
         )
         assert service.read_invitable_party(token="tok", viewer_pk=VIEWER_PK) == (
             InvitablePartyDTO(
-                pk=OWN_PARTY_PK,
-                name="Ekipa",
-                leader_name="Lena",
-                already_member=True,
-                enrolls_together=True,
+                pk=OWN_PARTY_PK, name="Ekipa", leader_name="Lena", already_member=True
             )
         )
         assert service.read_invitable_party(token="nope", viewer_pk=INVITEE_PK) is None
@@ -635,7 +559,7 @@ def _member(user_pk, *, is_leader=False):
     )
 
 
-def _party(pk, *, is_leader=False, members=(), enrolls_together=True):
+def _party(pk, *, is_leader=False, members=()):
     return PartyDTO(
         pk=pk,
         name="",
@@ -645,7 +569,6 @@ def _party(pk, *, is_leader=False, members=(), enrolls_together=True):
         is_active_member=True,
         created_at=datetime(2026, 1, 1, tzinfo=UTC),
         members=list(members),
-        enrolls_together=enrolls_together,
     )
 
 
@@ -683,27 +606,6 @@ class TestEnrollmentSelection:
         return _service(parties).enrollment_selection(
             viewer_pk=VIEWER_PK, requested_party=requested_party
         )
-
-    def test_a_party_that_does_not_enroll_is_neither_offered_nor_preselected(self):
-        parties = FakeParties()
-        parties.parties = [
-            _party(FOREIGN_PARTY_PK, is_leader=True, enrolls_together=False),
-            _party(OWN_PARTY_PK),
-        ]
-
-        selection = self._select(parties, None)
-
-        assert [choice.pk for choice in selection.choices] == [OWN_PARTY_PK]
-        assert selection.selected is not None
-        assert selection.selected.pk == OWN_PARTY_PK
-
-    def test_asking_for_a_party_that_does_not_enroll_is_invalid(self):
-        parties = FakeParties()
-        parties.parties = [_party(OWN_PARTY_PK, is_leader=True, enrolls_together=False)]
-
-        selection = self._select(parties, str(OWN_PARTY_PK))
-
-        assert selection.requested_invalid
 
     def test_garbage_request_is_flagged_invalid(self):
         parties = FakeParties()
