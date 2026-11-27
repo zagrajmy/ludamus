@@ -277,6 +277,16 @@ export function passCloseHandlers(onPassClosed: () => void, onRefused: () => voi
   };
 }
 
+// NOTE: partysocket's own retries never stop and wait at most 10 s, so one
+// tab that cannot get in kept its Durable Objects awake all day. These wait
+// 1 s, then twice as long each time, up to 2 h; useRedialOnReturn skips the
+// wait once the person is back.
+export const RECONNECT_BACKOFF = {
+  maxReconnectionDelay: 7_200_000,
+  minReconnectionDelay: 1000,
+  reconnectionDelayGrowFactor: 2,
+};
+
 // Local hosts, *.localhost included (RFC 6761 keeps them on loopback), talk
 // plain http/ws; everything else gets TLS.
 export function agentUrl(host: string): URL {

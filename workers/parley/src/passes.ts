@@ -1,5 +1,6 @@
 import type { Connection } from "agents";
 
+import { capabilityCookie, verifyCapability, type AuthEnv } from "./auth";
 import {
   PASS_EXPIRED,
   PASS_REVOKED,
@@ -59,4 +60,22 @@ export function closeRevokedIn(
       connection.close(PASS_REVOKED, "Access revoked");
     }
   }
+}
+
+// SAFETY: thrown from onConnect, a refusal closes the socket as a server
+// error, which the browser redials every ten seconds for as long as the tab
+// stays open, keeping the room awake. A pass close sends it for a new pass.
+export async function passOnConnect(
+  connection: Connection<ConnectionState>,
+  request: Request,
+  env: AuthEnv,
+): Promise<Capability | null> {
+  const token = capabilityCookie(request);
+  const capability = token === null ? null : await verifyCapability(token, env).catch(() => null);
+  if (capability === null) {
+    const reason = token === null ? "Pass missing" : "Pass invalid";
+    console.warn(`parley socket refused: ${reason}`);
+    connection.close(PASS_EXPIRED, reason);
+  }
+  return capability;
 }
