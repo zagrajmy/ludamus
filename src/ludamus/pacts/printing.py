@@ -93,6 +93,8 @@ class PrintTimetableTileDTO(BaseModel):
     col: int
     row: int
     span: int
+    lane_index: int = 0
+    lane_count: int = 1
 
 
 class PrintTimetablePageDTO(BaseModel):
@@ -109,6 +111,14 @@ class PrintTimetablePageDTO(BaseModel):
         # The distinct tile heights: the template serves one rule per span
         # length it actually uses, as _room_lanes.html does.
         return sorted({tile.span for tile in self.tiles})
+
+    @property
+    def lane_indices(self) -> list[int]:
+        return sorted({tile.lane_index for tile in self.tiles})
+
+    @property
+    def lane_counts(self) -> list[int]:
+        return sorted({tile.lane_count for tile in self.tiles})
 
 
 class PrintTimetableDocumentDTO(BaseModel):
