@@ -704,7 +704,7 @@ class TestProposalAcceptPageView:
             template_name="event/accept_proposal.html",
         )
 
-    def test_post_ok_conflict(
+    def test_post_places_into_a_room_another_session_holds(
         self, manager_user, event, pending_session, space, manager_client
     ):
         other_session = Session.objects.create(
@@ -720,18 +720,12 @@ class TestProposalAcceptPageView:
             start_time=_wall_clock(event),
             end_time=_wall_clock(event) + timedelta(hours=1),
         )
-        assert not ScheduleChangeLog.objects.filter(session=pending_session).exists()
+        url = self._get_url(pending_session.id, pending_session.event.slug)
 
-        response = manager_client.post(
-            self._get_url(pending_session.id, pending_session.event.slug),
-            data={
-                "space": space.id,
-                "start_time": _wall_clock(event).strftime(POSTED_START),
-            },
-        )
+        get_response = manager_client.get(url)
 
         assert_response(
-            response,
+            get_response,
             HTTPStatus.OK,
             context_data={
                 "event": EventDTO.model_validate(event),
@@ -743,11 +737,38 @@ class TestProposalAcceptPageView:
                 "schedule_blocker": None,
                 "duration_minutes": 60,
                 # The other session's hour shows on the space, so the page
-                # marks it taken at that start before anyone submits.
+                # marks it taken at that start. The organizer can still pick it.
                 "busy_by_space": {space.id: [_busy_hour(event)]},
             },
             template_name="event/accept_proposal.html",
         )
+
+        response = manager_client.post(
+            url,
+            data={
+                "space": space.id,
+                "start_time": _wall_clock(event).strftime(POSTED_START),
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        f"Proposal '{pending_session.title}' has been accepted and "
+                        "added to the agenda."
+                    ),
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert Session.objects.get(pk=pending_session.pk).status == "accepted"
+        assert set(
+            AgendaItem.objects.filter(space=space).values_list("session_id", flat=True)
+        ) == {pending_session.pk, other_session.pk}
 
     def test_post_before_publication_is_refused_on_the_start_time(
         self, event, pending_session, space, manager_client

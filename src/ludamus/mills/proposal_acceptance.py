@@ -20,7 +20,6 @@ from ludamus.pacts.sessions import (
     ProposalScheduledError,
     SessionDTO,
     SessionStatus,
-    SpaceTimeConflictError,
 )
 from ludamus.pacts.timetable import (
     AgendaItemDTO,
@@ -121,8 +120,6 @@ def _placement_minutes(session: SessionDTO) -> int:
 def _placement_availability(
     *, space_ids: set[int], placed: Sequence[AgendaItemDTO]
 ) -> PlacementAvailabilityDTO:
-    # The windows list_overlapping_in_space tests at accept time, so a space
-    # shown free at the start time picked is one accepting will not refuse.
     return PlacementAvailabilityDTO(
         busy_by_space={
             pk: [
@@ -252,6 +249,11 @@ class ProposalAcceptanceService:
         user_slug: str,
         sphere_id: int,
     ) -> None:
+        """Accept a proposal onto the timetable.
+
+        A room another session already holds is a ``RoomBookingConflict``
+        (supported, not advised). The session is still placed.
+        """
         if not self._can_accept(user_slug=user_slug, sphere_id=sphere_id):
             raise ProposalAcceptDeniedError
         session = self._sessions.read(session_id)
@@ -294,13 +296,6 @@ class ProposalAcceptanceService:
                 start=start_time,
                 end=end_time,
             )
-            if (
-                space_id is not None
-                and self._agenda.agenda_items.list_overlapping_in_space(
-                    space_id, start_time, end_time, exclude_session_pk=session_id
-                )
-            ):
-                raise SpaceTimeConflictError
             user_id = self._active_users.read(user_slug).pk
             moved_from_id = _take_down_placement(
                 agenda=self._agenda,

@@ -639,9 +639,18 @@ function Parley({
     const normalized = encodedPayload.replaceAll("-", "+").replaceAll("_", "/");
     const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
     const payload = JSON.parse(atob(padded)) as { exp: number };
-    const refreshDelay = Math.max(1000, payload.exp * 1000 - Date.now() - 30_000);
-    const timer = setTimeout(() => setBootstrap(null), refreshDelay);
-    return () => clearTimeout(timer);
+    const refreshAt = payload.exp * 1000 - 30_000;
+    const timer = setTimeout(() => setBootstrap(null), Math.max(1000, refreshAt - Date.now()));
+    // NOTE: a sleeping computer holds the timer back while the pass's cookie
+    // still expires, so a tab woken past it would dial with no pass at all.
+    const shown = () => {
+      if (document.visibilityState === "visible" && Date.now() >= refreshAt) setBootstrap(null);
+    };
+    document.addEventListener("visibilitychange", shown);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", shown);
+    };
   }, [bootstrap]);
 
   const close = () => setView(toggled);

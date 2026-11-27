@@ -8,7 +8,7 @@ from ludamus.mills.timetable import ConflictDetectionService
 from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.event import TimeSlotDTO
-from ludamus.pacts.timetable import ConflictType
+from ludamus.pacts.timetable import ConflictType, RoomBookingConflict
 from ludamus.pacts.tracks import TrackDTO
 from ludamus.pacts.venues import SpaceDTO
 from tests.unit.factories import agenda_item_dto, space_dto
@@ -94,6 +94,7 @@ class TestListAllForTrack:
         conflicts = conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
 
         assert len(conflicts) == 1
+        assert conflicts[0].type is RoomBookingConflict.KIND
         assert conflicts[0].type == ConflictType.SPACE_OVERLAP
         assert conflicts[0].subject_session_pk == _SUBJECT_SESSION_PK
         assert conflicts[0].session_pk == _OTHER_SESSION_PK

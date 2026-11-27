@@ -15,11 +15,10 @@ import type { ParleyEventAgent, ParleyOrganizersAgent, ParleySessionAgent } from
 import type { ParleySphereAgent } from "./sphere-agent";
 
 import { canModerate, canRead, canWrite, parseRoom, type Room, type RoomKind } from "./access";
-import { capabilityFromRequest } from "./auth";
 import { isEmoji } from "./emoji";
 import { DAY_MS, integer, MESSAGE_LIFETIME_MS, normalizeMessage } from "./limits";
 import { mentionsIn } from "./mentions";
-import { closeRevokedIn, passOf, sendWhere } from "./passes";
+import { admittedPass, closeRevokedIn, passOf, sendWhere } from "./passes";
 import {
   NOT_A_MEMBER,
   PASS_REVOKED,
@@ -166,9 +165,14 @@ export abstract class RoomAgent extends Agent<Env> {
     connection: Connection<ConnectionState>,
     context: ConnectionContext,
   ): Promise<void> {
-    const capability = await capabilityFromRequest(context.request, this.workerEnv);
     const room = this.room;
-    if (room === null || !canRead(capability, room)) throw new Error("Forbidden room");
+    const capability = await admittedPass({
+      connection,
+      env: this.workerEnv,
+      reaches: (pass) => room !== null && canRead(pass, room),
+      request: context.request,
+    });
+    if (capability === null) return;
     // SAFETY: state goes on before the deny-list is asked, so a revocation
     // landing while it answers still finds this socket to close.
     connection.setState({ admitted: false, capability });
