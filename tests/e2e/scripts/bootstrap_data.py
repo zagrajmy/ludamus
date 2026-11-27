@@ -40,6 +40,7 @@ from ludamus.links.db.django.models import (
     Encounter,
     EnrollmentConfig,
     Event,
+    ExternalTool,
     EventIntegration,
     EventProposalSettings,
     Facilitator,
@@ -2524,6 +2525,12 @@ def main() -> None:
 
     # A session description full of hostile markup, for the sanitiser e2e.
     _create_markdown_sanitising_scenario(sphere)
+
+    # A catalogue tool for the tool-page e2e, which answers for its address
+    # itself, so nothing leaves the machine.
+    ExternalTool.objects.create(
+        name="Table Manager", slug="table-manager", url="https://tables.example.test/"
+    )
 
     # Staff manager user for panel e2e tests (helpers/auth.ts signInAsManager)
     manager = User.objects.create_user(

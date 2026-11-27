@@ -6169,6 +6169,35 @@ msgstr "Odmowa"
 msgid "Removed"
 msgstr "Usunięto"
 
+#: src/ludamus/links/db/django/models.py
+msgid "Enter an https address with a plain domain name."
+msgstr "Podaj adres https ze zwykłą nazwą domeny."
+
+#: src/ludamus/links/db/django/models.py
+msgid "Enter domain names only, one per line, like cdn.example.org."
+msgstr ""
+"Podaj same nazwy domen, po jednej w wierszu, na przykład cdn.example.org."
+
+#: src/ludamus/links/db/django/models.py
+msgid "address"
+msgstr "adres"
+
+#: src/ludamus/links/db/django/models.py
+msgid "The https page that the frame opens."
+msgstr "Strona https, którą otwiera ramka."
+
+#: src/ludamus/links/db/django/models.py
+msgid ""
+"Other domains the tool moves the frame to, such as its login page. One per "
+"line. The domain of the address is always allowed."
+msgstr ""
+"Inne domeny, na które narzędzie przenosi ramkę, na przykład strona "
+"logowania. Po jednej w wierszu. Domena adresu jest zawsze dozwolona."
+
+#: src/ludamus/links/db/django/models.py
+msgid "An inactive tool is not found on any sphere."
+msgstr "Nieaktywnego narzędzia nie ma na żadnej sferze."
+
 #: src/ludamus/links/db/django/moderation_mail.py
 msgid "no action"
 msgstr "brak działań"
@@ -15815,6 +15844,10 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
+
+#: src/ludamus/templates/tools/page.html
+msgid "Open in a new tab"
+msgstr "Otwórz w nowej karcie"
 
 #: src/ludamus/templates/user/_age_range_intro.html
 msgid ""

@@ -32,6 +32,7 @@ from ludamus.gates.web.django.landing import (
 )
 from ludamus.gates.web.django.staff.mail import StaffMailHookView
 from ludamus.gates.web.django.staff.urls import urlpatterns as staff_urls
+from ludamus.gates.web.django.tools import tool_page
 from ludamus.gates.web.django.user.urls import crowd_urlpatterns as crowd_gate_urls
 
 app_name = "web"  # pylint: disable=invalid-name
@@ -98,6 +99,7 @@ urlpatterns = [
     path("timeline/", legacy_feed_redirect),
     path("dashboard/", dashboard_gate.DashboardPageView.as_view(), name="dashboard"),
     path("command-menu/", command_menu_entries, name="command-menu-entries"),
+    path("tools/<slug:slug>/", tool_page, name="tool"),
     path(
         "dashboard/spheres/<int:pk>/do/subscribe",
         dashboard_gate.SphereSubscribeActionView.as_view(),
