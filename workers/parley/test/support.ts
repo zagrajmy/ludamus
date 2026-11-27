@@ -61,10 +61,14 @@ export type Socket = {
 
 // Resolves once the room has admitted the socket (its first message) or
 // closed it.
-export async function open(path: string, token: string): Promise<Socket> {
+export function open(path: string, token: string): Promise<Socket> {
+  return openWithCookie(path, `parley_capability=${token}`);
+}
+
+export async function openWithCookie(path: string, cookie: string): Promise<Socket> {
   const response = await exports.default.fetch(`http://localhost:8787/agents/${path}`, {
     headers: {
-      Cookie: `parley_capability=${token}`,
+      Cookie: cookie,
       Origin: "http://localhost:8000",
       Upgrade: "websocket",
     },
