@@ -105,14 +105,20 @@ const fitCanvas = (canvas: HTMLCanvasElement): number => {
 let rendererPromise: Promise<Renderer> | null = null;
 
 /**
- * One renderer for every designer on the page. A start that failed, or a
- * device that was lost since, gets a fresh start on the next call.
+ * One renderer for every designer on the page. Decided synchronously, so
+ * calls that arrive together share one attempt. An attempt that fails, or
+ * whose device is lost later, is forgotten and the next call starts afresh.
  */
-const getRenderer = async (): Promise<Renderer> => {
-  const cached = await rendererPromise?.catch(() => null);
-  if (cached?.alive()) return cached;
-  rendererPromise = createRenderer();
-  return rendererPromise;
+const getRenderer = (): Promise<Renderer> => {
+  if (rendererPromise) return rendererPromise;
+  const attempt = createRenderer();
+  rendererPromise = attempt;
+  const forget = (): void => {
+    if (rendererPromise === attempt) rendererPromise = null;
+  };
+  // A failed start rejects this chain, a lost device resolves it: either way it's forgotten.
+  void attempt.then((renderer) => renderer.lost).then(forget, forget);
+  return attempt;
 };
 
 const RAMP_CLASS =
