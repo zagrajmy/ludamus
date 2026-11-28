@@ -23,10 +23,10 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 from django.views.decorators.cache import never_cache
-from django.views.decorators.csp import csp_override
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 
+from ludamus.gates.web.django.helpers import respond_with_policy
 from ludamus.gates.web.django.mcp.tokens import (
     TOKEN_MAX_AGE_DAYS,
     mint_organizer_token,
@@ -258,7 +258,7 @@ class McpAuthorizeView(LoginRequiredMixin, View):
 
     def _consent(
         self, pending: McpPendingAuthorizationDTO, *, pending_id: str
-    ) -> TemplateResponse:
+    ) -> HttpResponse:
         consent = self._read_consent(pending)
         form = McpConsentForm(events=consent.events) if consent.events else None
         return self._render(pending, pending_id, consent=consent, form=form)
@@ -270,7 +270,7 @@ class McpAuthorizeView(LoginRequiredMixin, View):
         *,
         consent: McpConsentDTO,
         form: McpConsentForm | None,
-    ) -> TemplateResponse:
+    ) -> HttpResponse:
         wants_event = consent.may_grant and pending.scope is ToolScope.ORGANIZER
         response = TemplateResponse(
             self.request,
@@ -308,7 +308,7 @@ class McpAuthorizeView(LoginRequiredMixin, View):
 
 def _allow_form_redirect(
     request: RootRequest, response: TemplateResponse, *, redirect_uri: str
-) -> TemplateResponse:
+) -> HttpResponse:
     """Let the consent form's POST end in a redirect to the vetted client.
 
     Browsers check form-action against every redirect a form submission
@@ -324,7 +324,7 @@ def _allow_form_redirect(
     if not (sources := policy.get("form-action")):
         return response
     config = {**policy, "form-action": [*sources, _csp_source(redirect_uri)]}
-    return csp_override(config)(lambda _request: response)(request)
+    return respond_with_policy(request, response, config)
 
 
 def _csp_source(redirect_uri: str) -> str:
