@@ -5112,24 +5112,25 @@ shellingham = ">=1.3.0"
 
 [[package]]
 name = "types-authlib"
-version = "1.8.0.20261106"
+version = "1.9.10.20261123"
 description = "Typing stubs for Authlib"
 optional = false
 python-versions = ">=3.10"
 groups = ["dev"]
 files = [
-    {file = "types_authlib-1.8.0.20261106-py3-none-any.whl", hash = "sha256:1514fc80d66e80096b16c8a171eddd564b7b220d0121ef29ef6390efb83c93ad"},
-    {file = "types_authlib-1.8.0.20261106.tar.gz", hash = "sha256:09fa4dfc52923fa0190a522b829b79d61472cc9e9555a5dcbde54755d1482b4e"},
+    {file = "types_authlib-1.9.10.20261123-py3-none-any.whl", hash = "sha256:2b314fd2a6aa73bbb47678680b516a3eea79b373008a844d7fc7c64a8e15e3f1"},
+    {file = "types_authlib-1.9.10.20261123.tar.gz", hash = "sha256:0ffd23699b6d0ce57c701181e532b3c66001afc4acb5d5c39c762ce2f5a754ec"},
 ]
 
 [package.dependencies]
 cryptography = "*"
 
 [package.extras]
-all = ["Flask (>=2.0.0)", "django-stubs", "httpx2", "requests", "starlette", "types-oauthlib"]
+all = ["Flask (>=2.0.0)", "django-stubs", "httpx2", "joserfc", "requests", "starlette", "types-oauthlib"]
 django = ["django-stubs"]
 flask = ["Flask (>=2.0.0)"]
 httpx2 = ["httpx2"]
+joserfc = ["joserfc"]
 oauthlib = ["types-oauthlib"]
 requests = ["requests"]
 starlette = ["starlette"]
@@ -5380,4 +5381,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "408cda64a4f10b142e3f66328e2f2e174cefae1f1f5de1cde571bb06a4851e84"
+content-hash = "7cc92c7183ff7e70d1bdf6ce525a7c01773ae2a4c50dfd344acd3229635a9eb6"
