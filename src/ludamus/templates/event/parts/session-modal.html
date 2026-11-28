@@ -5,7 +5,7 @@
         aria-labelledby="session-{{ data.session.pk }}-title"
         data-csrf="{{ csrf_token }}"
         data-bookmark-url-template="{% url 'web:chronology:session-bookmark' session_id=0 %}"
-        data-login-url="{% url 'web:crowd:auth0:login' %}"
+        data-login-url="{% url 'web:crowd:auth:login' %}"
         data-edit-error-label="{% translate "Could not open the editor. Please try again." %}">
     {# With a cover, the cover, the title and the close button on it scroll #}
     {# with the body. Without one this wrapper is display:contents and the #}
@@ -124,7 +124,7 @@
                         {% endif %}
                     {% else %}
                         {% url 'web:chronology:event' slug=event.slug as event_url %}
-                        <a href="{% url 'web:crowd:auth0:login' %}?next={{ event_url }}%3Fsession%3D{{ data.session.pk }}"
+                        <a href="{% url 'web:crowd:auth:login' %}?next={{ event_url }}%3Fsession%3D{{ data.session.pk }}"
                            class="btn btn-primary text-sm">
                             {% icon "arrow-right-on-rectangle" class="w-4 h-4" variant="mini" %} {% translate "Login to Enroll" %}
                         </a>

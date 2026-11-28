@@ -137,10 +137,11 @@ Ticket           N:1 Order    ticket_type, holder, code (unique)
    It shows "paid" once the webhook landed and "confirming payment" until then
    (it refreshes itself). The webhook that completes Checkout stores the email
    the buyer typed and mails them the page's link, once.
-5. A guest's order page offers **Create an account** and **Log in** (Auth0, back
-   to the same page). Signed in, **Add to my account** claims the order: it and
-   its tickets move to that account — a new one or an existing one, so this is
-   also how a guest merges a purchase into the account they already had.
+5. A guest's order page offers **Create an account** and **Log in** (WorkOS
+   AuthKit, back to the same page). Signed in, **Add to my account** claims the
+   order: it and its tickets move to that account — a new one or an existing
+   one, so this is also how a guest merges a purchase into the account they
+   already had.
    The link alone is not enough: buyers forward the order mail to friends. An
    account verified for the order's email claims at once; any other account
    gets a confirmation link mailed to the order's email (signed, bound to the

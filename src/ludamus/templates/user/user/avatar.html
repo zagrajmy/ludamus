@@ -7,11 +7,11 @@
     {% translate "Avatar" as sheet_title %}
     {% url 'web:crowd:profile' as sheet_close_url %}
     {% bottom_sheet id="profile-section" title=sheet_title close_url=sheet_close_url open=True level=1 %}
-        {% if has_auth0_avatar %}
+        {% if has_provider_avatar %}
             <form action="{% url 'web:crowd:profile-avatar' %}" method="post">
                 {% csrf_token %}
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <label for="avatar-auth0" class="cursor-pointer">
+                    <label for="avatar-provider" class="cursor-pointer">
                         <div class="card h-full {% if not user.use_gravatar %}ring-1 ring-primary{% endif %}">
                             <div class="card-body text-center flex flex-col items-center gap-3">
                                 <img src="{{ user.avatar_url }}"
@@ -24,7 +24,7 @@
                                 <div class="flex items-center gap-2">
                                     <input type="radio"
                                            name="use_gravatar"
-                                           id="avatar-auth0"
+                                           id="avatar-provider"
                                            value="false"
                                            data-action="submit-form"
                                            {% if not user.use_gravatar %}checked{% endif %}>

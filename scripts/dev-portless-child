@@ -32,8 +32,7 @@ case "$root_host" in
     ;;
 esac
 
-printf '[dev] auth0=%s root=%s app_port=%s\n' \
-  "${AUTH0_DOMAIN:-?}" "$ROOT_DOMAIN" "${PORT:-?}" >&2
+printf '[dev] root=%s app_port=%s\n' "$ROOT_DOMAIN" "${PORT:-?}" >&2
 
 python - <<'PY'
 import os
