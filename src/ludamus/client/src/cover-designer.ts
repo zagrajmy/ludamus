@@ -22,6 +22,7 @@ import {
   type PatternSettings,
   renderCoverFile,
   type Renderer,
+  WORDS_FONT,
 } from "./cover-designer/render";
 import {
   type Align,
@@ -29,7 +30,7 @@ import {
   type CoverText,
   drawCoverText,
   drawCropGuide,
-  outsideCropBand,
+  leavesCropBand,
   type TextColor,
 } from "./cover-designer/text";
 
@@ -102,7 +103,17 @@ const fitCanvas = (canvas: HTMLCanvasElement): number => {
 };
 
 let rendererPromise: Promise<Renderer> | null = null;
-const getRenderer = (): Promise<Renderer> => (rendererPromise ??= createRenderer());
+
+/**
+ * One renderer for every designer on the page. A start that failed, or a
+ * device that was lost since, gets a fresh start on the next call.
+ */
+const getRenderer = async (): Promise<Renderer> => {
+  const cached = await rendererPromise?.catch(() => null);
+  if (cached?.alive()) return cached;
+  rendererPromise = createRenderer();
+  return rendererPromise;
+};
 
 const RAMP_CLASS =
   "relative aspect-square cursor-pointer rounded ring-1 ring-black/10 has-checked:ring-2 has-checked:ring-foreground has-checked:ring-offset-2 has-checked:ring-offset-bg-tertiary has-focus-visible:outline-2 has-focus-visible:outline-primary";
@@ -138,6 +149,8 @@ class Designer {
   private design: Design = structuredClone(STARTER);
   private renderer: Renderer | null = null;
   private frame = 0;
+  /** Counts opens, so a save still encoding when the dialog closes is dropped. */
+  private opened = 0;
 
   private readonly actions: Record<string, (button: HTMLButtonElement) => void> = {
     "new-layout": () => this.change({ seed: newSeed() }),
@@ -160,9 +173,11 @@ class Designer {
   }
 
   async open(): Promise<void> {
+    this.opened += 1;
     this.sync();
     this.status("");
     await openModal(this.dialog.id, { updateUrl: false });
+    this.render();
     try {
       await this.startRenderer();
       this.render();
@@ -173,9 +188,15 @@ class Designer {
   }
 
   private async startRenderer(): Promise<void> {
-    if (this.renderer) return;
-    this.renderer = await getRenderer();
-    void this.renderer.lost.then(() => this.fail("messageLost"));
+    const renderer = await getRenderer();
+    if (renderer !== this.renderer) void renderer.lost.then(() => this.fail("messageLost"));
+    this.renderer = renderer;
+    this.part<HTMLElement>("[data-cover-designer-error]")!.hidden = true;
+    this.useButton.disabled = false;
+  }
+
+  private get useButton(): HTMLButtonElement {
+    return this.part<HTMLButtonElement>('[data-cover-designer-action="use"]')!;
   }
 
   private get stage(): HTMLCanvasElement {
@@ -237,7 +258,10 @@ class Designer {
       plate: () => (design.text.plate = target.checked),
       text: () => (design.text.show = value === "show"),
       "text-size": () => (design.text.size = Number(value)),
-      words: () => (design.text.value = value),
+      words: () => {
+        design.text.value = value;
+        this.loadGlyphs(value);
+      },
     };
     updates[field]?.();
   }
@@ -299,10 +323,11 @@ class Designer {
   }
 
   private syncPanels(): void {
-    const { palette, text } = this.design;
+    const { palette, pattern, text } = this.design;
     this.part<HTMLElement>("[data-cover-designer-custom]")!.hidden = palette !== "custom";
     this.part<HTMLElement>("[data-cover-designer-text]")!.hidden = !text.show;
-    this.part<HTMLElement>("[data-cover-designer-crop-note]")!.hidden = !outsideCropBand(text);
+    // The trail map draws one route in the accent; there is no share to set.
+    this.part<HTMLElement>("[data-cover-designer-amount]")!.hidden = pattern === "trail";
   }
 
   private syncWords(): void {
@@ -324,10 +349,10 @@ class Designer {
   }
 
   private draw(): void {
-    const { renderer } = this;
-    if (!renderer || !this.dialog.open) return;
-    this.drawPatterns(renderer);
+    if (!this.dialog.open) return;
+    // Words and the crop note need no GPU, so they stay live without one.
     this.drawWords();
+    if (this.renderer?.alive()) this.drawPatterns(this.renderer);
   }
 
   private drawPatterns(renderer: Renderer): void {
@@ -346,36 +371,65 @@ class Designer {
     const ratio = fitCanvas(canvas);
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    drawCoverText(ctx, this.design.text, paletteOf(this.design));
+    const span = drawCoverText(ctx, this.design.text, paletteOf(this.design));
+    this.part<HTMLElement>("[data-cover-designer-crop-note]")!.hidden = !leavesCropBand(
+      span,
+      canvas.height,
+    );
     if (this.part<HTMLInputElement>(".cover-designer-guide")!.checked) {
       drawCropGuide(ctx, ratio);
     }
   }
 
-  private async use(button: HTMLButtonElement): Promise<void> {
+  /** Redraws once Outfit has every glyph the words use (Polish letters live in another file). */
+  private loadGlyphs(text: string): void {
+    document.fonts.load(WORDS_FONT, text).then(
+      () => this.render(),
+      (error: unknown) => console.warn("cover designer: Outfit did not load", error),
+    );
+  }
+
+  /** The file input and a working renderer, when both are there to save with. */
+  private target(): [HTMLInputElement, Renderer] | null {
     const input = document.getElementById(this.inputId);
-    if (!this.renderer || !(input instanceof HTMLInputElement)) return;
+    const { renderer } = this;
+    return renderer?.alive() && input instanceof HTMLInputElement ? [input, renderer] : null;
+  }
+
+  private async use(button: HTMLButtonElement): Promise<void> {
+    const target = this.target();
+    if (!target) return;
+    const [input, renderer] = target;
+    // What the click saw is what gets saved, whatever changes during the encode.
+    const settings = settingsOf(this.design);
+    const text = structuredClone(this.design.text);
+    const { opened } = this;
     button.disabled = true;
     this.status(this.text("messageSaving"));
     try {
-      await this.fill(input, this.renderer);
-      closeModal(this.dialog.id, { updateUrl: false });
+      const file = await renderCoverFile(renderer, settings, text);
+      if (this.stillOpen(opened)) this.fill(input, file);
     } catch (error) {
       console.error("cover designer: saving the image failed", error);
       this.status(this.text("messageSaveFailed"));
     } finally {
-      button.disabled = false;
+      button.disabled = !renderer.alive();
     }
   }
 
+  /** Whether the dialog a save started in is the one still open; Cancel drops the save. */
+  private stillOpen(opened: number): boolean {
+    return this.dialog.open && opened === this.opened;
+  }
+
   /** Puts the rendered cover into the file input; dropzone.ts previews it on `change`. */
-  private async fill(input: HTMLInputElement, renderer: Renderer): Promise<void> {
-    const file = await renderCoverFile(renderer, settingsOf(this.design), this.design.text);
+  private fill(input: HTMLInputElement, file: File): void {
     const transfer = new DataTransfer();
     transfer.items.add(file);
     input.files = transfer.files;
     input.dispatchEvent(new Event("change", { bubbles: true }));
     this.status("");
+    closeModal(this.dialog.id, { updateUrl: false });
   }
 
   private status(text: string): void {
@@ -386,7 +440,7 @@ class Designer {
     const box = this.part<HTMLElement>("[data-cover-designer-error]")!;
     box.textContent = this.text(key);
     box.hidden = false;
-    this.part<HTMLButtonElement>('[data-cover-designer-action="use"]')!.disabled = true;
+    this.useButton.disabled = true;
   }
 }
 

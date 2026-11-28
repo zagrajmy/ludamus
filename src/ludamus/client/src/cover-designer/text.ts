@@ -66,17 +66,20 @@ const breakLines = (ctx: CanvasRenderingContext2D, text: string, maxWidth: numbe
 };
 
 const ellipsize = (ctx: CanvasRenderingContext2D, line: string, maxWidth: number): string => {
-  let kept = line;
+  let kept = line.replace(/…$/u, "");
   while (kept.length > 1 && ctx.measureText(`${kept}…`).width > maxWidth) {
     kept = kept.slice(0, -1).trimEnd();
   }
   return `${kept}…`;
 };
 
+/** A word longer than the block, with no space to break at, is cut rather than clipped. */
+const fitLine = (ctx: CanvasRenderingContext2D, line: string, maxWidth: number): string =>
+  ctx.measureText(line).width <= maxWidth ? line : ellipsize(ctx, line, maxWidth);
+
 const clampLines = (ctx: CanvasRenderingContext2D, lines: string[], maxWidth: number): string[] => {
-  if (lines.length <= MAX_LINES) return lines;
-  const kept = lines.slice(0, MAX_LINES);
-  kept.push(ellipsize(ctx, kept.pop() ?? "", maxWidth));
+  const kept = lines.slice(0, MAX_LINES).map((line) => fitLine(ctx, line, maxWidth));
+  if (lines.length > MAX_LINES) kept.push(ellipsize(ctx, kept.pop() ?? "", maxWidth));
   return kept;
 };
 
@@ -157,37 +160,48 @@ const paintWords = (
 };
 
 /** Whether the words are on and say something. */
-const hasWords = (text: CoverText): boolean => text.show && text.value.trim() !== "";
+export const hasWords = (text: CoverText): boolean => text.show && text.value.trim() !== "";
 
+/** Where the drawn words sit, top to bottom, in the canvas's pixels. */
+export interface Span {
+  bottom: number;
+  top: number;
+}
+
+/** Draws the words; returns where they landed, or null when there are none. */
 export const drawCoverText = (
   ctx: CanvasRenderingContext2D,
   text: CoverText,
   palette: Palette,
-): void => {
+): Span | null => {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  if (!hasWords(text)) return;
+  if (!hasWords(text)) return null;
   const plate = measurePlate(ctx, text);
   const color = wordColor(text, palette);
   if (text.plate) paintPlate(ctx, plate, color, palette);
   paintWords(ctx, plate, text.align, color);
+  return { bottom: plate.y + plate.height, top: plate.y };
 };
 
 /**
  * The band every card and banner keeps: the dropzone's top-and-bottom guide
- * (components/file-dropzone.html), drawn at the same insets.
+ * (components/file-dropzone.html), at the same insets, as fractions of height.
  */
+const CROP_BAND = { bottom: 0.64, top: 0.36 };
+
 export const drawCropGuide = (ctx: CanvasRenderingContext2D, pixelRatio: number): void => {
   const { height, width } = ctx.canvas;
+  const top = height * CROP_BAND.top;
   ctx.save();
   ctx.setLineDash([5 * pixelRatio, 4 * pixelRatio]);
   ctx.lineWidth = pixelRatio;
   ctx.shadowColor = "rgb(0 0 0 / 0.7)";
   ctx.shadowBlur = 1.5 * pixelRatio;
   ctx.strokeStyle = "rgb(255 255 255 / 0.85)";
-  ctx.strokeRect(width * 0.02, height * 0.36, width * 0.96, height * 0.28);
+  ctx.strokeRect(width * 0.02, top, width * 0.96, height * CROP_BAND.bottom - top);
   ctx.restore();
 };
 
-/** Whether the plate can leave the band the crop guide marks. */
-export const outsideCropBand = (text: CoverText): boolean =>
-  hasWords(text) && !text.anchor.startsWith("middle");
+/** Whether drawn words reach past the band, so some card cuts them. */
+export const leavesCropBand = (span: Span | null, height: number): boolean =>
+  span !== null && (span.top < height * CROP_BAND.top || span.bottom > height * CROP_BAND.bottom);

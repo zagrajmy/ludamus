@@ -35,6 +35,11 @@ test.describe("Cover designer on the event settings", () => {
     const dialog = page.getByRole("dialog", { name: "Design a cover" });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole("radio", { name: "Dice" })).toBeChecked();
+    const accent = dialog.getByRole("slider", { name: "Accent" });
+    await expect(accent).toBeVisible();
+    await dialog.getByRole("radio", { name: "Trail map" }).check();
+    await expect(accent).toBeHidden();
+    await dialog.getByRole("radio", { name: "Dice" }).check();
     await expect(dialog.getByRole("radio", { name: "Hall" })).toBeChecked();
     await expect(dialog.getByRole("radio", { name: "No text" })).toBeChecked();
     await expect(dialog.getByRole("alert")).toHaveText(

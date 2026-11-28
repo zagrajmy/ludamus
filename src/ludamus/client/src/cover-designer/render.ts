@@ -6,7 +6,7 @@ import tgpu, { d } from "typegpu";
 
 import { hexToRgb, type Palette, type PatternId, PATTERNS } from "./palettes";
 import { buildShader, Params } from "./shader";
-import { type CoverText, drawCoverText } from "./text";
+import { type CoverText, drawCoverText, hasWords } from "./text";
 
 export interface PatternSettings {
   amount: number;
@@ -18,9 +18,14 @@ export interface PatternSettings {
 }
 
 export interface Renderer {
+  /** False once the GPU device is lost; a lost renderer draws nothing and is replaced. */
+  alive: () => boolean;
   draw: (canvas: HTMLCanvasElement, settings: PatternSettings) => void;
   lost: Promise<GPUDeviceLostInfo>;
 }
+
+/** The face the words are set in; loading it for the actual text pulls in every subset it needs. */
+export const WORDS_FONT = "700 40px Outfit";
 
 /** The saved image: 16:9, the ratio the cover upload asks for. */
 const OUTPUT = { height: 900, width: 1600 } as const;
@@ -72,7 +77,11 @@ export const createRenderer = async (): Promise<Renderer> => {
       .draw(3);
   };
 
-  return { draw, lost: root.device.lost };
+  let alive = true;
+  void root.device.lost.then(() => {
+    alive = false;
+  });
+  return { alive: () => alive, draw, lost: root.device.lost };
 };
 
 const toBlob = (canvas: HTMLCanvasElement): Promise<Blob | null> =>
@@ -106,7 +115,7 @@ export const renderCoverFile = async (
   settings: PatternSettings,
   text: CoverText,
 ): Promise<File> => {
-  await document.fonts.load("700 40px Outfit");
+  if (hasWords(text)) await document.fonts.load(WORDS_FONT, text.value);
   const pattern = fullSizeCanvas();
   const words = fullSizeCanvas();
   const out = fullSizeCanvas();
