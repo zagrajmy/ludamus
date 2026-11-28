@@ -316,8 +316,8 @@ class TestPartyDetailSessionHistory:
     def test_history_groups_party_sessions_by_event(
         self, authenticated_client, active_user, companion, session, agenda_item
     ):
-        active_user.use_gravatar = True
-        active_user.save(update_fields=["use_gravatar"])
+        active_user.avatar_source = "gravatar"
+        active_user.save(update_fields=["avatar_source"])
         party = sponsor_user(leader=active_user, member=active_user)
         sponsor_user(leader=active_user, member=companion)
         session.title = "Wspólna Wyprawa"

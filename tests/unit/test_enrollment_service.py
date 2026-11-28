@@ -47,7 +47,7 @@ def _user(pk, email="viewer@example.com", slug="viewer"):
         name="Viewer",
         pk=pk,
         slug=slug,
-        use_gravatar=False,
+        avatar_source="provider",
         user_type=UserType.ACTIVE,
         username="viewer",
     )

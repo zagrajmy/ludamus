@@ -19,11 +19,7 @@ from django.views.generic.base import ContextMixin, View
 from django.views.generic.detail import SingleObjectTemplateResponseMixin
 from django.views.generic.edit import FormMixin, ProcessFormView
 
-from ludamus.gates.web.django.user.forms import (
-    CompanionForm,
-    UploadedAvatarForm,
-    UserForm,
-)
+from ludamus.gates.web.django.user.forms import AvatarForm, CompanionForm, UserForm
 from ludamus.gates.web.django.user.helpers import (
     COMPANION_CREATE_AUTO_ID,
     build_parties_context,
@@ -32,7 +28,12 @@ from ludamus.gates.web.django.user.helpers import (
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.images import resolve_uploaded_file_field, stored_file
 from ludamus.pacts.party import MAX_COMPANIONS
-from ludamus.pacts.user import ChangeRequestOutcome, UserDTO
+from ludamus.pacts.user import (
+    AvatarPageDTO,
+    AvatarSource,
+    ChangeRequestOutcome,
+    UserDTO,
+)
 
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
@@ -300,28 +301,25 @@ class ClaimPageView(View):
 
 
 def _avatar_page(
-    request: AuthenticatedRootRequest, *, upload_form: UploadedAvatarForm | None = None
+    request: AuthenticatedRootRequest,
+    *,
+    avatar: AvatarPageDTO,
+    form: AvatarForm | None = None,
 ) -> TemplateResponse:
-    avatar = request.services.profile.read_avatar(request.context.current_user_slug)
-    if upload_form is None:
-        upload_form = UploadedAvatarForm(
+    if form is None:
+        form = AvatarForm(
+            available_sources=avatar.available_sources,
             initial={
                 "uploaded_avatar": stored_file(
                     avatar.user.uploaded_avatar_url,
                     avatar.user.uploaded_avatar_original_name,
                 )
-            }
+            },
         )
     return TemplateResponse(
         request,
         "user/user/avatar.html",
-        {
-            "user": avatar.user,
-            "gravatar_url": avatar.gravatar_url,
-            "has_auth0_avatar": avatar.has_auth0_avatar,
-            "upload_form": upload_form,
-            "profile_active_tab": "avatar",
-        },
+        {"avatar": avatar, "form": form, "profile_active_tab": "avatar"},
     )
 
 
@@ -330,46 +328,48 @@ class ProfileAvatarPageView(LoginRequiredMixin, View):
 
     @staticmethod
     def get(request: AuthenticatedRootRequest) -> TemplateResponse:
-        return _avatar_page(request)
+        avatar = request.services.profile.read_avatar(request.context.current_user_slug)
+        return _avatar_page(request, avatar=avatar)
 
     @staticmethod
     def post(request: AuthenticatedRootRequest) -> HttpResponse:
-        use_gravatar = request.POST.get("use_gravatar") == "true"
-        request.services.profile.set_avatar_preference(
-            request.context.current_user_slug, use_gravatar=use_gravatar
+        profile = request.services.profile
+        user_slug = request.context.current_user_slug
+        avatar = profile.read_avatar(user_slug)
+        form = AvatarForm(
+            request.POST, request.FILES, available_sources=avatar.available_sources
         )
-        return redirect("web:crowd:profile-avatar")
-
-
-class ProfileAvatarUploadActionView(LoginRequiredMixin, View):
-    request: AuthenticatedRootRequest
-
-    @staticmethod
-    def post(request: AuthenticatedRootRequest) -> HttpResponse:
-        form = UploadedAvatarForm(request.POST, request.FILES)
         if not form.is_valid():
             logger.info(
-                "Avatar upload rejected: user=%s errors=%s",
+                "Avatar change rejected: user=%s errors=%s",
                 request.context.current_user_id,
                 form.errors.as_json(),
             )
             messages.warning(request, _("Please correct the errors below."))
-            return _avatar_page(request, upload_form=form)
+            return _avatar_page(request, avatar=avatar, form=form)
 
-        avatar = resolve_uploaded_file_field(form.cleaned_data["uploaded_avatar"])
-        if avatar is None:
-            messages.info(request, _("Choose a photo to upload first."))
-            return redirect("web:crowd:profile-avatar")
-        request.services.profile.set_uploaded_avatar(
-            request.context.current_user_slug, avatar
-        )
-        removed = isinstance(avatar, str)
-        logger.info(
-            "Avatar %s: user=%s",
-            "removed" if removed else "uploaded",
-            request.context.current_user_id,
-        )
-        messages.success(request, _("Photo removed.") if removed else _("Photo saved."))
+        photo = resolve_uploaded_file_field(form.cleaned_data["uploaded_avatar"])
+        if photo is not None:
+            profile.set_uploaded_avatar(user_slug, photo)
+            removed = isinstance(photo, str)
+            logger.info(
+                "Avatar photo %s: user=%s",
+                "removed" if removed else "uploaded",
+                request.context.current_user_id,
+            )
+            messages.success(
+                request, _("Photo removed.") if removed else _("Photo saved.")
+            )
+        elif source := form.cleaned_data["avatar_source"]:
+            profile.set_avatar_source(user_slug, AvatarSource(source))
+            logger.info(
+                "Avatar source set: user=%s source=%s",
+                request.context.current_user_id,
+                source,
+            )
+            messages.success(request, _("Avatar updated."))
+        else:
+            messages.info(request, _("Pick an avatar or upload a photo."))
         return redirect("web:crowd:profile-avatar")
 
 

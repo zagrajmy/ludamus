@@ -81,6 +81,7 @@ from ludamus.pacts.user import (
     MAX_AVATAR_URL_LENGTH,
     PROFILE_DISCORD_USERNAME_MAX_LENGTH,
     AgeBand,
+    AvatarSource,
     UserType,
     public_display_name,
 )
@@ -205,10 +206,12 @@ class User(AbstractBaseUser, PermissionsMixin):
         default="",
         help_text=_("Profile avatar URL (e.g. from Auth0)"),
     )
-    use_gravatar = models.BooleanField(
-        _("Use Gravatar"),
-        default=False,
-        help_text=_("Use Gravatar instead of provider avatar"),
+    avatar_source = models.CharField(
+        _("Avatar source"),
+        max_length=16,
+        choices=[(source.value, source.name) for source in AvatarSource],
+        default=AvatarSource.PROVIDER.value,
+        help_text=_("Which picture the member picked as their avatar"),
     )
     uploaded_avatar = models.ImageField(upload_to=unique_upload_to, blank=True)
     uploaded_avatar_original_name = models.CharField(

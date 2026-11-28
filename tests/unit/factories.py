@@ -105,7 +105,7 @@ def user_dto(**overrides) -> UserDTO:
         "name": "",
         "pk": 1,
         "slug": "manager",
-        "use_gravatar": False,
+        "avatar_source": "provider",
         "user_type": UserType.ACTIVE,
         "username": "auth0|sub",
     }

@@ -588,7 +588,7 @@ def _companion_dto():
         name="Kid",
         pk=3,
         slug="kid",
-        use_gravatar=False,
+        avatar_source="provider",
         user_type=UserType.CONNECTED,
         username="kid",
     )

@@ -77,19 +77,22 @@ STORAGE_LIMIT_VALIDATOR = MaxValueValidator(
 
 
 class DropzoneFileInput(forms.ClearableFileInput):
-    # `fit` and `crop` are read by the tessera dropzone renderer, never written
-    # to the input: they say how the preview frames the file, which is the
-    # renderer's business and not the browser's.
+    # `fit`, `crop` and `shape` are read by the tessera dropzone renderer, never
+    # written to the input: they say how the preview frames the file, which is
+    # the renderer's business and not the browser's. An "avatar" dropzone is
+    # the picture itself, a circle the size of the avatar it sets.
     def __init__(
         self,
         *,
         attrs: dict[str, str] | None = None,
         fit: Literal["cover", "contain"] = "cover",
         crop: CoverCrop | None = None,
+        shape: Literal["frame", "avatar"] = "frame",
     ) -> None:
         super().__init__(attrs)
         self.fit = fit
         self.crop = crop
+        self.shape = shape
 
 
 class MarkdownTextarea(forms.Textarea):

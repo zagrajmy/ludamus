@@ -5,10 +5,9 @@ import { expect, test } from "./helpers/fixtures";
 // event-handler attributes — see csp-violations.spec.ts for the rest of the
 // sweep and why the enforcing header is what this server actually sends.
 //
-// user/user/avatar.html's radios (also converted, to data-action="submit-form")
-// aren't covered here: they render only for a user with a provider avatar, and
-// the e2e fixtures create local accounts. Its visible "Save" button submits the
-// same form, so that page degrades rather than breaking.
+// user/user/avatar.html's cards (radios and photo circle, data-action=
+// "submit-form") are covered by avatar-upload.auth.spec.ts, which collects
+// violations across the same flow.
 
 test.describe("CSP enforcement doesn't break converted profile handlers", () => {
   test("companion row's inline edit toggle", async ({ page }) => {

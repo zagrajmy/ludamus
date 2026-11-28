@@ -119,7 +119,7 @@ def _warning():
             name="Bob",
             pk=_USER_ID_BY_SLUG["bob"],
             slug="bob",
-            use_gravatar=False,
+            avatar_source="provider",
             user_type=UserType.ACTIVE,
             username="bob",
         ),

@@ -110,8 +110,8 @@ test.describe("Profile — Avatar (avatar.html)", () => {
     await expect(sectionLink(page, "Personal Information")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Avatar", level: 1 })).toBeVisible();
 
-    // Gravatar image
-    await expect(page.getByAltText(/Gravatar/i)).toBeVisible();
+    // The shared e2e user signs in with a provider picture (bootstrap_data.py).
+    await expect(page.getByRole("radio", { name: "Social login" })).toBeChecked();
 
     await page.screenshot({
       path: "test-results/profile-avatar.png",

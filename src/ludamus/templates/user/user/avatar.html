@@ -7,118 +7,53 @@
     {% translate "Avatar" as sheet_title %}
     {% url 'web:crowd:profile' as sheet_close_url %}
     {% bottom_sheet id="profile-section" title=sheet_title close_url=sheet_close_url open=True level=1 %}
-        <form action="{% url 'web:crowd:profile-avatar-upload' %}"
+        <p class="mb-4 text-sm text-foreground-muted">
+            {% translate "Pick the picture others see next to your name." %}
+        </p>
+        <form action="{% url 'web:crowd:profile-avatar' %}"
               method="post"
-              enctype="multipart/form-data"
-              class="mb-8">
+              enctype="multipart/form-data">
             {% csrf_token %}
-            {% tessera_field upload_form.uploaded_avatar %}
-            {% translate "Save photo" as t_save_photo %}
-            {% tessera_button t_save_photo full_width_mobile=False %}
-        </form>
-        <h2 class="font-semibold text-sm mb-1">{% translate "When you have no photo" %}</h2>
-        {% if user.uploaded_avatar_url %}
-            <p class="text-sm text-foreground-muted">
-                {% translate "Your photo is shown now. Without it, we show the picture chosen below." %}
-            </p>
-        {% endif %}
-        <div class="mt-4">
-            {% if has_auth0_avatar %}
-                <form action="{% url 'web:crowd:profile-avatar' %}" method="post">
-                    {% csrf_token %}
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <label for="avatar-auth0" class="cursor-pointer">
-                            <div class="card h-full {% if not user.use_gravatar %}ring-1 ring-primary{% endif %}">
-                                <div class="card-body text-center flex flex-col items-center gap-3">
-                                    <img src="{{ user.avatar_url }}"
-                                         alt="{% translate "Provider avatar" %}"
-                                         class="rounded-full"
-                                         width="96"
-                                         height="96">
-                                    <h6 class="font-semibold text-sm">{% translate "Provider avatar" %}</h6>
-                                    <p class="text-foreground-muted text-xs">{% translate "Imported from your social login account." %}</p>
-                                    <div class="flex items-center gap-2">
-                                        <input type="radio"
-                                               name="use_gravatar"
-                                               id="avatar-auth0"
-                                               value="false"
-                                               data-action="submit-form"
-                                               {% if not user.use_gravatar %}checked{% endif %}>
-                                        <span class="text-sm">{% translate "Use this avatar" %}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </label>
-                        <label for="avatar-gravatar"
-                               class="{% if gravatar_url %}cursor-pointer{% else %}cursor-not-allowed opacity-60{% endif %}">
-                            <div class="card h-full {% if user.use_gravatar %}ring-1 ring-primary{% endif %}">
-                                <div class="card-body text-center flex flex-col items-center gap-3">
-                                    {# ponytail: d=blank gravatars load as a transparent PNG, so the border is what draws the circle #}
-                                    <div class="size-24 rounded-full border border-border overflow-hidden">
-                                        {% if gravatar_url %}
-                                            <img src="{{ gravatar_url }}"
-                                                 alt="{% translate "Gravatar" %}"
-                                                 class="h-full w-full object-cover"
-                                                 width="96"
-                                                 height="96">
-                                        {% endif %}
-                                    </div>
-                                    <h6 class="font-semibold text-sm">Gravatar</h6>
-                                    <p class="text-foreground-muted text-xs">
-                                        {% if gravatar_url %}
-                                            {% translate "Based on your email address." %}
-                                            <a href="https://gravatar.com"
-                                               target="_blank"
-                                               rel="noopener"
-                                               class="text-primary hover:underline">{% translate "Change it on gravatar.com" %}</a>
-                                        {% else %}
-                                            {% translate "Add an email address to your profile to use Gravatar." %}
-                                        {% endif %}
-                                    </p>
-                                    <div class="flex items-center gap-2">
-                                        <input type="radio"
-                                               name="use_gravatar"
-                                               id="avatar-gravatar"
-                                               value="true"
-                                               data-action="submit-form"
-                                               {% if not gravatar_url %}disabled{% endif %}
-                                               {% if user.use_gravatar %}checked{% endif %}>
-                                        <span class="text-sm">{% translate "Use this avatar" %}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </label>
-                    </div>
-                    <noscript>
-                        <div class="mt-4">
-                            <button type="submit" class="btn btn-primary">{% translate "Save" %}</button>
-                        </div>
-                    </noscript>
-                </form>
-            {% else %}
-                <div class="text-center py-6 flex flex-col items-center gap-3">
-                    <div class="size-24 rounded-full border border-border overflow-hidden">
-                        {% if gravatar_url %}
-                            <img src="{{ gravatar_url }}"
-                                 alt="{% translate "Gravatar" %}"
-                                 class="h-full w-full object-cover"
-                                 width="96"
-                                 height="96">
-                        {% endif %}
-                    </div>
-                    <h6 class="font-semibold">Gravatar</h6>
-                    <p class="text-foreground-secondary text-sm">
-                        {% translate "Based on your email address." %}
-                        <a href="https://gravatar.com"
-                           target="_blank"
-                           rel="noopener"
-                           class="text-primary hover:underline">{% translate "Change it on gravatar.com" %}</a>
-                    </p>
-                    <p class="text-foreground-muted text-xs">
-                        {% translate "No provider avatar is available. Log in with a provider that supports avatars to get more options." %}
-                    </p>
+            <fieldset class="grid auto-cols-fr grid-flow-col gap-2 sm:gap-4">
+                <legend class="sr-only">{% translate "Avatar" %}</legend>
+                {% translate "Your photo" as t_photo %}
+                {% if avatar.user.uploaded_avatar_url %}
+                    {% translate "Click or drop a photo on it to replace it." as t_photo_caption %}
+                {% else %}
+                    {% translate "Click or drop a square photo. Max 8 MB." as t_photo_caption %}
+                {% endif %}
+                {% translate "Remove photo" as t_remove %}
+                {% include "user/user/_avatar_choice.html" with avatar=avatar source="uploaded" title=t_photo caption=t_photo_caption upload_field=form.uploaded_avatar remove_form="avatar-photo-remove" remove_label=t_remove only %}
+                {% if "provider" in avatar.available_sources %}
+                    {% translate "Social login" as t_provider %}
+                    {% translate "From the account you sign in with." as t_provider_caption %}
+                    {% include "user/user/_avatar_choice.html" with avatar=avatar source="provider" title=t_provider caption=t_provider_caption picture_url=avatar.user.avatar_url only %}
+                {% endif %}
+                {% translate "Gravatar" as t_gravatar %}
+                {% if avatar.gravatar_url %}
+                    {% translate "Based on your email address." as t_gravatar_caption %}
+                    {% translate "Change it on gravatar.com" as t_gravatar_link %}
+                    {% include "user/user/_avatar_choice.html" with avatar=avatar source="gravatar" title=t_gravatar caption=t_gravatar_caption picture_url=avatar.gravatar_url link_href="https://gravatar.com" link_label=t_gravatar_link only %}
+                {% else %}
+                    {% translate "Add an email address to your profile to use Gravatar." as t_gravatar_caption %}
+                    {% include "user/user/_avatar_choice.html" with avatar=avatar source="gravatar" title=t_gravatar caption=t_gravatar_caption only %}
+                {% endif %}
+            </fieldset>
+            <noscript>
+                <div class="mt-4">
+                    {% translate "Save" as t_save %}
+                    {% tessera_button t_save full_width_mobile=False %}
                 </div>
-            {% endif %}
-        </div>
+            </noscript>
+        </form>
+        {% if avatar.user.uploaded_avatar_url %}
+            <form id="avatar-photo-remove"
+                  action="{% url 'web:crowd:profile-avatar' %}"
+                  method="post"
+                  class="hidden">
+                {% csrf_token %}
+                <input type="hidden" name="uploaded_avatar-clear" value="on">
+            </form>
+        {% endif %}
     {% end_bottom_sheet %}
 {% endblock profile_sheet %}

@@ -1,0 +1,41 @@
+{% load i18n tessera vite_tags %}
+{% vite_asset_once 'src/dropzone.ts' %}
+{# The dropzone shaped as the avatar it sets: click the circle or drop a file on it. #}
+{# Same contract as file-dropzone.html, so dropzone.ts previews the pick; name and #}
+{# size stay for screen readers only, since a circle has no room for captions. #}
+{# No clear flag: a circle has no room for a remove button either, so the page #}
+{# that holds it removes the photo with a form of its own. #}
+<label for="{{ id }}"
+       data-dropzone
+       data-state="{{ dropzone_state }}"
+       class="group relative block size-20 shrink-0 cursor-pointer overflow-hidden rounded-full border border-dashed border-border bg-bg-tertiary transition-colors duration-150 hover:duration-0 hover:border-primary/40 hover:bg-bg-secondary data-[state=image]:border-solid has-[input[aria-invalid=true]]:border-danger has-focus-visible:ring-2 has-focus-visible:ring-primary/50 has-focus-visible:ring-offset-2">
+    <input type="file"
+           id="{{ id }}"
+           name="{{ name }}"
+           data-dropzone-input
+           aria-label="{{ label }}"
+           aria-invalid="{{ has_errors|yesno:'true,false' }}"
+           {% if has_errors %}aria-describedby="{{ id }}-error"{% endif %}
+           {% if action %}data-action="{{ action }}"{% endif %}
+           accept="{{ accept }}"
+           class="absolute inset-0 z-10 size-full cursor-pointer opacity-0">
+    <span data-dropzone-empty
+          class="pointer-events-none absolute inset-0 hidden items-center justify-center text-foreground-secondary group-hover:text-primary group-data-[state=empty]:flex group-data-[state=file]:flex">
+        {% icon "arrow-up-tray" class="size-6" %}
+    </span>
+    <img data-dropzone-preview
+         src="{{ initial_url|default:'' }}"
+         alt=""
+         width="80"
+         height="80"
+         class="pointer-events-none absolute inset-0 hidden size-full object-cover group-data-[state=image]:block">
+    <span aria-hidden="true"
+          class="pointer-events-none absolute inset-0 hidden items-center justify-center bg-black/45 text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-has-focus-visible:opacity-100 group-data-[state=image]:flex">
+        {% icon "arrow-up-tray" class="size-6" %}
+    </span>
+    <span data-dropzone-name class="sr-only">{{ initial_name }}</span>
+    <span data-dropzone-size class="sr-only"></span>
+</label>
+{% if has_errors %}
+    <p id="{{ id }}-error" class="mt-2 text-xs font-medium text-danger">{{ errors.0 }}</p>
+{% endif %}

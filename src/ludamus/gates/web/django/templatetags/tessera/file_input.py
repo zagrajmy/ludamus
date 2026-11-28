@@ -21,6 +21,25 @@ def _initial_url_and_name(initial: object) -> tuple[str | None, str]:
     return None, ""
 
 
+def _render_avatar_dropzone(field: BoundField) -> str:
+    initial_url, initial_name = _initial_url_and_name(field.value())
+    return render_to_string(
+        "components/avatar-dropzone.html",
+        {
+            "name": field.html_name,
+            "id": field.id_for_label,
+            "label": field.label,
+            "accept": field.field.widget.attrs.get("accept") or "image/*",
+            "action": field.field.widget.attrs.get("data-action", ""),
+            "has_errors": bool(field.errors),
+            "errors": field.errors,
+            "initial_url": initial_url,
+            "initial_name": initial_name,
+            "dropzone_state": "image" if initial_url else "empty",
+        },
+    )
+
+
 def render_file_input(field: BoundField, *, inplace: bool = False) -> str:
     """Render a styled drag-and-drop file input.
 
@@ -31,6 +50,8 @@ def render_file_input(field: BoundField, *, inplace: bool = False) -> str:
         HTML string of the dropzone element.
     """
     attrs = field.field.widget.attrs
+    if getattr(field.field.widget, "shape", "frame") == "avatar":
+        return _render_avatar_dropzone(field)
     is_image = isinstance(field.field, ImageField)
     accept = attrs.get("accept") or ("image/*" if is_image else "")
     initial_url, initial_name = _initial_url_and_name(field.value())

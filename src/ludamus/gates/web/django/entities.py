@@ -40,7 +40,7 @@ class UserInfo:
                 email=user_dto.email,
                 avatar_url=user_dto.avatar_url,
                 uploaded_avatar_url=user_dto.uploaded_avatar_url,
-                use_gravatar=user_dto.use_gravatar,
+                avatar_source=user_dto.avatar_source,
             )
             or None,
             discord_username=user_dto.discord_username,

@@ -68,7 +68,7 @@ def _user(name="Ala") -> UserDTO:
         name=name,
         pk=_USER_PK,
         slug=f"code_{_CODE}",
-        use_gravatar=False,
+        avatar_source="provider",
         user_type=UserType.ANONYMOUS,
         username="anon_x",
     )

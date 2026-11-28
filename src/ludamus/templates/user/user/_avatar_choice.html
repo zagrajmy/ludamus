@@ -1,0 +1,48 @@
+{% load tessera %}
+{# One avatar source as a card. The card is its radio's label, stretched over the #}
+{# card, so a click anywhere picks it; the primary outline marks the current pick. #}
+{# The photo card holds the avatar-sized dropzone instead of a picture: it sits #}
+{# above the stretched label, so a click on the circle opens the file picker. #}
+{# Expects: avatar (AvatarPageDTO), source, title, caption; picture_url or #}
+{# upload_field; optional link_href/link_label and remove_form/remove_label. #}
+<div class="relative flex min-w-0 flex-col items-center gap-2 rounded-xl border border-border bg-bg-secondary px-2 py-4 text-center transition-colors duration-150 has-[input[type=radio]:checked]:border-primary has-[input[type=radio]:checked]:ring-1 has-[input[type=radio]:checked]:ring-primary has-[input[type=radio]:focus-visible]:ring-2 has-[input[type=radio]:focus-visible]:ring-primary/50 sm:px-4{% if source in avatar.available_sources %} hover:border-primary/40{% endif %}">
+    <input type="radio"
+           name="avatar_source"
+           id="avatar-source-{{ source }}"
+           value="{{ source }}"
+           data-action="submit-form"
+           class="sr-only"
+           {% if avatar.shown_source == source and source in avatar.available_sources %}checked{% endif %}
+           {% if source not in avatar.available_sources %}disabled{% endif %}>
+    {% if upload_field %}
+        <div class="relative z-10">{% tessera_inplace upload_field %}</div>
+    {% else %}
+        <span class="block size-20 shrink-0 overflow-hidden rounded-full border border-border bg-bg-tertiary">
+            {% if picture_url %}
+                <img src="{{ picture_url }}"
+                     alt=""
+                     width="80"
+                     height="80"
+                     class="size-full object-cover">
+            {% endif %}
+        </span>
+    {% endif %}
+    <label for="avatar-source-{{ source }}"
+           class="text-sm font-semibold {% if source in avatar.available_sources %}cursor-pointer after:absolute after:inset-0 after:rounded-xl after:content-['']{% else %}text-foreground-muted{% endif %}">
+        {{ title }}
+    </label>
+    <p class="text-xs text-foreground-muted">{{ caption }}</p>
+    {% if link_href %}
+        <a href="{{ link_href }}"
+           target="_blank"
+           rel="noopener"
+           class="relative z-10 text-xs text-primary hover:underline">{{ link_label }}</a>
+    {% endif %}
+    {% if remove_form and source in avatar.available_sources %}
+        <button type="submit"
+                form="{{ remove_form }}"
+                class="relative z-10 inline-flex min-h-8 items-center px-2 text-xs text-foreground-secondary underline hover:text-danger">
+            {{ remove_label }}
+        </button>
+    {% endif %}
+</div>

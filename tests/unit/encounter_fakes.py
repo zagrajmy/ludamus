@@ -60,7 +60,7 @@ def make_user(pk=CREATOR_ID, **overrides):
         "name": "",
         "pk": pk,
         "slug": f"user-{pk}",
-        "use_gravatar": True,
+        "avatar_source": "gravatar",
         "user_type": UserType.ACTIVE,
         "username": "creator",
     }

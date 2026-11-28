@@ -24,7 +24,7 @@ CREATE_FAILED = "Could not create this party. Check its name and try again."
 
 
 def _avatar_url(user):
-    if user.use_gravatar:
+    if user.avatar_source == "gravatar":
         return gravatar_url(user.email) or ""
     return user.avatar_url or gravatar_url(user.email) or ""
 

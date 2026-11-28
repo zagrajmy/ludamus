@@ -4,7 +4,7 @@ import pytest
 
 from ludamus.mills.user import CompanionsService, ProfileService
 from ludamus.pacts.errors import NotFoundError
-from ludamus.pacts.user import CompanionDTO
+from ludamus.pacts.user import AvatarSource, AvatarSourceUnavailableError, CompanionDTO
 from tests.unit.factories import FakeTransaction, FakeUsers, user_dto
 
 if TYPE_CHECKING:
@@ -68,16 +68,17 @@ class TestProfileService:
 
         assert users.read("auth0user").name == "Renamed"
 
-    def test_read_avatar_with_provider_picture(self):
+    def test_read_avatar_offers_the_sources_with_a_picture(self):
         users = FakeUsers(
             _user_dto(email="me@example.com", avatar_url="https://cdn/pic")
         )
 
         page = _profile_service(users).read_avatar("auth0user")
 
-        assert page.user.slug == "auth0user"
-        assert page.gravatar_url == "https://gravatar/me@example.com"
-        assert page.has_auth0_avatar is True
+        assert (page.available_sources, page.shown_source) == (
+            [AvatarSource.PROVIDER, AvatarSource.GRAVATAR],
+            AvatarSource.PROVIDER,
+        )
 
     def test_read_avatar_without_provider_picture_or_gravatar(self):
         users = FakeUsers(_user_dto())
@@ -86,15 +87,24 @@ class TestProfileService:
             "auth0user"
         )
 
-        assert page.gravatar_url is None
-        assert page.has_auth0_avatar is False
+        assert (page.gravatar_url, page.available_sources) == (None, [])
 
-    def test_set_avatar_preference(self):
-        users = FakeUsers(_user_dto())
+    def test_set_avatar_source(self):
+        users = FakeUsers(_user_dto(email="me@example.com"))
 
-        _profile_service(users).set_avatar_preference("auth0user", use_gravatar=True)
+        _profile_service(users).set_avatar_source("auth0user", AvatarSource.GRAVATAR)
 
-        assert users.read("auth0user").use_gravatar is True
+        assert users.read("auth0user").avatar_source is AvatarSource.GRAVATAR
+
+    def test_set_avatar_source_refuses_a_photo_that_was_never_uploaded(self):
+        users = FakeUsers(_user_dto(email="me@example.com"))
+
+        with pytest.raises(AvatarSourceUnavailableError):
+            _profile_service(users).set_avatar_source(
+                "auth0user", AvatarSource.UPLOADED
+            )
+
+        assert users.read("auth0user").avatar_source is AvatarSource.PROVIDER
 
 
 class TestCompanionsService:

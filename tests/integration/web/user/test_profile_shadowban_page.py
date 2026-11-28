@@ -34,7 +34,7 @@ def _candidate_dto(
 ) -> ShadowbanCandidateDTO:
     avatar_url = (
         gravatar_url(user.email) or ""
-        if user.use_gravatar
+        if user.avatar_source == "gravatar"
         else user.avatar_url or gravatar_url(user.email) or ""
     )
     return ShadowbanCandidateDTO(

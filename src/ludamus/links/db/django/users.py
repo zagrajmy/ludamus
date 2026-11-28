@@ -13,6 +13,7 @@ from ludamus.pacts.party import PartyConsentMode
 from ludamus.pacts.user import (
     EMAIL_LINK_MAX_AGE,
     AgeBand,
+    AvatarSource,
     ClaimableProfileDTO,
     ClaimRepositoryProtocol,
     CompanionDTO,
@@ -39,7 +40,7 @@ def display_avatar_url(user: User) -> str:
         email=user.email,
         avatar_url=user.avatar_url,
         uploaded_avatar_url=user.uploaded_avatar_url,
-        use_gravatar=user.use_gravatar,
+        avatar_source=AvatarSource(user.avatar_source),
     )
 
 

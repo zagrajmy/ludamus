@@ -1,18 +1,24 @@
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.gates.uploads import validate_uploaded_image
 from ludamus.gates.web.django.forms import DropzoneFileInput
-from ludamus.pacts.images import IMAGE_ACCEPT
+from ludamus.pacts.images import IMAGE_ACCEPT, StoredFile
 from ludamus.pacts.user import (
     PROFILE_DISCORD_USERNAME_MAX_LENGTH,
     AgeBand,
+    AvatarSource,
     UserData,
     UserType,
     looks_like_email,
 )
+
+if TYPE_CHECKING:
+    from django.core.files.uploadedfile import UploadedFile
+    from django.http import QueryDict
+    from django.utils.datastructures import MultiValueDict
 
 # Not an AgeBand: nobody under the minimum age holds an account, so this answer
 # is never stored, only acted on.
@@ -133,14 +139,30 @@ class PartyCompanionForm(forms.Form):
     )
 
 
-class UploadedAvatarForm(forms.Form):
+class AvatarForm(forms.Form):
+    # One form for the whole avatar page: each card's radio picks a source
+    # (`avatar_source`, offered only where there is a picture), and the photo
+    # card's circle uploads (or, with `-clear`, removes) a photo. Both submit
+    # as soon as they change, so there is no Save button.
     uploaded_avatar = forms.ImageField(
-        label=_("Your photo"),
+        label=_("Upload a photo"),
         required=False,
         validators=[validate_uploaded_image],
-        help_text=_(
-            "A square photo of at least 256×256 works best. We show it in a "
-            "circle. Max 8 MB. JPG, PNG, WebP, or AVIF."
+        widget=DropzoneFileInput(
+            attrs={"accept": IMAGE_ACCEPT, "data-action": "submit-form"}, shape="avatar"
         ),
-        widget=DropzoneFileInput(attrs={"accept": IMAGE_ACCEPT}, fit="contain"),
     )
+
+    def __init__(
+        self,
+        data: QueryDict | None = None,
+        files: MultiValueDict[str, UploadedFile[bytes]] | None = None,
+        *,
+        available_sources: list[AvatarSource],
+        initial: dict[str, StoredFile | None] | None = None,
+    ) -> None:
+        super().__init__(data, files, initial=initial)
+        self.fields["avatar_source"] = forms.ChoiceField(
+            required=False,
+            choices=[(source.value, source.value) for source in available_sources],
+        )

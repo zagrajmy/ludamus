@@ -51,6 +51,12 @@ class AgeBandRequiredError(ValueError):
     """An age range was confirmed as UNKNOWN, which is no answer at all."""
 
 
+class AvatarSource(StrEnum):
+    UPLOADED = "uploaded"
+    PROVIDER = "provider"
+    GRAVATAR = "gravatar"
+
+
 class UserType(StrEnum):
     ACTIVE = "active"
     CONNECTED = "connected"
@@ -79,7 +85,7 @@ class UserDTO(BaseModel):
     slug: str
     uploaded_avatar_original_name: str = ""
     uploaded_avatar_url: str = ""
-    use_gravatar: bool
+    avatar_source: AvatarSource
     user_type: UserType
     username: str
 
@@ -116,7 +122,7 @@ class UserData(TypedDict, total=False):
     name: str
     password: str
     slug: str
-    use_gravatar: bool
+    avatar_source: AvatarSource
     user_type: UserType
     username: str
 
@@ -272,35 +278,57 @@ def gravatar_url(email: str) -> str | None:
     return f"https://www.gravatar.com/avatar/{digest}?{params}"
 
 
+def shown_avatar_source(
+    *, chosen: AvatarSource, avatar_url: str, uploaded_avatar_url: str
+) -> AvatarSource:
+    # The one avatar rule: the member's choice, unless the picture it names
+    # is missing. A missing photo falls back to the provider picture, and a
+    # missing provider picture to Gravatar.
+    if chosen is AvatarSource.UPLOADED and uploaded_avatar_url:
+        return AvatarSource.UPLOADED
+    if chosen is not AvatarSource.GRAVATAR and avatar_url:
+        return AvatarSource.PROVIDER
+    return AvatarSource.GRAVATAR
+
+
 def display_avatar_url(
     *,
     email: str,
     avatar_url: str,
     uploaded_avatar_url: str,
-    use_gravatar: bool,
+    avatar_source: AvatarSource,
     gravatar: AvatarUrlProviderProtocol = gravatar_url,
 ) -> str:
-    # The one avatar rule: a photo the member uploaded wins; then their
-    # Gravatar choice; otherwise the provider picture, falling back to
-    # Gravatar when there is none.
-    if uploaded_avatar_url:
-        return uploaded_avatar_url
-    if use_gravatar:
-        return gravatar(email) or ""
-    return avatar_url or gravatar(email) or ""
+    match shown_avatar_source(
+        chosen=avatar_source,
+        avatar_url=avatar_url,
+        uploaded_avatar_url=uploaded_avatar_url,
+    ):
+        case AvatarSource.UPLOADED:
+            return uploaded_avatar_url
+        case AvatarSource.PROVIDER:
+            return avatar_url
+        case AvatarSource.GRAVATAR:
+            return gravatar(email) or ""
+
+
+class AvatarSourceUnavailableError(ValueError):
+    """The chosen avatar source has no picture behind it for this member."""
 
 
 class AvatarPageDTO(BaseModel):
     user: UserDTO
     gravatar_url: str | None
-    has_auth0_avatar: bool
+    # The sources with a picture behind them, in the order the page offers them.
+    available_sources: list[AvatarSource]
+    shown_source: AvatarSource
 
 
 class ProfileServiceProtocol(Protocol):
     def read(self, user_slug: str) -> UserDTO: ...
     def update(self, user_slug: str, data: UserData) -> None: ...
     def read_avatar(self, user_slug: str) -> AvatarPageDTO: ...
-    def set_avatar_preference(self, user_slug: str, *, use_gravatar: bool) -> None: ...
+    def set_avatar_source(self, user_slug: str, source: AvatarSource) -> None: ...
     def set_uploaded_avatar(
         self, user_slug: str, avatar: UploadedFileProtocol | str
     ) -> None: ...

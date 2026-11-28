@@ -5737,16 +5737,8 @@ msgid "Enter one of your companions exactly as they are named."
 msgstr "Wpisz dokładną nazwę jednej z osób towarzyszących."
 
 #: src/ludamus/gates/web/django/user/forms.py
-msgid "Your photo"
-msgstr "Twoje zdjęcie"
-
-#: src/ludamus/gates/web/django/user/forms.py
-msgid ""
-"A square photo of at least 256×256 works best. We show it in a circle. Max 8 "
-"MB. JPG, PNG, WebP, or AVIF."
-msgstr ""
-"Najlepiej kwadratowe zdjęcie, co najmniej 256×256. Pokazujemy je w kółku. "
-"Maks. 8 MB. JPG, PNG, WebP lub AVIF."
+msgid "Upload a photo"
+msgstr "Prześlij zdjęcie"
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid ""
@@ -5808,16 +5800,20 @@ msgstr ""
 "konto."
 
 #: src/ludamus/gates/web/django/user/profile.py
-msgid "Choose a photo to upload first."
-msgstr "Najpierw wybierz zdjęcie do przesłania."
-
-#: src/ludamus/gates/web/django/user/profile.py
 msgid "Photo removed."
 msgstr "Usunięto zdjęcie."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Photo saved."
 msgstr "Zapisano zdjęcie."
+
+#: src/ludamus/gates/web/django/user/profile.py
+msgid "Avatar updated."
+msgstr "Zaktualizowano awatar."
+
+#: src/ludamus/gates/web/django/user/profile.py
+msgid "Pick an avatar or upload a photo."
+msgstr "Wybierz awatar albo prześlij zdjęcie."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Mention emails turned on."
@@ -6118,12 +6114,12 @@ msgid "Profile avatar URL (e.g. from Auth0)"
 msgstr "URL awatara profilu (np. z Auth0)"
 
 #: src/ludamus/links/db/django/models.py
-msgid "Use Gravatar"
-msgstr "Użyj Gravatara"
+msgid "Avatar source"
+msgstr "Źródło awatara"
 
 #: src/ludamus/links/db/django/models.py
-msgid "Use Gravatar instead of provider avatar"
-msgstr "Użyj Gravatara zamiast awatara z konta"
+msgid "Which picture the member picked as their avatar"
+msgstr "Który obrazek osoba wybrała jako awatar"
 
 #: src/ludamus/links/db/django/models.py
 msgid "user"
@@ -16220,29 +16216,32 @@ msgid "Avatar"
 msgstr "Awatar"
 
 #: src/ludamus/templates/user/user/avatar.html
-msgid "Save photo"
-msgstr "Zapisz zdjęcie"
+msgid "Pick the picture others see next to your name."
+msgstr "Wybierz obrazek, który inni widzą obok Twojego imienia."
 
 #: src/ludamus/templates/user/user/avatar.html
-msgid "When you have no photo"
-msgstr "Gdy nie masz zdjęcia"
+msgid "Your photo"
+msgstr "Twoje zdjęcie"
 
 #: src/ludamus/templates/user/user/avatar.html
-msgid "Your photo is shown now. Without it, we show the picture chosen below."
-msgstr ""
-"Teraz widać Twoje zdjęcie. Bez niego pokazujemy obrazek wybrany poniżej."
+msgid "Click or drop a photo on it to replace it."
+msgstr "Kliknij albo upuść zdjęcie, aby je zmienić."
 
 #: src/ludamus/templates/user/user/avatar.html
-msgid "Provider avatar"
-msgstr "Awatar z konta"
+msgid "Click or drop a square photo. Max 8 MB."
+msgstr "Kliknij albo upuść kwadratowe zdjęcie. Maks. 8 MB."
 
 #: src/ludamus/templates/user/user/avatar.html
-msgid "Imported from your social login account."
-msgstr "Zaimportowany z Twojego konta logowania społecznościowego."
+msgid "Remove photo"
+msgstr "Usuń zdjęcie"
 
 #: src/ludamus/templates/user/user/avatar.html
-msgid "Use this avatar"
-msgstr "Użyj tego awatara"
+msgid "Social login"
+msgstr "Konto logowania"
+
+#: src/ludamus/templates/user/user/avatar.html
+msgid "From the account you sign in with."
+msgstr "Z konta, którym się logujesz."
 
 #: src/ludamus/templates/user/user/avatar.html
 msgid "Gravatar"
@@ -16259,14 +16258,6 @@ msgstr "Zmień go na gravatar.com"
 #: src/ludamus/templates/user/user/avatar.html
 msgid "Add an email address to your profile to use Gravatar."
 msgstr "Dodaj adres e-mail do swojego profilu, aby korzystać z Gravatara."
-
-#: src/ludamus/templates/user/user/avatar.html
-msgid ""
-"No provider avatar is available. Log in with a provider that supports "
-"avatars to get more options."
-msgstr ""
-"Brak awatara z konta. Zaloguj się kontem obsługującym awatary, aby uzyskać "
-"więcej opcji."
 
 #: src/ludamus/templates/user/user/notifications.html
 msgid "Mute"
@@ -16804,6 +16795,46 @@ msgid ""
 msgstr ""
 "Bilety kupione na wydarzenia w tej sferze pojawią się tutaj, gotowe do "
 "pokazania przy wejściu."
+
+#~ msgid ""
+#~ "A square photo of at least 256×256 works best. We show it in a circle. "
+#~ "Max 8 MB. JPG, PNG, WebP, or AVIF."
+#~ msgstr ""
+#~ "Najlepiej kwadratowe zdjęcie, co najmniej 256×256. Pokazujemy je w kółku. "
+#~ "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
+
+#~ msgid "Choose a photo to upload first."
+#~ msgstr "Najpierw wybierz zdjęcie do przesłania."
+
+#~ msgid "Use Gravatar"
+#~ msgstr "Użyj Gravatara"
+
+#~ msgid "Use Gravatar instead of provider avatar"
+#~ msgstr "Użyj Gravatara zamiast awatara z konta"
+
+#~ msgid "When you have no photo"
+#~ msgstr "Gdy nie masz zdjęcia"
+
+#~ msgid ""
+#~ "Your photo is shown now. Without it, we show the picture chosen below."
+#~ msgstr ""
+#~ "Teraz widać Twoje zdjęcie. Bez niego pokazujemy obrazek wybrany poniżej."
+
+#~ msgid "Provider avatar"
+#~ msgstr "Awatar z konta"
+
+#~ msgid "Imported from your social login account."
+#~ msgstr "Zaimportowany z Twojego konta logowania społecznościowego."
+
+#~ msgid "Use this avatar"
+#~ msgstr "Użyj tego awatara"
+
+#~ msgid ""
+#~ "No provider avatar is available. Log in with a provider that supports "
+#~ "avatars to get more options."
+#~ msgstr ""
+#~ "Brak awatara z konta. Zaloguj się kontem obsługującym awatary, aby "
+#~ "uzyskać więcej opcji."
 
 #~ msgid "Your avatar is provided by Gravatar, based on your email address."
 #~ msgstr ""

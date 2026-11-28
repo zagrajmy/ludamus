@@ -20,6 +20,8 @@ from ludamus.pacts.user import (
     AgeBandRequiredError,
     AuthProvisionDTO,
     AvatarPageDTO,
+    AvatarSource,
+    AvatarSourceUnavailableError,
     ChangeRequestOutcome,
     ClaimOutcome,
     ClaimResultDTO,
@@ -39,6 +41,7 @@ from ludamus.pacts.user import (
     UserType,
     VerificationRequestOutcome,
     looks_like_email,
+    shown_avatar_source,
 )
 from ludamus.specs.email_verification import (
     EMAIL_VERIFICATION_REMINDER_INTERVAL,
@@ -535,21 +538,48 @@ class ProfileService(ProfileServiceProtocol):
 
     def read_avatar(self, user_slug: str) -> AvatarPageDTO:
         user = self._users.read(user_slug)
+        gravatar = self._avatar_url(user.email)
         return AvatarPageDTO(
             user=user,
-            gravatar_url=self._avatar_url(user.email),
-            has_auth0_avatar=bool(user.avatar_url),
+            gravatar_url=gravatar,
+            available_sources=self._available_sources(user, gravatar=gravatar),
+            shown_source=shown_avatar_source(
+                chosen=user.avatar_source,
+                avatar_url=user.avatar_url,
+                uploaded_avatar_url=user.uploaded_avatar_url,
+            ),
         )
 
-    def set_avatar_preference(self, user_slug: str, *, use_gravatar: bool) -> None:
+    @staticmethod
+    def _available_sources(
+        user: UserDTO, *, gravatar: str | None
+    ) -> list[AvatarSource]:
+        pictures = {
+            AvatarSource.UPLOADED: user.uploaded_avatar_url,
+            AvatarSource.PROVIDER: user.avatar_url,
+            AvatarSource.GRAVATAR: gravatar,
+        }
+        return [source for source, picture in pictures.items() if picture]
+
+    def set_avatar_source(self, user_slug: str, source: AvatarSource) -> None:
+        user = self._users.read(user_slug)
+        available = self._available_sources(user, gravatar=self._avatar_url(user.email))
+        if source not in available:
+            raise AvatarSourceUnavailableError(source)
         with self._transaction.atomic():
-            self._users.update(user_slug, UserData(use_gravatar=use_gravatar))
+            self._users.update(user_slug, UserData(avatar_source=source))
 
     def set_uploaded_avatar(
         self, user_slug: str, avatar: UploadedFileProtocol | str
     ) -> None:
+        # A new photo is picked to be seen, so it becomes the avatar at once.
+        # Removing it leaves the choice alone; shown_avatar_source falls back.
         with self._transaction.atomic():
             self._users.set_uploaded_avatar(user_slug, avatar)
+            if not isinstance(avatar, str):
+                self._users.update(
+                    user_slug, UserData(avatar_source=AvatarSource.UPLOADED)
+                )
 
 
 class CompanionsService(CompanionsServiceProtocol):
