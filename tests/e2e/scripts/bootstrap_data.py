@@ -14,6 +14,9 @@ from urllib.parse import urlparse
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SRC_DIR = REPO_ROOT / "src"
+# NOTE: control-ludamus seeds a disposable instance and points this at its
+# run dir, so its personas never overwrite the suite's storage states.
+STATE_DIR = Path(os.environ.get("E2E_STATE_DIR") or REPO_ROOT / "tests" / "e2e")
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
@@ -282,7 +285,7 @@ def _create_test_user() -> User:
         avatar_url="https://i.pravatar.cc/96?u=e2e",
     )
 
-    state_path = REPO_ROOT / "tests" / "e2e" / ".auth-state.json"
+    state_path = STATE_DIR / ".auth-state.json"
     _write_storage_state(user, domain=_cookie_domain(), path=state_path)
 
     # An unread notification so the navbar dropdown has content to show in e2e.
@@ -318,9 +321,7 @@ def _create_party_companion_scenario() -> None:
         manager=leader,
     )
     _write_storage_state(
-        leader,
-        domain=_cookie_domain(),
-        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-party-host.json",
+        leader, domain=_cookie_domain(), path=STATE_DIR / ".auth-state-party-host.json"
     )
 
 
@@ -350,9 +351,7 @@ def _create_event_deletion_scenario() -> None:
         )
         council.managers.add(member)
         _write_storage_state(
-            member,
-            domain=COUNCIL_HOST,
-            path=REPO_ROOT / "tests" / "e2e" / f".auth-state-{slug}.json",
+            member, domain=COUNCIL_HOST, path=STATE_DIR / f".auth-state-{slug}.json"
         )
     # A deletion cannot be taken back from the panel, so each attempt (CI
     # allows two retries) votes on an event of its own number.
@@ -390,9 +389,7 @@ def _create_unlisted_and_team_scenario(root_sphere: Sphere) -> None:
     crew.encounters_policy = EncountersPolicy.MANAGERS
     crew.save(update_fields=["encounters_policy"])
     _write_storage_state(
-        crew_manager,
-        domain=CREW_HOST,
-        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-crew-manager.json",
+        crew_manager, domain=CREW_HOST, path=STATE_DIR / ".auth-state-crew-manager.json"
     )
 
     _create_event(
@@ -432,7 +429,7 @@ def _create_unlisted_and_team_scenario(root_sphere: Sphere) -> None:
     _write_storage_state(
         invitee,
         domain=_cookie_domain(),
-        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-invitee.json",
+        path=STATE_DIR / ".auth-state-invitee.json",
         also_on=(CREW_HOST,),
     )
 
@@ -575,9 +572,7 @@ def _create_notifications_scenario() -> None:
         slug="e2e-notified",
     )
     _write_storage_state(
-        user,
-        domain=_cookie_domain(),
-        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-notified.json",
+        user, domain=_cookie_domain(), path=STATE_DIR / ".auth-state-notified.json"
     )
     # Destination notification: clicking it navigates to /events/.
     Notification.objects.create(
@@ -612,14 +607,12 @@ def _create_mention_mail_scenario() -> None:
         email_verified=True,
     )
     _write_storage_state(
-        user,
-        domain=_cookie_domain(),
-        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-mentioned.json",
+        user, domain=_cookie_domain(), path=STATE_DIR / ".auth-state-mentioned.json"
     )
     token = DjangoParleyMentionUnsubscribeCodec().dumps(
         ParleyMentionUnsubscribePayload(user_id=user.pk)
     )
-    (REPO_ROOT / "tests" / "e2e" / ".parley-mention-mail.json").write_text(
+    (STATE_DIR / ".parley-mention-mail.json").write_text(
         json.dumps({"unsubscribeToken": token}), encoding="utf-8"
     )
 
@@ -682,12 +675,10 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
     )
 
     _write_storage_state(
-        waiter,
-        domain=_cookie_domain(),
-        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-waiter.json",
+        waiter, domain=_cookie_domain(), path=STATE_DIR / ".auth-state-waiter.json"
     )
 
-    scenario_path = REPO_ROOT / "tests" / "e2e" / ".promotion-scenario.json"
+    scenario_path = STATE_DIR / ".promotion-scenario.json"
     scenario_path.write_text(
         json.dumps(
             {
@@ -767,7 +758,7 @@ def _create_facilitator_edit_scenario(sphere: Sphere, *, superuser: User) -> Non
     _write_storage_state(
         author,
         domain=_cookie_domain(),
-        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-proposal-author.json",
+        path=STATE_DIR / ".auth-state-proposal-author.json",
     )
     Session.objects.create(
         event=event,
@@ -1375,7 +1366,7 @@ def _create_email_verification_profiles() -> None:
         _write_storage_state(
             user,
             domain=_cookie_domain(),
-            path=REPO_ROOT / "tests" / "e2e" / f".auth-state-email-{state}.json",
+            path=STATE_DIR / f".auth-state-email-{state}.json",
         )
 
 
@@ -1411,9 +1402,7 @@ def _create_profile_editor_scenario(sphere: Sphere) -> None:
     )
     _seat(session, editor, SessionParticipationStatus.CONFIRMED)
     _write_storage_state(
-        editor,
-        domain=_cookie_domain(),
-        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-profile.json",
+        editor, domain=_cookie_domain(), path=STATE_DIR / ".auth-state-profile.json"
     )
 
 
@@ -1446,9 +1435,7 @@ def _create_party_refusals_scenario() -> None:
         (leader, ".auth-state-party-leader.json"),
         (invitee, ".auth-state-party-invitee.json"),
     ):
-        _write_storage_state(
-            user, domain=_cookie_domain(), path=REPO_ROOT / "tests" / "e2e" / state
-        )
+        _write_storage_state(user, domain=_cookie_domain(), path=STATE_DIR / state)
 
 
 # NOTE: facilitator-merge.spec.ts and facilitator-merge-target.spec.ts each
@@ -1529,7 +1516,7 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
     _write_storage_state(
         polish_proposer,
         domain=_cookie_domain(),
-        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-polish-proposer.json",
+        path=STATE_DIR / ".auth-state-polish-proposer.json",
     )
     # Two proposals, so the spec that reads the page and the spec that accepts
     # one never contend for the same pending row — including on a retry, which
@@ -1833,9 +1820,7 @@ def _flow_user(slug: str, *, name: str) -> User:
 def _flow_user_state(slug: str, *, name: str) -> User:
     user = _flow_user(slug, name=name)
     _write_storage_state(
-        user,
-        domain=_cookie_domain(),
-        path=REPO_ROOT / "tests" / "e2e" / f".auth-state-{slug}.json",
+        user, domain=_cookie_domain(), path=STATE_DIR / f".auth-state-{slug}.json"
     )
     return user
 
@@ -2284,9 +2269,7 @@ def _create_reuse_proposal_scenario(sphere: Sphere) -> None:
         slug="e2e-reuser",
     )
     _write_storage_state(
-        user,
-        domain=_cookie_domain(),
-        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-reuser.json",
+        user, domain=_cookie_domain(), path=STATE_DIR / ".auth-state-reuser.json"
     )
     past = _create_event(
         sphere,
@@ -2371,9 +2354,7 @@ def _create_discord_proposal_scenario(sphere: Sphere) -> None:
         discord_username="e2e_dragon",
     )
     _write_storage_state(
-        user,
-        domain=_cookie_domain(),
-        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-discord.json",
+        user, domain=_cookie_domain(), path=STATE_DIR / ".auth-state-discord.json"
     )
     event = _create_event(
         sphere,
@@ -2413,7 +2394,7 @@ def _create_age_scenarios() -> None:
     _write_storage_state(
         unknown,
         domain=_cookie_domain(),
-        path=REPO_ROOT / "tests/e2e/.auth-state-age-unknown.json",
+        path=STATE_DIR / ".auth-state-age-unknown.json",
     )
     for scenario in ("teen", "older", "child", "cross-sphere"):
         session = SessionStore()
@@ -2440,7 +2421,7 @@ def _create_age_scenarios() -> None:
             ],
             "origins": [],
         }
-        (REPO_ROOT / f"tests/e2e/.auth-state-age-{scenario}.json").write_text(
+        (STATE_DIR / f".auth-state-age-{scenario}.json").write_text(
             json.dumps(state), encoding="utf-8"
         )
 
@@ -2462,7 +2443,7 @@ def _create_privacy_scenarios() -> None:
         _write_storage_state(
             user,
             domain=".ludamus.localhost",
-            path=REPO_ROOT / f"tests/e2e/.auth-state-privacy-{scenario}.json",
+            path=STATE_DIR / f".auth-state-privacy-{scenario}.json",
         )
 
 
@@ -2492,7 +2473,7 @@ def main() -> None:
         name="Admin",
         slug="admin",
     )
-    superuser_state_path = REPO_ROOT / "tests" / "e2e" / ".auth-state-superuser.json"
+    superuser_state_path = STATE_DIR / ".auth-state-superuser.json"
     _write_storage_state(superuser, domain=_cookie_domain(), path=superuser_state_path)
 
     # Full session with a dedicated waiter, for the promotion e2e.
@@ -2543,9 +2524,7 @@ def main() -> None:
     )
     sphere.managers.add(manager)
     _write_storage_state(
-        manager,
-        domain=_cookie_domain(),
-        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-manager.json",
+        manager, domain=_cookie_domain(), path=STATE_DIR / ".auth-state-manager.json"
     )
 
     # An event selling tickets on a connected Stripe account.
@@ -2593,7 +2572,7 @@ def main() -> None:
         ],
         "origins": [],
     }
-    empty_state_path = REPO_ROOT / "tests" / "e2e" / ".auth-state-empty.json"
+    empty_state_path = STATE_DIR / ".auth-state-empty.json"
     empty_state_path.write_text(json.dumps(empty_state, indent=2))
 
     upcoming_event = _create_event(

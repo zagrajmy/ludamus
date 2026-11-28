@@ -25,17 +25,17 @@ Preconditions:
 
 - Seed includes `enroll-states` with `Seat Available Demo` (room) and
   `Waiting List Only Demo` (full).
-- Logged-in attendee. On the e2e DB that is `e2e-tester` via storageState.
-  On the bootstrap DB, sign in first. Anonymous enrollment is a different
-  entry (`/event/<slug>/session/<id>/enrollment/anonymous`).
+- Persona `e2e-tester`: run `mise run control-ludamus -- persona e2e-tester`.
+  Anonymous enrollment is a different entry
+  (`/event/<slug>/session/<id>/enrollment/anonymous`).
 - Restore any seat you take before leaving the run.
 
 - **Open a session with room.** Run
   `mise run control-ludamus -- open /event/enroll-states/` then:
 
   ```bash
-  mise run control-ludamus -- find role link click \
-    --name "Open details for Seat Available Demo"
+  mise run control-ludamus -- press link \
+    "Open details for Seat Available Demo" Enter
   ```
 
   A dialog named `Seat Available Demo` appears. The footer
