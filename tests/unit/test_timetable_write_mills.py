@@ -283,7 +283,6 @@ class TestAssignSession:
                 "space_id": 1,
                 "start_time": placement.start_time,
                 "end_time": placement.end_time,
-                "session_confirmed": True,
             }
         )
         mock_uow.schedule_change_logs.create.assert_called_once_with(
@@ -305,8 +304,6 @@ class TestAssignSession:
 
         service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
 
-        created = mock_uow.agenda_items.create.call_args.args[0]
-        assert created["session_confirmed"] is False
         # Once for the unassign the move rides on, once for the new slot.
         assert mock_uow.sessions.update.call_args_list == [
             call(1, {"schedule_confirmed": False}),
@@ -576,13 +573,7 @@ class TestRevertChangeOutcomes:
 
         uow.sessions.update.assert_called_once_with(1, {"schedule_confirmed": False})
         assert uow.agenda_items.created == [
-            {
-                "session_id": 1,
-                "space_id": 3,
-                "start_time": START,
-                "end_time": END,
-                "session_confirmed": False,
-            }
+            {"session_id": 1, "space_id": 3, "start_time": START, "end_time": END}
         ]
         assert uow.schedule_change_logs.created == [
             {

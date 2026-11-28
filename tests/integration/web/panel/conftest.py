@@ -81,7 +81,6 @@ def _add_confirmation_facilitators(*, event, category, tracks, count, offset=0):
                 space=SpaceFactory(event=event, capacity=10),
                 start_time=event.start_time + timedelta(hours=index),
                 end_time=event.start_time + timedelta(hours=index + 1),
-                session_confirmed=session_index == 0,
             )
         facilitators.append(facilitator)
     return facilitators
@@ -171,7 +170,6 @@ def timetable_scale_data_fixture(event, proposal_category):
             space=spaces[index % len(spaces)],
             start_time=start,
             end_time=start + timedelta(hours=1),
-            session_confirmed=False,
         )
 
     return {"event": event, "spaces": spaces, "sessions": sessions}

@@ -321,7 +321,6 @@ class ProposalAcceptanceService:
                 {
                     "space_id": space_id,
                     "session_id": session_id,
-                    "session_confirmed": confirmed,
                     "start_time": start_time,
                     "end_time": end_time,
                 }

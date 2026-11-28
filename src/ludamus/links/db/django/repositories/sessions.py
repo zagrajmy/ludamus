@@ -404,8 +404,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         Returns:
             How many sessions the filter matched.
         """
-        # One statement per column, whatever the scope — never a save loop.
-        # The agenda-item column is mirrored until it is dropped.
+        # One statement, whatever the scope — never a save loop.
         queryset = Session.objects.filter(
             event_id=event_pk,
             facilitators__pk=facilitator_pk,
@@ -415,11 +414,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             queryset = queryset.filter(contact_email=contact_email)
         if session_pk is not None:
             queryset = queryset.filter(pk=session_pk)
-        with transaction.atomic():
-            AgendaItem.objects.filter(session__in=queryset).update(
-                session_confirmed=confirmed
-            )
-            return queryset.update(schedule_confirmed=confirmed)
+        return queryset.update(schedule_confirmed=confirmed)
 
     @staticmethod
     def soft_delete(pk: int) -> None:

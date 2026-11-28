@@ -76,7 +76,7 @@ def _session_dto(session, item=None, **overrides):
             "start_time": item.start_time if item else None,
             "end_time": item.end_time if item else None,
             "is_scheduled": item is not None,
-            "is_confirmed": bool(item and item.session_confirmed),
+            "is_confirmed": bool(item and session.schedule_confirmed),
             "co_facilitator_names": [],
             "other_track_names": [],
         }
@@ -173,10 +173,14 @@ class TestConfirmationsPageView:
             event=event, display_name="Ben", slug="ben"
         )
         for facilitator, confirmed in ((mine, True), (mine, False), (unclaimed, False)):
-            session = SessionFactory(category=proposal_category, status="accepted")
+            session = SessionFactory(
+                category=proposal_category,
+                status="accepted",
+                schedule_confirmed=confirmed,
+            )
             session.facilitators.add(facilitator)
             session.tracks.add(track)
-            AgendaItemFactory(session=session, session_confirmed=confirmed)
+            AgendaItemFactory(session=session)
 
         # `?track=` empty keeps the event-wide dashboard: a manager of exactly
         # one track would otherwise land straight on that track's list.
@@ -248,9 +252,11 @@ class TestConfirmationsPageView:
         theirs = Facilitator.objects.create(
             event=event, display_name="Ben", slug="ben", organizer=other_organizer
         )
-        session = SessionFactory(category=proposal_category, status="accepted")
+        session = SessionFactory(
+            category=proposal_category, status="accepted", schedule_confirmed=True
+        )
         session.facilitators.add(mine, theirs)
-        AgendaItemFactory(session=session, session_confirmed=True)
+        AgendaItemFactory(session=session)
 
         response = authenticated_client.get(self.get_url(event))
 
@@ -469,10 +475,11 @@ class TestConfirmationsPageView:
             status="accepted",
             title="Dragons",
             contact_email="ada@example.com",
+            schedule_confirmed=True,
         )
         scheduled.facilitators.add(facilitator)
         scheduled.tracks.add(track)
-        item = AgendaItemFactory(session=scheduled, session_confirmed=True)
+        item = AgendaItemFactory(session=scheduled)
         for title, status in (("Later", "accepted"), ("Idea", "pending")):
             counted = SessionFactory(
                 category=proposal_category,
@@ -576,7 +583,7 @@ class TestConfirmationsPageView:
         )
         placed.facilitators.add(facilitator)
         placed.tracks.add(track)
-        item = AgendaItemFactory(session=placed, session_confirmed=False)
+        item = AgendaItemFactory(session=placed)
         stale = SessionFactory(
             category=proposal_category,
             status="accepted",
@@ -678,7 +685,7 @@ class TestConfirmationsPageView:
         )
         session = SessionFactory(category=proposal_category, status="accepted")
         session.facilitators.add(facilitator)
-        AgendaItemFactory(session=session, session_confirmed=False)
+        AgendaItemFactory(session=session)
 
         response = authenticated_client.get(self.get_url(event))
 

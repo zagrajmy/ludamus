@@ -223,7 +223,6 @@ def _create_session(
     AgendaItem.objects.create(
         space=space,
         session=session,
-        session_confirmed=True,
         start_time=event.start_time + start_offset,
         end_time=event.start_time + start_offset + timedelta(hours=duration_hours),
     )
@@ -658,7 +657,6 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
     AgendaItem.objects.create(
         space=space,
         session=session,
-        session_confirmed=True,
         start_time=event.start_time,
         end_time=event.start_time + timedelta(hours=2),
     )

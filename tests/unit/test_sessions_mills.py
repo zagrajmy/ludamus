@@ -448,14 +448,8 @@ class TestSessionConfirmation:
         return MagicMock()
 
     @pytest.fixture
-    def transaction(self):
-        transaction = MagicMock()
-        transaction.atomic.return_value.__enter__.return_value = None
-        return transaction
-
-    @pytest.fixture
-    def service(self, transaction, agenda_items, sessions):
-        return SessionConfirmationService(transaction, agenda_items, sessions)
+    def service(self, agenda_items, sessions):
+        return SessionConfirmationService(agenda_items, sessions)
 
     @staticmethod
     def _event(pk):
@@ -470,7 +464,6 @@ class TestSessionConfirmation:
             service.set_session_confirmed(event_pk=1, session_pk=3, confirmed=True)
 
         sessions.update.assert_not_called()
-        agenda_items.update.assert_not_called()
 
     def test_rejects_a_session_not_on_the_timetable(
         self, service, agenda_items, sessions
@@ -482,7 +475,6 @@ class TestSessionConfirmation:
             service.set_session_confirmed(event_pk=1, session_pk=3, confirmed=True)
 
         sessions.update.assert_not_called()
-        agenda_items.update.assert_not_called()
 
 
 _NOW = datetime(2024, 6, 1, 12, 0, tzinfo=UTC)
@@ -877,13 +869,12 @@ class TestSessionConfirmationOfOwnEvent:
     def test_confirms_an_item_whose_session_belongs_to_the_event(self):
         agenda_items = _FakeAgendaItems(agenda_item_dto(pk=7, session_id=_SESSION_PK))
         sessions = _FakeSessions(_session_dto())
-        service = SessionConfirmationService(FakeTransaction(), agenda_items, sessions)
+        service = SessionConfirmationService(agenda_items, sessions)
 
         service.set_session_confirmed(
             event_pk=_EVENT_PK, session_pk=_SESSION_PK, confirmed=True
         )
 
-        assert agenda_items.updates == {7: {"session_confirmed": True}}
         assert sessions.updates == {_SESSION_PK: {"schedule_confirmed": True}}
 
 
@@ -1568,7 +1559,6 @@ class TestProposalAcceptanceWithFakes:
             {
                 "space_id": 7,
                 "session_id": _SESSION_PK,
-                "session_confirmed": True,
                 "start_time": _NOW,
                 "end_time": _END,
             }
@@ -1645,7 +1635,6 @@ class TestProposalAcceptanceWithFakes:
             {
                 "space_id": 7,
                 "session_id": _SESSION_PK,
-                "session_confirmed": True,
                 "start_time": _NOW,
                 "end_time": _END,
             }
@@ -1698,7 +1687,6 @@ class TestProposalAcceptanceWithFakes:
             {
                 "space_id": 7,
                 "session_id": _SESSION_PK,
-                "session_confirmed": False,
                 "start_time": _NOW,
                 "end_time": _END,
             }

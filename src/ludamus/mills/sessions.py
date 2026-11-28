@@ -63,11 +63,9 @@ if TYPE_CHECKING:
 class SessionConfirmationService:
     def __init__(
         self,
-        transaction: TransactionProtocol,
         agenda_items: AgendaItemRepositoryProtocol,
         sessions: SessionRepositoryProtocol,
     ) -> None:
-        self._transaction = transaction
         self._agenda_items = agenda_items
         self._sessions = sessions
 
@@ -81,11 +79,9 @@ class SessionConfirmationService:
             sessions=self._sessions, session_pk=session_pk, event_pk=event_pk
         )
         # Nothing to confirm without a time and a place.
-        if (agenda_item := self._agenda_items.read_by_session(session_pk)) is None:
+        if self._agenda_items.read_by_session(session_pk) is None:
             raise NotFoundError
-        with self._transaction.atomic():
-            self._sessions.update(session_pk, {"schedule_confirmed": confirmed})
-            self._agenda_items.update(agenda_item.pk, {"session_confirmed": confirmed})
+        self._sessions.update(session_pk, {"schedule_confirmed": confirmed})
 
 
 class SessionDeletionService:

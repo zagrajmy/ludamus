@@ -268,7 +268,6 @@ def _create_touching_pair(event: Event, spaces: list[Space]) -> None:
         AgendaItem.objects.create(
             space=space,
             session=session,
-            session_confirmed=True,
             start_time=start,
             end_time=start + timedelta(hours=1),
         )
@@ -384,7 +383,6 @@ def _create_sessions(
         AgendaItem.objects.create(
             space=space,
             session=session,
-            session_confirmed=True,
             start_time=start,
             end_time=start + timedelta(hours=duration_hours),
         )

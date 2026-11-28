@@ -129,11 +129,12 @@ class TestPublicEventPrintMaterials:
 
     def test_door_cards_limited_to_time_window(self, client, event, session, space):
         _confirmed_item(event, session, space)
-        later_session = SessionFactory(event=event, category=None, title="Late Larp")
+        later_session = SessionFactory(
+            event=event, category=None, title="Late Larp", schedule_confirmed=True
+        )
         AgendaItemFactory(
             session=later_session,
             space=space,
-            session_confirmed=True,
             start_time=event.start_time + timedelta(hours=6),
             end_time=event.start_time + timedelta(hours=7),
         )
@@ -184,7 +185,6 @@ class TestPublicEventPrintMaterials:
         AgendaItemFactory(
             session=session,
             space=space,
-            session_confirmed=False,
             start_time=event.start_time,
             end_time=event.start_time + timedelta(hours=1),
         )
@@ -226,7 +226,6 @@ class TestPublicEventPrintMaterials:
         AgendaItemFactory(
             session=session,
             space=space,
-            session_confirmed=False,
             start_time=event.start_time,
             end_time=event.start_time + timedelta(hours=1),
         )

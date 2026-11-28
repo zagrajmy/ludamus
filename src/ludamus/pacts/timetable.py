@@ -182,7 +182,6 @@ class AgendaItemDTO(BaseModel):
 
 class AgendaItemData(TypedDict):
     end_time: datetime
-    session_confirmed: bool
     session_id: int
     space_id: int | None
     start_time: datetime
@@ -190,7 +189,6 @@ class AgendaItemData(TypedDict):
 
 class AgendaItemUpdateData(TypedDict, total=False):
     end_time: datetime
-    session_confirmed: bool
     space_id: int | None
     start_time: datetime
 

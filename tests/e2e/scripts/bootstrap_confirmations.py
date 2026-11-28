@@ -164,7 +164,6 @@ def main() -> None:
             session=session,
             defaults={
                 "space": room,
-                "session_confirmed": confirmed,
                 "start_time": start + timedelta(hours=hour - 10),
                 "end_time": start + timedelta(hours=hour - 8),
             },
@@ -221,7 +220,6 @@ def main() -> None:
         session=ben_session,
         defaults={
             "space": room,
-            "session_confirmed": True,
             "start_time": start + timedelta(hours=6),
             "end_time": start + timedelta(hours=7),
         },
@@ -241,7 +239,6 @@ def main() -> None:
         session=orphan,
         defaults={
             "space": room,
-            "session_confirmed": False,
             "start_time": start + timedelta(hours=8),
             "end_time": start + timedelta(hours=9),
         },

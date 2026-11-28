@@ -595,7 +595,6 @@ class TimetableService(TimetableServiceProtocol):
                     "space_id": placement.space_pk,
                     "start_time": placement.start_time,
                     "end_time": placement.end_time,
-                    "session_confirmed": confirmed,
                 }
             )
             log_data: ScheduleChangeLogData = {
@@ -686,7 +685,6 @@ class TimetableService(TimetableServiceProtocol):
                         "space_id": log.old_space_id,
                         "start_time": log.old_start_time,
                         "end_time": log.old_end_time,
-                        "session_confirmed": False,
                     }
                 )
             else:

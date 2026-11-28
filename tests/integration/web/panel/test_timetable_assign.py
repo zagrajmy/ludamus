@@ -188,7 +188,6 @@ class TestTimetableAssignView:
         session.refresh_from_db()
         assert session.status == "accepted"
         assert session.schedule_confirmed is True
-        assert session.agenda_item.session_confirmed is True
 
     def test_assign_past_the_event_end_stretches_the_event(
         self, panel_client, event, proposal_category
@@ -263,7 +262,6 @@ class TestTimetableAssignView:
         assert_response(response, HTTPStatus.NO_CONTENT)
         session.refresh_from_db()
         assert session.schedule_confirmed is False
-        assert session.agenda_item.session_confirmed is False
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_assign_promotes_waiter(self, panel_client, event, proposal_category):
