@@ -125,10 +125,11 @@ class SegmentNode(template.Node):
         )
         title_attr = format_html(' title="{}"', title) if title else ""
         checked_attr = SafeString(" checked") if checked else ""
-        if labelled:
-            face = format_html("{}<span>{}</span>", icon_html, label)
-        else:
-            face = format_html('<span class="sr-only">{}</span>{}', label, icon_html)
+        face = (
+            format_html("{}<span>{}</span>", icon_html, label)
+            if labelled
+            else format_html('<span class="sr-only">{}</span>{}', label, icon_html)
+        )
 
         return format_html(
             '<label class="relative"{}>'
