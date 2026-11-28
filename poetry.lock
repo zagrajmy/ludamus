@@ -1096,14 +1096,14 @@ tomli = {version = ">=2.0.1", markers = "python_full_version < \"3.15.0\""}
 
 [[package]]
 name = "diff-cover"
-version = "11.0.3"
+version = "11.0.4"
 description = "Run coverage and linting reports on diffs"
 optional = false
 python-versions = ">=3.11"
 groups = ["dev"]
 files = [
-    {file = "diff_cover-11.0.3-py3-none-any.whl", hash = "sha256:f97cfe094567922e4d7fd063262c5fca36d6325296813dc5814d7439e1c3a733"},
-    {file = "diff_cover-11.0.3.tar.gz", hash = "sha256:64319dae259dc860eef89ce05cc4f27c0fd69f6fc69cbbd7fb7d4fc2e5a219a3"},
+    {file = "diff_cover-11.0.4-py3-none-any.whl", hash = "sha256:41555d73bc237dc35e42927feb70729dc2fb0a6d2ece8c14cfb10d5f4a48b551"},
+    {file = "diff_cover-11.0.4.tar.gz", hash = "sha256:595b03ab755c49bce82c0dd9572e3d3466dd25e32bf19856e8d101991a536921"},
 ]
 
 [package.dependencies]
@@ -5380,4 +5380,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "408cda64a4f10b142e3f66328e2f2e174cefae1f1f5de1cde571bb06a4851e84"
+content-hash = "e07a04cce747476f9bd26cc08a8065b8447018803fdf80199de397f9ec26d121"
