@@ -117,6 +117,38 @@ def _span(item: AgendaItemDTO) -> tuple[float, float]:
     return (item.start_time.timestamp(), item.end_time.timestamp())
 
 
+def _lane_key(item: AgendaItemDTO) -> tuple[float, float, str, int]:
+    start, end = _span(item)
+    return (start, end, item.session_title.casefold(), item.pk)
+
+
+def _overlap_groups(items: list[AgendaItemDTO]) -> list[list[AgendaItemDTO]]:
+    # Runs of sessions joined by overlap; touching ends start a new run.
+    groups: list[list[AgendaItemDTO]] = []
+    group_end = 0.0
+    for item in sorted(items, key=_lane_key):
+        start, end = _span(item)
+        if groups and start < group_end:
+            groups[-1].append(item)
+            group_end = max(group_end, end)
+        else:
+            groups.append([item])
+            group_end = end
+    return groups
+
+
+def _lanes_in_column(items: list[AgendaItemDTO]) -> dict[int, tuple[int, int]]:
+    # Each run splits its tile width only between its own lanes, so a session
+    # clear of every other keeps the full column.
+    assigned: dict[int, tuple[int, int]] = {}
+    for group in _overlap_groups(items):
+        lanes = _spaceless_lanes(group)
+        for lane_index, lane in enumerate(lanes):
+            for item in lane:
+                assigned[item.pk] = (lane_index, len(lanes))
+    return assigned
+
+
 def _spaceless_lanes(items: list[AgendaItemDTO]) -> list[list[AgendaItemDTO]]:
     # Nothing keeps sessions without a space apart in time, and tiles sharing
     # a column paint over each other, so each lane takes the next session
@@ -149,6 +181,11 @@ def _timetable_pages(
         for index, (_, column_items) in enumerate(columns, start=1)
         for item in column_items
     }
+    lanes = {
+        item_pk: lane
+        for _, column_items in columns
+        for item_pk, lane in _lanes_in_column(column_items).items()
+    }
     if not (items := [item for _, column_items in columns for item in column_items]):
         return []
     instants = {
@@ -165,6 +202,7 @@ def _timetable_pages(
 
         def tile(item: AgendaItemDTO) -> PrintTimetableTileDTO:
             row = line[max(item.start_time.timestamp(), first)]
+            lane_index, lane_count = lanes[item.pk]
             return PrintTimetableTileDTO(
                 session=_to_session(item),
                 start_time=item.start_time,
@@ -172,6 +210,8 @@ def _timetable_pages(
                 col=col[item.pk],
                 row=row,
                 span=line[min(item.end_time.timestamp(), last)] - row,
+                lane_index=lane_index,
+                lane_count=lane_count,
             )
 
         return PrintTimetablePageDTO(

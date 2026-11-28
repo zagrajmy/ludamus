@@ -29,7 +29,7 @@ const CONVERSATION_KINDS: readonly unknown[] = [
 // A lookup's claims, as staff's order to delete the message they name.
 export const MODERATION_AUDIENCE = "parley-moderation";
 
-type AuthEnv = {
+export type AuthEnv = {
   JWT_AUDIENCE: string;
   JWT_ISSUER: string;
   PARLEY_PUBLIC_KEY: string;
@@ -360,12 +360,6 @@ export async function threadPostFromRequest(
   } catch {
     return new Response("Invalid thread post", { status: 401 });
   }
-}
-
-export async function capabilityFromRequest(request: Request, env: AuthEnv): Promise<Capability> {
-  const token = capabilityCookie(request);
-  if (token === null) throw new Error("Missing capability");
-  return verifyCapability(token, env);
 }
 
 export async function exchangeCapability(request: Request, env: AuthEnv): Promise<Response> {

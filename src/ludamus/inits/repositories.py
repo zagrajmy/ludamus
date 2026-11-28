@@ -14,6 +14,7 @@ from ludamus.links.db.django.enrollment import (
     ParticipationPromotionRepository,
 )
 from ludamus.links.db.django.event_deletion import EventDeletionRepository
+from ludamus.links.db.django.external_tools import ExternalToolRepository
 from ludamus.links.db.django.facilitator_change_log import (
     FacilitatorChangeLogRepository,
 )
@@ -287,6 +288,10 @@ class Repositories:
     @cached_property
     def bookmarks(self) -> BookmarkRepository:
         return BookmarkRepository()
+
+    @cached_property
+    def external_tools(self) -> ExternalToolRepository:
+        return ExternalToolRepository()
 
     @cached_property
     def discounts(self) -> repositories.DiscountRepository:

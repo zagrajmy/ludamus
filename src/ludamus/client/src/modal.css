@@ -273,16 +273,16 @@
   inset-block-end: 0;
 }
 
-/* The close button floats over the cover, so it is a group of its own: in the
-   sheet's snapshot the cover group would hide it until the morph ends. It
-   arrives last, once the sheet is nearly full size. */
+/* The close button sits on the cover, so it is a group of its own: in the
+   sheet's snapshot the cover group would hide it until the morph ends. The
+   card draws its corner empty, so the group travels from the card's cover
+   corner to the modal's, and the button fades in with the cover. */
 [data-morph="close"] {
   view-transition-group: nearest;
 }
 
 ::view-transition-new(morph-close) {
-  animation: vt-chrome-in calc(var(--vt-morph-duration) * 0.3) var(--vt-morph-ease)
-    calc(var(--vt-morph-duration) * 0.7) both;
+  animation: vt-chrome-in calc(var(--vt-morph-duration) * 0.8) var(--vt-morph-ease) both;
 }
 
 ::view-transition-old(morph-close),

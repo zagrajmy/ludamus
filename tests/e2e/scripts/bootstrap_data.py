@@ -43,6 +43,7 @@ from ludamus.links.db.django.models import (
     Encounter,
     EnrollmentConfig,
     Event,
+    ExternalTool,
     EventIntegration,
     EventProposalSettings,
     Facilitator,
@@ -901,6 +902,33 @@ def _create_past_enrollment_scenario(sphere: Sphere, *, tester: User) -> None:
         hour=3,
     )
     _seat(never_promoted, tester, SessionParticipationStatus.WAITING)
+
+
+# A session whose stored host label is a raw email — public UI must show the
+# local-part only. Driven by public-host-name.spec.ts.
+def _create_privacy_host_scenario(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Privacy Host Convention",
+        slug="privacy-host",
+        description="Host email must never appear on the public card.",
+        start_offset=timedelta(days=40),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
+    )
+    venue = _create_venue(event, name="Privacy Venue", slug="privacy-venue")
+    area = _create_area(venue, name="Privacy Area", slug="privacy-area")
+    space = _create_space(area, name="Privacy Room", slug="privacy-room", capacity=5)
+    _scheduled_session(
+        event,
+        space,
+        title="Berdysz k10",
+        slug="berdysz-k10",
+        presenter="redziniak.w@gmail.com",
+        description="A session whose facilitator_name was seeded as an email.",
+        seats=5,
+        hour=0,
+    )
 
 
 # The two ways *in*, both on an open window: a session with room offers a seat,
@@ -2471,12 +2499,19 @@ def main() -> None:
 
     # Both ways in on an open window, for the enroll-states e2e.
     _create_enroll_states_scenario(sphere)
+    _create_privacy_host_scenario(sphere)
 
     # A half-seating window the reader is not in, for the seat-count e2e.
     _create_early_access_scenario(sphere)
 
     # A session description full of hostile markup, for the sanitiser e2e.
     _create_markdown_sanitising_scenario(sphere)
+
+    # A catalogue tool for the tool-page e2e, which answers for its address
+    # itself, so nothing leaves the machine.
+    ExternalTool.objects.create(
+        name="Table Manager", slug="table-manager", url="https://tables.example.test/"
+    )
 
     # Staff manager user for panel e2e tests (helpers/auth.ts signInAsManager)
     manager = User.objects.create_user(
@@ -2611,7 +2646,7 @@ def main() -> None:
         start_offset=timedelta(hours=2),
         duration_hours=1,
         # Drop-in: no sign-up, so the specs have a session the enrollment
-        # filter must exclude and whose modal shows no Participants tab.
+        # filter must exclude and whose modal shows no seat fraction.
         participants_limit=0,
         # Open to everyone, so the age filter has an unrestricted session
         # to keep visible below its siblings' 10+ requirement.

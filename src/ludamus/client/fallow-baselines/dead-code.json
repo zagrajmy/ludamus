@@ -6,8 +6,7 @@
     "capabilities": [],
     "project_config_hash": "",
     "backend_family": "",
-    "completeness": "complete",
-    "node_modules": "present"
+    "completeness": "complete"
   },
   "identity": "dc1",
   "unused_files": [
@@ -28,7 +27,6 @@
   "unused_enum_members": [],
   "unused_class_members": [],
   "unused_store_members": [],
-  "unused_namespace_members": [],
   "unprovided_injects": [],
   "unrendered_components": [],
   "unused_component_props": [],
@@ -44,9 +42,7 @@
   "unused_load_data_keys": [],
   "unresolved_imports": [],
   "unlisted_dependencies": [],
-  "unlisted_binaries": [],
   "duplicate_exports": [],
-  "duplicate_export_aliases": [],
   "type_only_dependencies": [],
   "test_only_dependencies": [
     "test-only-dependency:package.json:emojibase-data"
@@ -70,7 +66,5 @@
   "misplaced_directives": [],
   "route_collisions": [],
   "dynamic_segment_name_conflicts": [],
-  "prop_drilling_chains": [],
-  "thin_wrappers": [],
-  "duplicate_prop_shapes": []
+  "prop_drilling_chains": []
 }

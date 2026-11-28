@@ -134,14 +134,15 @@ test.describe("Accepting into a partly booked day", () => {
     };
   }
 
-  test("a room held at the time picked is shown taken, not offered", async ({ page }) => {
+  test("a room held at the time picked is marked taken and can still be chosen", async ({
+    page,
+  }) => {
     // The pitch opens at the event's opening and runs into Already Here's hours.
     const { space } = await openCrowdedPitch(page);
 
-    await expect(space.getByRole("option", { name: "Booked Room · taken" })).toBeDisabled();
+    await expect(space.getByRole("option", { name: "Booked Room · taken" })).toBeEnabled();
     await expect(space.getByRole("option", { name: "North Room" })).toBeEnabled();
     await expect(space.getByRole("option", { name: "South Room" })).toBeEnabled();
-    // The rejection this used to end in has nothing left to reject.
     await expect(page.getByText("There is already a session scheduled")).toHaveCount(0);
     await attachArtifacts(test.info(), {
       name: "accept-taken-room",
@@ -161,9 +162,8 @@ test.describe("Accepting into a partly booked day", () => {
     await space.selectOption({ label: "Booked Room" });
 
     await startsAt.fill(opening.slice(0, 16));
-    await expect(space.getByRole("option", { name: "Booked Room · taken" })).toBeDisabled();
-    // A pick the new time rules out is dropped, not submitted.
-    await expect(space).toHaveValue("");
+    const chosen = space.getByRole("option", { name: "Booked Room · taken", selected: true });
+    await expect(chosen).toBeEnabled();
     await attachArtifacts(test.info(), {
       name: "accept-room-follows-time",
       region: page.getByRole("heading", { name: "Schedule it" }).locator(".."),

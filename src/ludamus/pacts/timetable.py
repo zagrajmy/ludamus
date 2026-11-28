@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 
 
 class PlacementRejection(StrEnum):
+    """Why a placement was refused. A room overlap is not one of these."""
+
     NAIVE_DATETIME = "naive_datetime"
     END_NOT_AFTER_START = "end_not_after_start"
     SESSION_NOT_ACCEPTED = "session_not_accepted"
@@ -261,13 +263,6 @@ class AgendaItemRepositoryProtocol(Protocol):
     @staticmethod
     def read_by_session(session_pk: int) -> AgendaItemDTO | None: ...
     @staticmethod
-    def list_overlapping_in_space(
-        space_pk: int,
-        start_time: datetime,
-        end_time: datetime,
-        exclude_session_pk: int | None = None,
-    ) -> list[AgendaItemDTO]: ...
-    @staticmethod
     def update(pk: int, data: AgendaItemUpdateData) -> None: ...
     @staticmethod
     def count_confirmations_by_track(event_pk: int) -> list[ConfirmationCountsRow]: ...
@@ -448,6 +443,17 @@ class ConflictType(StrEnum):
     SPACE_OVERLAP = auto()
     FACILITATOR_OVERLAP = auto()
     CAPACITY_EXCEEDED = auto()
+
+
+class RoomBookingConflict:
+    """Supported, not advised: two sessions may share a space in time.
+
+    Shown by the booking-conflict UI as ``ConflictType.SPACE_OVERLAP``.
+    Not a ``PlacementRejection``. ``accept_session`` and ``assign_session``
+    still place the session.
+    """
+
+    KIND = ConflictType.SPACE_OVERLAP
 
 
 class ConflictSeverity(StrEnum):

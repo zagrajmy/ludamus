@@ -5,10 +5,10 @@ const EDIT_ERROR_TIMEOUT_MS = 6000;
 
 const setSessionEditMode = (dialog: HTMLElement | null, editing: boolean): void => {
   if (!dialog) return;
-  const tabs = dialog.querySelector<HTMLElement>("[data-session-tabs]");
+  const body = dialog.querySelector<HTMLElement>("[data-session-body]");
   const editform = dialog.querySelector<HTMLElement>('[id$="-editform"]');
   const footer = dialog.querySelector<HTMLElement>("[data-session-footer]");
-  if (tabs) tabs.hidden = editing;
+  if (body) body.hidden = editing;
   if (footer) footer.hidden = editing;
   if (editform) {
     editform.hidden = !editing;
@@ -18,14 +18,14 @@ const setSessionEditMode = (dialog: HTMLElement | null, editing: boolean): void 
 };
 
 const showSessionEditError = (dialog: HTMLElement | null): void => {
-  const tabs = dialog?.querySelector<HTMLElement>("[data-session-tabs]");
-  if (!dialog || !tabs || dialog.querySelector("[data-edit-error]")) return;
+  const body = dialog?.querySelector<HTMLElement>("[data-session-body]");
+  if (!dialog || !body || dialog.querySelector("[data-edit-error]")) return;
   const alert = document.createElement("div");
   alert.dataset.editError = "";
   alert.setAttribute("role", "alert");
   alert.className = "mx-6 mt-4 alert alert-danger text-sm shrink-0";
   alert.textContent = dialog.dataset.editErrorLabel ?? "";
-  tabs.parentNode?.insertBefore(alert, tabs);
+  body.parentNode?.insertBefore(alert, body);
   globalThis.setTimeout(() => alert.remove(), EDIT_ERROR_TIMEOUT_MS);
 };
 

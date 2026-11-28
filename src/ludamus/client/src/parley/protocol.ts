@@ -258,25 +258,6 @@ export function answerOf<T>(call: Promise<Result<T>>): Promise<Result<T>> {
 }
 export type Event = { payload: unknown; type: string; v: 1 };
 
-// NOTE: the Worker closes a socket with these once its pass has expired or
-// been revoked; the same pass would only be refused again, so the browser
-// fetches a new one instead of reconnecting.
-const PASS_CLOSED = new Set([4401, 4403]);
-// A conversation shuts out anyone not on its member list. That may be a
-// list still on its way, so onRefused lets the chat check whether the
-// person is still in it and redial if so.
-const NOT_A_MEMBER = 4404;
-
-export function passCloseHandlers(onPassClosed: () => void, onRefused: () => void = () => null) {
-  return {
-    onClose: (event: CloseEvent) => {
-      if (PASS_CLOSED.has(event.code)) onPassClosed();
-      if (event.code === NOT_A_MEMBER) onRefused();
-    },
-    shouldReconnectOnClose: (event: CloseEvent) => !PASS_CLOSED.has(event.code),
-  };
-}
-
 // Local hosts, *.localhost included (RFC 6761 keeps them on loopback), talk
 // plain http/ws; everything else gets TLS.
 export function agentUrl(host: string): URL {

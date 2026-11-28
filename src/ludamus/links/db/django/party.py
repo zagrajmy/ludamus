@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from django.db.models import Prefetch, Q
 
 from ludamus.links.db.django.companions import companions_of
-from ludamus.links.db.django.models import Party, PartyMembership, SessionParticipation
+from ludamus.links.db.django.models import Party, PartyMembership
 from ludamus.links.db.django.users import display_avatar_url
 from ludamus.pacts.ids import UserId
 from ludamus.pacts.party import (
@@ -87,7 +87,6 @@ def _party_dto(party: Party, *, viewer_pk: int) -> PartyDTO:
         ),
         created_at=party.created_at,
         members=members,
-        enrolls_together=party.enrolls_together,
     )
 
 
@@ -155,10 +154,8 @@ class PartyRepository(PartyRepositoryProtocol):
         return _party_dto(party, viewer_pk=viewer_pk)
 
     @staticmethod
-    def create(*, leader_pk: int, name: str, enrolls_together: bool) -> int:
-        party = Party.objects.create(
-            leader_id=leader_pk, name=name, enrolls_together=enrolls_together
-        )
+    def create(*, leader_pk: int, name: str) -> int:
+        party = Party.objects.create(leader_id=leader_pk, name=name)
         PartyMembership.objects.create(
             party=party,
             member_id=leader_pk,
@@ -166,22 +163,6 @@ class PartyRepository(PartyRepositoryProtocol):
             status=PartyMembershipStatus.ACTIVE,
         )
         return party.pk
-
-    @staticmethod
-    def has_enrollments(*, leader_pk: int, party_pk: int) -> bool:
-        return SessionParticipation.objects.filter(
-            party_id=party_pk, party__leader_id=leader_pk
-        ).exists()
-
-    @staticmethod
-    def set_enrolls_together(
-        *, leader_pk: int, party_pk: int, enrolls_together: bool
-    ) -> bool:
-        return bool(
-            Party.objects.filter(pk=party_pk, leader_id=leader_pk).update(
-                enrolls_together=enrolls_together
-            )
-        )
 
     @staticmethod
     def rename(*, leader_pk: int, party_pk: int, name: str) -> bool:
@@ -274,7 +255,6 @@ class PartyRepository(PartyRepositoryProtocol):
                 member_id=viewer_pk,
                 status=PartyMembershipStatus.ACTIVE,
             ).exists(),
-            enrolls_together=party.enrolls_together,
         )
 
     @staticmethod

@@ -1,5 +1,5 @@
+import itertools
 from datetime import UTC, datetime, timedelta
-from types import SimpleNamespace
 from uuid import UUID
 
 from ludamus.mills.encounter import EncounterService
@@ -11,8 +11,14 @@ from ludamus.pacts.encounter import (
     InviteeStatus,
 )
 from ludamus.pacts.errors import NotFoundError
+from ludamus.pacts.sphere import SiteDTO
 from ludamus.pacts.user import AgeBand, UserDTO, UserType
-from tests.unit.factories import FakeTransaction, FakeUsers
+from tests.unit.factories import (
+    FakeTransaction,
+    FakeUsers,
+    encounter_rsvp_dto,
+    sphere_dto,
+)
 
 CREATOR_ID = 10
 OTHER_USER_ID = 20
@@ -64,10 +70,11 @@ def make_user(pk=CREATOR_ID, **overrides):
 class FakeSites:
     def __init__(self, policy):
         self.rows = {
-            SPHERE_ID: SimpleNamespace(
+            SPHERE_ID: sphere_dto(
+                pk=SPHERE_ID,
                 encounters_policy=policy,
                 name="Sphere",
-                site=SimpleNamespace(domain="sphere.example.com"),
+                site=SiteDTO(domain="sphere.example.com", name="Site", pk=1),
             )
         }
 
@@ -180,18 +187,24 @@ class FakeCache:
 
 class FakeRSVPs:
     def __init__(self, signups=()):
-        # (encounter_id, user_id) pairs
-        self.signups = list(signups)
+        self.rows = []
+        self._pks = itertools.count(1)
+        for encounter_id, user_id in signups:
+            self.create(encounter_id, user_id)
+
+    @property
+    def signups(self):
+        return [(row.encounter_id, row.user_id) for row in self.rows]
 
     def create(self, encounter_id, user_id):
-        self.signups.append((encounter_id, user_id))
+        row = encounter_rsvp_dto(
+            pk=next(self._pks), encounter_id=encounter_id, user_id=user_id
+        )
+        self.rows.append(row)
+        return row
 
     def list_by_encounter(self, encounter_id):
-        return [
-            SimpleNamespace(user_id=user_id)
-            for enc, user_id in self.signups
-            if enc == encounter_id
-        ]
+        return [row for row in self.rows if row.encounter_id == encounter_id]
 
     def count_by_encounter(self, encounter_id):
         return len(self.list_by_encounter(encounter_id))
@@ -204,7 +217,7 @@ class FakeRSVPs:
         return (encounter_id, user_id) in self.signups
 
     def delete_by_user(self, encounter_id, user_id):
-        self.signups.remove((encounter_id, user_id))
+        del self.rows[self.signups.index((encounter_id, user_id))]
 
 
 class FakeInvitees:

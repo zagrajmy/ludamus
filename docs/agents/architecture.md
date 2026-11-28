@@ -574,10 +574,11 @@ User profile management and delegate (connected) accounts.
 
 ### party
 
-The drużyna: a group that plays together, and enrolls together while its
-`enrolls_together` setting is on. Party CRUD, membership invites, consent,
-and the companion (login-less member) lifecycle. See RFC 0001. Already
-noun-named: `pacts/party.py`, `mills/party.py`, `links/db/django/party.py`.
+The drużyna: a group that plays and enrolls together. Real members start
+at `ACCEPT_INVITES` and may grant direct signup. Party CRUD, membership
+invites, consent, and the companion (login-less member) lifecycle. See
+RFC 0001. Already noun-named: `pacts/party.py`, `mills/party.py`,
+`links/db/django/party.py`.
 
 ---
 
@@ -591,7 +592,7 @@ owns them.
 | Noun      | Models                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | user      | `User`                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| sphere    | `Sphere`, `Connection`                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| sphere    | `Sphere`, `Connection`, `ExternalTool`                                                                                                                                                                                                                                                                                                                                                                                                          |
 | encounter | `Encounter`, `EncounterRSVP`                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | party     | `Party`, `PartyMembership`                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | listing   | `Listing`, `TagCategory`, `Tag`                                                                                                                                                                                                                                                                                                                                                                                                                 |

@@ -1,3 +1,4 @@
+import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
@@ -2604,9 +2605,17 @@ class TestSessionEnrollInline:
                 "notice": "",
             },
             messages=[(messages.SUCCESS, f"Enrolled: {staff_user.name}")],
-            contains=['value="cancel"'],
-            not_contains=['value="enroll"', 'value="waitlist"'],
         )
+        # The modal's roster already shows the viewer in; this confirms it.
+        assert json.loads(response.headers["HX-Trigger"]) == {
+            "roster-sync": {
+                "session": session.pk,
+                "status": "confirmed",
+                "enrolled": 1,
+                "waiting": 0,
+                "limit": session.participants_limit,
+            }
+        }
         SessionParticipation.objects.get(
             user=staff_user,
             session=session,
@@ -2879,8 +2888,18 @@ class TestSessionEnrollInline:
                 enroll_error=capacity_error,
             ),
             messages=[(messages.ERROR, capacity_error)],
-            contains=["Not enough spots available."],
         )
+        # The modal's roster showed the viewer in before this answer; the
+        # refusal takes them back out.
+        assert json.loads(response.headers["HX-Trigger"]) == {
+            "roster-sync": {
+                "session": session.pk,
+                "status": "",
+                "enrolled": 1,
+                "waiting": 0,
+                "limit": 1,
+            }
+        }
         assert not SessionParticipation.objects.filter(
             user=staff_user, session=session
         ).exists()
