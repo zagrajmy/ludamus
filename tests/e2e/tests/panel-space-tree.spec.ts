@@ -25,6 +25,27 @@ function dragHandle(page: Page, name: string) {
   });
 }
 
+// NOTE: recorded in the page as each fetch starts; a route handler may run
+// only after the assertion that reads its count.
+async function recordReorderPosts(page: Page): Promise<() => Promise<string[]>> {
+  await page.evaluate(() => {
+    const started: string[] = [];
+    const send = globalThis.fetch.bind(globalThis);
+    Object.assign(globalThis, { reorderPosts: started });
+    const record = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith("/venues/do/reorder")) started.push(url);
+      return send(input, init);
+    };
+    Object.defineProperty(globalThis, "fetch", {
+      configurable: true,
+      value: record,
+      writable: true,
+    });
+  });
+  return () => page.evaluate(() => Reflect.get(globalThis, "reorderPosts") as string[]);
+}
+
 function savedOrder(page: Page) {
   return page.waitForResponse(
     (response) =>
@@ -96,11 +117,8 @@ test.describe("Venue tree handles", () => {
   });
 
   test("Space picks a venue up, Escape puts it back, and both are announced", async ({ page }) => {
-    let siblingReorders = 0;
-    await page.route("**/venues/do/reorder", async (route) => {
-      siblingReorders += 1;
-      await route.fulfill({ json: { success: true } });
-    });
+    await page.route("**/venues/do/reorder", (route) => route.fulfill({ json: { success: true } }));
+    const reorderPosts = await recordReorderPosts(page);
     const handle = dragHandle(page, "North Wing");
     // NOTE: panel.spec.ts copies venues into this event, so scope to Aurora
     // and don't count on how many siblings it has.
@@ -121,7 +139,7 @@ test.describe("Venue tree handles", () => {
     expect(await siblingNames.allTextContents()).toEqual(originalOrder);
     await expect(handle).toBeFocused();
     await expect(disclosureHandle(page, "North Wing")).toHaveAttribute("aria-expanded", "true");
-    expect(siblingReorders).toBe(0);
+    expect(await reorderPosts()).toEqual([]);
   });
 
   test("leaf drag handles and secondary clicks do not collapse the tree", async ({ page }) => {
