@@ -157,19 +157,13 @@ def main() -> None:
             "min_age": 0,
             "status": "pending",
             "category": cat,
-            # Both columns, the way production writes them: the session's flag
-            # is the one read, the item's mirrors it until it is dropped.
             "schedule_confirmed": True,
         },
     )
     AgendaItem.objects.get_or_create(
         space=space_b,
         session=overflow,
-        defaults={
-            "session_confirmed": True,
-            "start_time": day_one_start,
-            "end_time": day_one_end,
-        },
+        defaults={"start_time": day_one_start, "end_time": day_one_end},
     )
 
     # Track — link the spaces created above.
@@ -262,7 +256,6 @@ def main() -> None:
         space=space_b,
         session=misplaced,
         defaults={
-            "session_confirmed": False,
             # The hour after the other track's booking, so the two share a room
             # without clashing -- a clash would outrank the slot warning.
             "start_time": day_two_start + timedelta(hours=1),

@@ -361,12 +361,10 @@ class TestTimetablePageView:
     def test_grid_marks_confirmed_session(self, panel_client, event, session, space):
         start = event.start_time
         end = start + timedelta(hours=1)
+        session.schedule_confirmed = True
+        session.save()
         item = AgendaItemFactory(
-            session=session,
-            space=space,
-            start_time=start,
-            end_time=end,
-            session_confirmed=True,
+            session=session, space=space, start_time=start, end_time=end
         )
         position = session_position(
             item, start_minutes=0, duration_minutes=HOUR_MINUTES

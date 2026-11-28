@@ -20,7 +20,6 @@ class TestAgendaItemRepositoryCreate:
         now = datetime.now(UTC)
         data = AgendaItemData(
             end_time=now + timedelta(hours=2),
-            session_confirmed=True,
             session_id=session.pk,
             space_id=space.pk,
             start_time=now,

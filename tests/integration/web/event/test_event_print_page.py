@@ -50,10 +50,11 @@ def _track_option(track):
 
 
 def _confirmed_item(event, session, space):
+    session.schedule_confirmed = True
+    session.save()
     return AgendaItemFactory(
         session=session,
         space=space,
-        session_confirmed=True,
         start_time=event.start_time,
         end_time=event.start_time + timedelta(hours=1),
     )
@@ -218,13 +219,7 @@ class TestPublicEventPrintView:
         return reverse(self.URL_NAME, kwargs={"slug": slug})
 
     def test_ok_renders_confirmed_session(self, client, event, session, space):
-        AgendaItemFactory(
-            session=session,
-            space=space,
-            session_confirmed=True,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=1),
-        )
+        _confirmed_item(event, session, space)
 
         response = client.get(self._url(event.slug))
 
@@ -281,17 +276,16 @@ class TestPublicEventPrintView:
         private_track = Track.objects.create(
             event=event, name="Backstage", slug="backstage", is_public=False
         )
-        public_session = SessionFactory(event=event)
+        public_session = SessionFactory(event=event, schedule_confirmed=True)
         public_session.tracks.add(public_track)
-        private_session = SessionFactory(event=event)
+        private_session = SessionFactory(event=event, schedule_confirmed=True)
         private_session.tracks.add(private_track)
-        mixed_session = SessionFactory(event=event)
+        mixed_session = SessionFactory(event=event, schedule_confirmed=True)
         mixed_session.tracks.add(public_track, private_track)
         for scheduled_session in (public_session, private_session, mixed_session):
             AgendaItemFactory(
                 session=scheduled_session,
                 space=space,
-                session_confirmed=True,
                 start_time=event.start_time,
                 end_time=event.start_time + timedelta(hours=1),
             )
@@ -341,12 +335,14 @@ class TestPublicEventPrintView:
         _confirmed_item(event, session, space)
         untracked_space = SpaceFactory(event=event, name="Untracked Room")
         untracked = SessionFactory(
-            presenter=active_user, event=event, participants_limit=10
+            presenter=active_user,
+            event=event,
+            participants_limit=10,
+            schedule_confirmed=True,
         )
         AgendaItemFactory(
             session=untracked,
             space=untracked_space,
-            session_confirmed=True,
             start_time=event.start_time,
             end_time=event.start_time + timedelta(hours=1),
         )
@@ -399,7 +395,6 @@ class TestPublicEventPrintView:
         AgendaItemFactory(
             session=session,
             space=space,
-            session_confirmed=False,
             start_time=event.start_time,
             end_time=event.start_time + timedelta(hours=1),
         )
@@ -414,7 +409,6 @@ class TestPublicEventPrintView:
         AgendaItemFactory(
             session=session,
             space=space,
-            session_confirmed=False,
             start_time=event.start_time,
             end_time=event.start_time + timedelta(hours=1),
         )
@@ -437,13 +431,7 @@ class TestPublicEventPrintView:
     def test_full_schedule_label_hidden_when_complete(
         self, client, event, session, space
     ):
-        AgendaItemFactory(
-            session=session,
-            space=space,
-            session_confirmed=True,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=1),
-        )
+        _confirmed_item(event, session, space)
 
         response = client.get(self._url(event.slug), {"material": "timetable"})
 
@@ -547,11 +535,15 @@ class TestPublicEventPrintView:
         self, client, event, session, space, active_user
     ):
         _confirmed_item(event, session, space)
-        late = SessionFactory(presenter=active_user, event=event, participants_limit=10)
+        late = SessionFactory(
+            presenter=active_user,
+            event=event,
+            participants_limit=10,
+            schedule_confirmed=True,
+        )
         AgendaItemFactory(
             session=late,
             space=space,
-            session_confirmed=True,
             start_time=event.start_time + timedelta(hours=10),
             end_time=event.start_time + timedelta(hours=11),
         )
@@ -629,13 +621,7 @@ class TestPublicEventPrintView:
             event=event, name="Focused Track", slug="focused-track", is_public=True
         )
         session.tracks.add(track)
-        AgendaItemFactory(
-            session=session,
-            space=space,
-            session_confirmed=True,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=1),
-        )
+        _confirmed_item(event, session, space)
 
         response = client.get(
             self._url(event.slug), {"material": "track-timetable", "track": "stale"}

@@ -14,7 +14,7 @@ from django.core.cache import cache
 from django.urls import get_resolver
 from django.utils.module_loading import import_string
 from django.utils.timezone import get_current_timezone, localtime
-from factory import Faker, LazyAttribute, Sequence, SubFactory, post_generation
+from factory import Faker, LazyAttribute, Sequence, SubFactory
 from factory.django import DjangoModelFactory
 from pytest_factoryboy import register
 from zeal import zeal_context
@@ -397,15 +397,6 @@ class AgendaItemFactory(DjangoModelFactory):
         + timedelta(microseconds=n)
     )
     end_time = LazyAttribute(lambda o: o.start_time + timedelta(hours=2))
-    # The session's flag is the one read; the item's column mirrors it until it
-    # is dropped, the way production writes both.
-    session_confirmed = LazyAttribute(lambda o: o.session.schedule_confirmed)
-
-    @post_generation
-    def mirror_confirmation(self, _create, _extracted, **_kwargs):
-        if self.session.schedule_confirmed != self.session_confirmed:
-            self.session.schedule_confirmed = self.session_confirmed
-            self.session.save(update_fields=["schedule_confirmed"])
 
 
 @pytest.fixture

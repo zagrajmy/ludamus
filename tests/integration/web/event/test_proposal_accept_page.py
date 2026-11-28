@@ -496,7 +496,6 @@ class TestProposalAcceptPageView:
         # The event does not auto-confirm, so the placement still needs the
         # facilitator's agreement — same rule the timetable assign path uses.
         assert not session.schedule_confirmed
-        assert not session.agenda_item.session_confirmed
         assert session.agenda_item.start_time == start
         # The end follows from the proposal's own length, nothing the form asks.
         assert session.agenda_item.end_time == start + timedelta(hours=1)
@@ -588,7 +587,6 @@ class TestProposalAcceptPageView:
         )
         session = Session.objects.get(pk=pending_session.pk)
         assert session.schedule_confirmed
-        assert session.agenda_item.session_confirmed
 
     def test_post_preserves_unique_slug(
         self, event, pending_session, space, manager_client, manager_user

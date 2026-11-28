@@ -188,8 +188,9 @@ class TestAgendaItem:
         assert (
             str(
                 AgendaItem(
-                    session_confirmed=True,
-                    session=Session(title=title, facilitator_name=name),
+                    session=Session(
+                        title=title, facilitator_name=name, schedule_confirmed=True
+                    )
                 )
             )
             == f"{title} by {name} (True)"

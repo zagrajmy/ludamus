@@ -1717,8 +1717,7 @@ class Session(SoftDeleteModel):
         choices=[(item.value, item.name) for item in SessionStatus],
         default=SessionStatus.PENDING,
     )
-    # The facilitator agreed to the placed time and room. Mirrors
-    # AgendaItem.session_confirmed until that column is dropped.
+    # The facilitator agreed to the placed time and room.
     schedule_confirmed = models.BooleanField(default=False)
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
@@ -1805,7 +1804,6 @@ class AgendaItem(models.Model):
     session = models.OneToOneField(
         Session, on_delete=models.CASCADE, related_name="agenda_item"
     )
-    session_confirmed = models.BooleanField(default=False)
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
 
@@ -1831,7 +1829,7 @@ class AgendaItem(models.Model):
     def __str__(self) -> str:
         return (
             f"{self.session.title} by {self.session.facilitator_name} "
-            f"({self.session_confirmed})"
+            f"({self.session.schedule_confirmed})"
         )
 
     @property

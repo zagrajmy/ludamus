@@ -211,11 +211,7 @@ def seed_large_event(*, sphere: Sphere, target_sessions: int) -> Event:
 
     AgendaItem.objects.bulk_create(
         AgendaItem(
-            space=space,
-            session=session,
-            session_confirmed=True,
-            start_time=window[0],
-            end_time=window[1],
+            space=space, session=session, start_time=window[0], end_time=window[1]
         )
         for session, (space, window) in zip(sessions, cells, strict=True)
     )

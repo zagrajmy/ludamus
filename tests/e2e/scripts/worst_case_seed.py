@@ -136,7 +136,6 @@ def _scheduled(
     AgendaItem.objects.create(
         space=space,
         session=session,
-        session_confirmed=True,
         start_time=event.start_time + timedelta(hours=hour),
         end_time=event.start_time + timedelta(hours=hour + hours),
     )

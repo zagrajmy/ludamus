@@ -318,12 +318,13 @@ class TestTimetableSessionDetailPartView:
     ):
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category, participants_limit=10)
+        session.schedule_confirmed = True
+        session.save()
         agenda_item = AgendaItemFactory(
             session=session,
             space=space,
             start_time=event.start_time,
             end_time=event.start_time + timedelta(hours=1),
-            session_confirmed=True,
         )
 
         response = panel_client.get(self.get_url(event, session.pk))

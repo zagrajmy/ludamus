@@ -78,14 +78,11 @@ class TestTimetableConfirmView:
         agenda_item.refresh_from_db()
         agenda_item.session.refresh_from_db()
         assert agenda_item.session.schedule_confirmed is True
-        assert agenda_item.session_confirmed is True
 
     def test_unconfirm_persists(self, panel_client, event):
         agenda_item = self._scheduled_agenda_item(event)
         agenda_item.session.schedule_confirmed = True
         agenda_item.session.save()
-        agenda_item.session_confirmed = True
-        agenda_item.save()
 
         response = panel_client.post(
             self.get_url(event),
@@ -97,7 +94,6 @@ class TestTimetableConfirmView:
         agenda_item.refresh_from_db()
         agenda_item.session.refresh_from_db()
         assert agenda_item.session.schedule_confirmed is False
-        assert agenda_item.session_confirmed is False
 
     def test_returns_422_for_a_session_not_on_the_timetable(self, panel_client, event):
         session = SessionFactory(

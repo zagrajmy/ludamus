@@ -26,10 +26,15 @@ def _confirm_url(event):
 def _schedule(
     *, category, facilitator, track, email="ada@example.com", confirmed=False
 ):
-    session = SessionFactory(category=category, status="accepted", contact_email=email)
+    session = SessionFactory(
+        category=category,
+        status="accepted",
+        contact_email=email,
+        schedule_confirmed=confirmed,
+    )
     session.facilitators.add(facilitator)
     session.tracks.add(track)
-    return AgendaItemFactory(session=session, session_confirmed=confirmed)
+    return AgendaItemFactory(session=session)
 
 
 def _scheduled_group(*items, other_track_names=()):
@@ -54,7 +59,7 @@ def _scheduled_group(*items, other_track_names=()):
                         start_time=item.start_time,
                         end_time=item.end_time,
                         is_scheduled=True,
-                        is_confirmed=item.session_confirmed,
+                        is_confirmed=item.session.schedule_confirmed,
                         co_facilitator_names=[],
                         other_track_names=list(other_track_names),
                     )
@@ -142,9 +147,6 @@ class TestConfirmationsConfirmActionView:
         other.session.refresh_from_db()
         assert item.session.schedule_confirmed
         assert not other.session.schedule_confirmed
-        # The agenda-item column mirrors the session's until it is dropped.
-        assert item.session_confirmed
-        assert not other.session_confirmed
         assert_response(
             response,
             HTTPStatus.OK,
@@ -185,7 +187,7 @@ class TestConfirmationsConfirmActionView:
         )
 
         item.refresh_from_db()
-        assert not item.session_confirmed
+        assert not item.session.schedule_confirmed
         assert_response(
             response,
             HTTPStatus.OK,
@@ -231,8 +233,8 @@ class TestConfirmationsConfirmActionView:
 
         mine.refresh_from_db()
         elsewhere.refresh_from_db()
-        assert mine.session_confirmed
-        assert not elsewhere.session_confirmed
+        assert mine.session.schedule_confirmed
+        assert not elsewhere.session.schedule_confirmed
         assert_response(
             response,
             HTTPStatus.OK,
@@ -285,9 +287,9 @@ class TestConfirmationsConfirmActionView:
 
         for item in (here, elsewhere, untouched):
             item.refresh_from_db()
-        assert here.session_confirmed
-        assert elsewhere.session_confirmed
-        assert not untouched.session_confirmed
+        assert here.session.schedule_confirmed
+        assert elsewhere.session.schedule_confirmed
+        assert not untouched.session.schedule_confirmed
         assert_response(
             response,
             HTTPStatus.OK,
@@ -338,7 +340,7 @@ class TestConfirmationsConfirmActionView:
 
         assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
         foreign_item.refresh_from_db()
-        assert not foreign_item.session_confirmed
+        assert not foreign_item.session.schedule_confirmed
 
     def test_rejects_a_track_from_another_event(
         self, authenticated_client, active_user, sphere, event, proposal_category
@@ -404,7 +406,7 @@ class TestConfirmationsConfirmActionView:
 
         assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
         theirs.refresh_from_db()
-        assert not theirs.session_confirmed
+        assert not theirs.session.schedule_confirmed
 
     def test_rejects_a_malformed_request(
         self, authenticated_client, active_user, sphere, event
