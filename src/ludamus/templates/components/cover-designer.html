@@ -151,13 +151,7 @@
                         <output data-cover-designer-out="density"
                                 for="cover-designer-{{ id }}-density"
                                 class="text-xs tabular-nums text-foreground-muted"></output>
-                        <input type="range"
-                               id="cover-designer-{{ id }}-density"
-                               data-cover-designer-control="density"
-                               min="2.5"
-                               max="9"
-                               step="0.1"
-                               class="col-span-2 w-full accent-primary">
+                        {% include "components/range-input.html" with name=id|add:"-density" id="cover-designer-"|add:id|add:"-density" min="2.5" max="9" step="0.1" class="col-span-2 w-full" only %}
                     </div>
                     <div data-cover-designer-amount
                          class="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-0.5">
@@ -166,13 +160,7 @@
                         <output data-cover-designer-out="amount"
                                 for="cover-designer-{{ id }}-amount"
                                 class="text-xs tabular-nums text-foreground-muted"></output>
-                        <input type="range"
-                               id="cover-designer-{{ id }}-amount"
-                               data-cover-designer-control="amount"
-                               min="0"
-                               max="1"
-                               step="0.01"
-                               class="col-span-2 w-full accent-primary">
+                        {% include "components/range-input.html" with name=id|add:"-amount" id="cover-designer-"|add:id|add:"-amount" min="0" max="1" step="0.01" class="col-span-2 w-full" only %}
                     </div>
                     <div class="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-0.5">
                         <label for="cover-designer-{{ id }}-angle"
@@ -180,13 +168,7 @@
                         <output data-cover-designer-out="angle"
                                 for="cover-designer-{{ id }}-angle"
                                 class="text-xs tabular-nums text-foreground-muted"></output>
-                        <input type="range"
-                               id="cover-designer-{{ id }}-angle"
-                               data-cover-designer-control="angle"
-                               min="-45"
-                               max="45"
-                               step="1"
-                               class="col-span-2 w-full accent-primary">
+                        {% include "components/range-input.html" with name=id|add:"-angle" id="cover-designer-"|add:id|add:"-angle" min="-45" max="45" step="1" class="col-span-2 w-full" only %}
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="flex-1 text-sm text-foreground-muted">{% translate "Layout" %} <b data-cover-designer-out="seed"
@@ -260,13 +242,7 @@
                             <output data-cover-designer-out="text-size"
                                     for="cover-designer-{{ id }}-text-size"
                                     class="text-xs tabular-nums text-foreground-muted"></output>
-                            <input type="range"
-                                   id="cover-designer-{{ id }}-text-size"
-                                   data-cover-designer-control="text-size"
-                                   min="0.6"
-                                   max="2.4"
-                                   step="0.05"
-                                   class="col-span-2 w-full accent-primary">
+                            {% include "components/range-input.html" with name=id|add:"-text-size" id="cover-designer-"|add:id|add:"-text-size" min="0.6" max="2.4" step="0.05" class="col-span-2 w-full" only %}
                         </div>
                         <div role="radiogroup"
                              aria-labelledby="cover-designer-{{ id }}-color"

@@ -1,0 +1,13 @@
+{# A slider. Variables: name, id, min, max, step, value. Optional: class (layout only). #}
+{# The browser's own slider paints its empty track near-black once accent-color is a light coral, #}
+{# so this draws both parts itself: the empty track in the border color, the filled part and thumb in primary. #}
+{# Firefox fills the track up to the thumb itself (::-moz-range-progress); WebKit and Blink need the #}
+{# --fill custom property, the value's share of the range as a percentage, kept current by the page's script. #}
+<input type="range"
+       name="{{ name }}"
+       {% if id|default:"" %}id="{{ id }}"{% endif %}
+       min="{{ min }}"
+       max="{{ max }}"
+       step="{{ step }}"
+       {% if value|default:"" != "" %}value="{{ value }}"{% endif %}
+       class="h-5 cursor-pointer appearance-none bg-transparent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary [&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-[linear-gradient(to_right,var(--color-primary)_var(--fill,50%),var(--color-border)_var(--fill,50%))] [&::-webkit-slider-thumb]:-mt-[5px] [&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-bg-secondary [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-sm [&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-border [&::-moz-range-progress]:h-1.5 [&::-moz-range-progress]:rounded-full [&::-moz-range-progress]:bg-primary [&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-bg-secondary [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:shadow-sm{% if class|default:"" %} {{ class }}{% endif %}">

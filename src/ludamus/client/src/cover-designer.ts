@@ -372,7 +372,7 @@ class Designer {
   private onInput(event: Event): void {
     const { target } = event;
     if (!(target instanceof HTMLInputElement)) return;
-    const field = target.dataset.coverDesignerControl ?? target.name.slice(this.inputId.length + 1);
+    const field = target.name.slice(this.inputId.length + 1);
     this.apply(field, target);
     this.sync();
     this.render(!TEXT_FIELDS.has(field));
@@ -541,8 +541,11 @@ class Designer {
   }
 
   private setControl(control: string, value: number, label: string): void {
-    this.part<HTMLInputElement>(`[data-cover-designer-control="${control}"]`)!.value =
-      String(value);
+    const slider = this.part<HTMLInputElement>(`input[name="${this.inputId}-${control}"]`)!;
+    slider.value = String(value);
+    // components/range-input.html paints the filled part of the track up to --fill.
+    const share = (value - Number(slider.min)) / (Number(slider.max) - Number(slider.min));
+    slider.style.setProperty("--fill", `${share * 100}%`);
     this.part<HTMLOutputElement>(`[data-cover-designer-out="${control}"]`)!.value = label;
   }
 
