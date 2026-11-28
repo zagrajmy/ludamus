@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.event_deletion import EventDeletionServiceProtocol
     from ludamus.pacts.event_page import EventScheduleServiceProtocol
     from ludamus.pacts.event_settings import EventSettingsServiceProtocol
+    from ludamus.pacts.external_tools import ExternalToolServiceProtocol
     from ludamus.pacts.guild import GuildServiceProtocol
     from ludamus.pacts.ids import SiteId, SphereId, UserId
     from ludamus.pacts.integrations import EventIntegrationsServiceProtocol
@@ -289,6 +290,8 @@ class ServicesProtocol(Protocol):
     def active_recipients(self) -> ActiveRecipientsServiceProtocol: ...
     @property
     def bookmarks(self) -> BookmarkServiceProtocol: ...
+    @property
+    def external_tools(self) -> ExternalToolServiceProtocol: ...
     @property
     def proposals_import(self) -> ProposalImportServiceProtocol: ...
     @property

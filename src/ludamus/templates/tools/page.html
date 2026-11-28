@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {{ tool.name }}
+{% endblock title %}
+{% block header_section %}
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-xl font-semibold text-foreground">{{ tool.name }}</h1>
+        {% tessera_button _("Open in a new tab") href=tool.url variant="secondary" icon="arrow-top-right-on-square" target="_blank" rel="noopener noreferrer" %}
+    </div>
+{% endblock header_section %}
+{% block body %}
+    {% comment %}SAFETY: the sandbox leaves out allow-top-navigation, so the tool
+    cannot move this window. The site's Permissions-Policy header already denies
+    camera, microphone and location to every frame.{% endcomment %}
+    <iframe src="{{ tool.url }}"
+            title="{{ tool.name }}"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            referrerpolicy="no-referrer"
+            class="w-full grow min-h-[70dvh] rounded-lg border border-border bg-bg-secondary"></iframe>
+{% endblock body %}

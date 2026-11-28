@@ -24,6 +24,7 @@ from ludamus.links.db.django.models import (
     EnrollmentConfig,
     Event,
     EventProposalSettings,
+    ExternalTool,
     Facilitator,
     ParleyReport,
     PayoutAccount,
@@ -836,6 +837,14 @@ class TagAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     autocomplete_fields = ("parent",)
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
 
+
+admin.site.register(
+    ExternalTool,
+    list_display=("name", "slug", "url", "is_active"),
+    list_filter=("is_active",),
+    search_fields=("name", "slug"),
+    prepopulated_fields={"slug": ("name",)},
+)
 
 # A sphere's deal is recorded here: Technical Partner or not, its ticket fee
 # in basis points (blank: the standard 350), its yearly price in grosze, and
