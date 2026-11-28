@@ -246,11 +246,20 @@ class TestExternalToolValidation:
 
         assert str(tool) == "Table Manager"
 
+    def test_domain_names_are_accepted_in_any_letter_case(self):
+        tool = self._tool(
+            url="https://Tables.Example.org/start",
+            allowed_domains="Login.Example.org\nCDN.Example.org",
+        )
+
+        tool.full_clean()
+
     @pytest.mark.parametrize(
         ("field", "value"),
         (
             ("url", "http://tables.example.org/"),
             ("url", "https://[::1]/"),
+            ("url", "https://[::1/"),
             ("url", "https://user@tables.example.org/"),
             ("allowed_domains", "cdn.example.org; script-src *"),
             ("allowed_domains", "https://cdn.example.org"),

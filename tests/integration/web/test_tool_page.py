@@ -31,7 +31,11 @@ def _assert_tool_page(response) -> None:
                 name="Table Manager",
                 slug="table-manager",
                 url="https://tables.example.org/start",
-                allowed_domains=["login.example.org", "cdn.example.org"],
+                frame_hosts=[
+                    "tables.example.org",
+                    "login.example.org",
+                    "cdn.example.org",
+                ],
             )
         },
     )

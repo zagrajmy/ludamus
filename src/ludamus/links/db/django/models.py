@@ -2939,13 +2939,17 @@ class CaseEmail(models.Model):
 # SAFETY: these values are written into the Content-Security-Policy header of
 # the tool page. A `;` would start a new directive, and browsers drop an IPv6
 # literal from a source list.
-FRAME_HOST_PATTERN = re.compile(r"[a-z0-9.-]+(?::\d+)?")
+FRAME_HOST_PATTERN = re.compile(r"[a-zA-Z0-9.-]+(?::\d+)?")
 
 
 def validate_tool_address(value: str) -> None:
-    address = urlsplit(value)
+    message = _("Enter an https address with a plain domain name.")
+    try:
+        address = urlsplit(value)
+    except ValueError as error:
+        raise ValidationError(message) from error
     if address.scheme != "https" or not FRAME_HOST_PATTERN.fullmatch(address.netloc):
-        raise ValidationError(_("Enter an https address with a plain domain name."))
+        raise ValidationError(message)
 
 
 def validate_frame_domains(value: str) -> None:

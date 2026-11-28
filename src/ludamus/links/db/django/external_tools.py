@@ -1,3 +1,5 @@
+from urllib.parse import urlsplit
+
 from ludamus.links.db.django.models import ExternalTool
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.external_tools import ExternalToolDTO, ExternalToolRepositoryProtocol
@@ -14,5 +16,7 @@ class ExternalToolRepository(ExternalToolRepositoryProtocol):
             name=tool.name,
             slug=tool.slug,
             url=tool.url,
-            allowed_domains=tool.allowed_domains.split(),
+            # netloc, not hostname: a source without the port matches only
+            # port 443. The model validators vet these values.
+            frame_hosts=[urlsplit(tool.url).netloc, *tool.allowed_domains.split()],
         )

@@ -9,7 +9,7 @@ class ExternalToolDTO(BaseModel):
     name: str
     slug: str
     url: str
-    allowed_domains: list[str]
+    frame_hosts: list[str]
 
 
 class ExternalToolRepositoryProtocol(Protocol):
