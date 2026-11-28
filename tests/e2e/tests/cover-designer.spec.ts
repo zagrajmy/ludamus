@@ -40,6 +40,7 @@ test.describe("Cover designer on the event settings", () => {
     await dialog.getByRole("radio", { name: "Trail map" }).check();
     await expect(accent).toBeHidden();
     await dialog.getByRole("radio", { name: "Dice" }).check();
+    await expect(accent).toBeVisible();
     await expect(dialog.getByRole("radio", { name: "Hall" })).toBeChecked();
     await expect(dialog.getByRole("radio", { name: "No text" })).toBeChecked();
     await expect(dialog.getByRole("alert")).toHaveText(

@@ -155,7 +155,7 @@ class Designer {
   private design: Design = structuredClone(STARTER);
   private renderer: Renderer | null = null;
   private frame = 0;
-  /** Counts opens, so a save still encoding when the dialog closes is dropped. */
+  /** Counts opens and dismissals; a save made under an older count is dropped. */
   private opened = 0;
 
   private readonly actions: Record<string, (button: HTMLButtonElement) => void> = {
@@ -173,9 +173,25 @@ class Designer {
     dialog.addEventListener("click", (event) => this.onClick(event));
     // modal.ts wires [data-modal-close] at load only; this dialog arrives later.
     for (const close of dialog.querySelectorAll("[data-modal-close]")) {
-      close.addEventListener("click", () => closeModal(dialog.id, { updateUrl: false }));
+      close.addEventListener("click", () => {
+        this.dismiss();
+        closeModal(dialog.id, { updateUrl: false });
+      });
     }
+    // Escape fires `cancel`; a backdrop click lands on the dialog element itself.
+    dialog.addEventListener("cancel", () => this.dismiss());
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) this.dismiss();
+    });
     new ResizeObserver(() => this.render()).observe(this.stage);
+  }
+
+  /**
+   * Drops any save in flight the moment the person leaves. The dialog itself
+   * closes later, after modal.ts's view transition, so `open` is no guard.
+   */
+  private dismiss(): void {
+    this.opened += 1;
   }
 
   async open(): Promise<void> {
