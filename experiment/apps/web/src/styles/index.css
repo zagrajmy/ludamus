@@ -1,0 +1,970 @@
+@import "tailwindcss" source(none);
+
+@import "./progressive-blur.css";
+@import "./brand-mark.css";
+@import "./combobox.css";
+@import "./consent-banner.css";
+@import "./modal.css";
+@import "./filters.css";
+@import "./tabs.css";
+@import "./timetable.css";
+@import "./import-recipe.css";
+@import "./room-lanes.css";
+@import "./schedule-fold.css";
+@import "./schedule-now.css";
+@import "./session-tags.css";
+@import "./panel-sidebar.css";
+@import "./shell.css";
+@import "./landing.css";
+
+/* Outfit, self-hosted (fonts/OFL.txt): the two woff2 files and their
+   unicode-range split are vendored verbatim from Google Fonts' variable-font
+   subsets. Polish text pulls both files (every diacritic except ó lives in
+   latin-ext), so the split mostly buys per-file caching; only a purely
+   Latin-1 page skips the latin-ext download. Self-hosted rather than
+   @import'ed from fonts.googleapis.com — an external stylesheet is
+   render-blocking, so its latency (or a proxy that stalls it, as in agent
+   sandboxes) delays DOMContentLoaded and with it every module script on
+   the page. */
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./fonts/outfit-latin-ext.woff2") format("woff2");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./fonts/outfit-latin.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+@plugin "@tailwindcss/typography";
+@plugin "@hasparus/tailwind/scrollview-fade";
+
+@source "../**/*.ts";
+
+@custom-variant dark (&:where(.dark, .dark *));
+/* The panel sidebar folded to its icon rail: panel/base.html sets `data-folded`
+   on <html> before paint and panel-chrome.ts toggles it. */
+@custom-variant folded (:root[data-folded] &);
+@custom-variant panel (.panel-shell &);
+
+@theme {
+  --font-sans: "Outfit", system-ui, sans-serif;
+
+  --color-warm-50: #fdfcfb;
+  --color-warm-100: #f7f5f3;
+  --color-warm-150: #f3f0ed;
+  --color-warm-200: #f0ece8;
+  --color-warm-300: #e4ddd6;
+  --color-warm-400: #c9bfb3;
+  --color-warm-500: #a69a8c;
+  --color-warm-600: #7d7164;
+  --color-warm-700: #5c534a;
+  --color-warm-800: #3d3732;
+  --color-warm-900: #252220;
+
+  --color-coral-50: #fef5f3;
+  --color-coral-100: #ffe5df;
+  --color-coral-200: #ffcfc5;
+  --color-coral-300: #ffab9a;
+  --color-coral-400: #ff7d61;
+  --color-coral-500: #f85a3c;
+  --color-coral-600: #e53e20;
+  --color-coral-700: #c13118;
+  --color-coral-800: #9f2c18;
+  --color-coral-900: #842a1b;
+  --color-coral-950: #4a1610;
+
+  --color-teal-50: #f0fdfa;
+  --color-teal-100: #ccfbef;
+  --color-teal-200: #9af5df;
+  --color-teal-300: #5fe9cb;
+  --color-teal-400: #2dd4b3;
+  --color-teal-500: #14b89b;
+  --color-teal-600: #0d947e;
+  --color-teal-700: #0f7666;
+  --color-teal-800: #115e53;
+  --color-teal-900: #134e45;
+
+  --color-neutral-50: #fafafa;
+  --color-neutral-100: #f5f5f5;
+  --color-neutral-200: #e5e5e5;
+  --color-neutral-300: #d4d4d4;
+  --color-neutral-400: #a3a3a3;
+  --color-neutral-500: #737373;
+  --color-neutral-600: #525252;
+  --color-neutral-700: #404040;
+  --color-neutral-800: #262626;
+  --color-neutral-900: #171717;
+  --color-neutral-950: #0a0a0a;
+
+  --color-slate-*: initial;
+  --color-gray-*: initial;
+  --color-zinc-*: initial;
+  --color-stone-*: initial;
+
+  --color-background: #f0f1f3;
+  --color-border: #e4ddd6;
+
+  --ease-spring-a-bit: linear(
+    0 0%,
+    0.5007 7.21%,
+    0.7803 12.29%,
+    0.8883 14.93%,
+    0.9724 17.63%,
+    1.0343 20.44%,
+    1.0754 23.44%,
+    1.0898 25.22%,
+    1.0984 27.11%,
+    1.1014 29.15%,
+    1.0989 31.4%,
+    1.0854 35.23%,
+    1.0196 48.86%,
+    1.0043 54.06%,
+    0.9956 59.6%,
+    0.9925 68.11%,
+    1 100%
+  );
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  --vt-morph-duration: 0.32s;
+  --vt-morph-exit-duration: 0.26s;
+  --vt-morph-ease: var(--ease-out);
+
+  --color-foreground: #252220;
+  --color-foreground-secondary: #5c534a;
+  /* The least this can darken and still clear AA (4.5:1) on every surface it
+     sits on — warm-200 is the tightest at 4.53. It carries real text (card
+     metadata, counts, empty states), so it is held to the text threshold
+     rather than the 3:1 one. Any paler and that text drops back under. */
+  --color-foreground-muted: #6b6b6b;
+  --color-foreground-inverse: #ffffff;
+
+  --color-bg-secondary: #fdfcfb;
+  --color-bg-tertiary: #f7f5f3;
+  /* Ground for a proposal card: the session card's neutral surface warmed
+     just enough that an unscheduled proposal reads as a different stock of
+     paper rather than a highlighted row. Sits on the warm ramp's own hue
+     (30°) at warm-150's channel spread, so it reads as sandpaper and not as
+     a yellow tint. Deliberately near the limit of perceptible — the dashed
+     border carries the other half of the signal. Don't darken it much
+     further: foreground-muted clears AA here by 0.49, and a heavier ground
+     would put that text under the threshold. */
+  --color-proposal-surface: #faf7f4;
+
+  --color-border-focus: #f85a3c;
+
+  --color-primary: #f85a3c;
+  --color-primary-hover: #e53e20;
+  --color-primary-light: #fef5f3;
+
+  --color-secondary: #14b89b;
+  --color-secondary-hover: #0d947e;
+  --color-secondary-light: #f0fdfa;
+
+  --color-success: #2cb65b;
+  --color-success-light: #dcfce7;
+  --color-success-bg: #f0fdf4;
+  --color-success-text: #166534;
+
+  --color-warning: #f59e0b;
+  --color-warning-light: #fef3c7;
+  --color-warning-bg: #fffbeb;
+  --color-warning-text: #92400e;
+
+  --color-danger: #ef4444;
+  --color-danger-light: #fee2e2;
+  --color-danger-bg: #fef2f2;
+  --color-danger-text: #991b1b;
+
+  --color-info: #3b82f6;
+  --color-info-light: #dbeafe;
+  --color-info-bg: #eff6ff;
+  --color-info-text: #1e40af;
+}
+
+/* divide-y that survives client-side filtering. session-filters.ts hides
+   rows with the [hidden] attribute, and v4's divide-y borders every
+   :not(:last-child) — hidden or not — leaving a dangling divider under the
+   last visible row. Pair visible siblings instead (v3's divide-y selector):
+   a row draws a top divider only when a visible row precedes it. */
+@utility divide-y-visible {
+  & > :not([hidden]) ~ :not([hidden]) {
+    border-top-width: 1px;
+    border-top-color: --alpha(var(--color-border) / 60%);
+  }
+}
+
+/* Escape main's centered max-w-7xl column (base.html): cancels its padding and
+   its auto margins at once, so the child spans the page scroller edge to edge.
+   --app-scroll-w, not 100vw: app-scroll.ts measures the scroller, because the
+   scrollbar gutter it reserves makes the viewport wider than the box the child
+   has to land in — a vw-wide child sits shifted, its leading edge clipped past
+   the scroll origin where nothing can bring it back. */
+@utility breakout {
+  margin-inline: calc(50% - var(--app-scroll-w, 100vw) / 2);
+}
+
+/* Scrim for text over a photo. A three-stop gradient bands where its stops
+   meet; these trace alpha = 0.9 × (1 − smoothstep(x)) at 10% steps, so the
+   scrim holds dark under the text and eases out with no edge to see. Apply
+   it to the caption's box and give that box room above the text: padding
+   (pt-28) or a height with the text pushed to the bottom (h-3/4 justify-end). */
+@utility scrim-t {
+  background-image: linear-gradient(
+    to top,
+    rgb(0 0 0 / 0.9) 0%,
+    rgb(0 0 0 / 0.875) 10%,
+    rgb(0 0 0 / 0.806) 20%,
+    rgb(0 0 0 / 0.706) 30%,
+    rgb(0 0 0 / 0.583) 40%,
+    rgb(0 0 0 / 0.45) 50%,
+    rgb(0 0 0 / 0.317) 60%,
+    rgb(0 0 0 / 0.194) 70%,
+    rgb(0 0 0 / 0.094) 80%,
+    rgb(0 0 0 / 0.025) 90%,
+    rgb(0 0 0 / 0) 100%
+  );
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility text-box-trim-start {
+  text-box: trim-start cap alphabetic;
+}
+
+@utility text-box-trim-both {
+  text-box: trim-both cap alphabetic;
+}
+
+/* A strip of labelled icon buttons that goes icon-only below sm: the glyph
+   carries the action and the text beside it gets the width back. The label is
+   `.btn-label` (templates and `tessera_button` both mark it) and goes sr-only
+   rather than hidden, so the button keeps its accessible name. The breakpoint
+   is decided here, once, for the panel header and the session modal's footer.
+
+   The first two rules hang off the same `:has(> svg)`, and must keep doing so.
+   A button with no icon has nothing to fall back on, so hiding its label
+   leaves a blank pill — which is what the moderation bar on proposal-detail
+   (Accept / Hold / Reject / Delete) would become. The same guard covers
+   `{% icon %}` returning "" for a missing icon in production.
+
+   `min-height` covers every button: an iconless one keeps its label and its
+   own width, but `py-2` alone leaves it 38px — under the tap-target floor,
+   and 6px shy of the squares it sits beside. A minimum rather than a height
+   so it never argues with `size-11` over the icon buttons.
+
+   `w-auto` runs to md, not sm: `tessera_button` stretches every form-submit
+   button by `max-md:w-full`, which is right in a body form and never right in
+   a strip. Deciding it here spares 22 header templates from each passing
+   `full_width_mobile=False`. */
+@utility btn-strip-compact {
+  @media (width < 40rem) {
+    .btn:has(> svg) .btn-label {
+      @apply sr-only;
+    }
+
+    .btn:has(> svg) {
+      @apply size-11 p-0;
+    }
+
+    .btn {
+      @apply min-h-11;
+    }
+  }
+
+  @media (width < 48rem) {
+    .btn {
+      @apply w-auto;
+    }
+  }
+}
+
+*,
+*::before,
+*::after {
+  corner-shape: superellipse(1.8);
+  scrollbar-color: gray transparent;
+  scrollbar-width: thin;
+}
+
+html,
+body {
+  height: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Every page wears the shell (base.html and the self-contained 500), so the
+   document never scrolls and the root needs no scrollbar gutter — .app-scroll
+   below reserves the only one, for the only scroller there is.
+
+   The shell takes the large viewport rather than 100dvh because iOS Safari
+   draws its floating bottom bar over the last 100lvh - 100dvh of the layout
+   viewport instead of shrinking it, and only retracts the bar for a document
+   scroll — which a shell this shape never has, so on a phone it never
+   retracts (iOS 18.7, measured: 100dvh 736, 100lvh 836). At 100dvh the shell
+   stops a bar's height above the page's bottom edge and the canvas below it
+   shows through the translucent bar as a band under the footer. */
+.app-shell {
+  height: 100vh;
+  height: 100lvh;
+  overflow: hidden;
+}
+
+.app-scroll {
+  /* The strip the bar covers: 0 on a viewport the bar shrinks instead of
+     overlapping, and 0 everywhere the two viewports agree. */
+  --toolbar-cover: calc(100lvh - 100dvh);
+
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-padding-bottom: var(--toolbar-cover);
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Hold the page's last box off the bar from inside it, so the strip is painted
+   in that box's own surface and the page reads as running under the bar rather
+   than ending above something else. Inside rather than a strip of the
+   scroller's own, which could only ever guess at that surface. */
+.app-scroll > :last-child::after {
+  content: "";
+  display: block;
+  height: var(--toolbar-cover);
+}
+
+.schedule-rail.is-scrubbing,
+.schedule-rail.is-scrubbing * {
+  cursor: grabbing;
+}
+
+body:has(dialog.modal[open]) .app-scroll {
+  overflow: hidden;
+}
+
+@media print {
+  .app-shell {
+    height: auto;
+    overflow: visible;
+  }
+
+  .app-scroll {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+
+  .app-scroll > :last-child::after {
+    content: none;
+  }
+}
+
+a,
+button {
+  cursor: pointer;
+}
+
+:root {
+  color-scheme: light;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-dropdown:
+    0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-elevated:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+
+.dark {
+  color-scheme: dark;
+  --color-background: #0a0a0a;
+  --color-bg-secondary: #171717;
+  --color-bg-tertiary: #262626;
+  --color-proposal-surface: #272522;
+  --color-foreground: #fafafa;
+  --color-foreground-secondary: #d4d4d4;
+  /* Lifted off the light ramp's value, which sat at 3.19:1 here. Same rule as
+     its light counterpart: the least it can lighten and clear AA on every
+     dark surface, bg-tertiary being the tightest at 4.50. */
+  --color-foreground-muted: #8c8c8c;
+  --color-foreground-inverse: #0a0a0a;
+  --color-border: #404040;
+  --color-border-focus: #f85a3c;
+  --color-primary: #f85a3c;
+  --color-primary-hover: #e53e20;
+  --color-primary-light: #292524;
+  --color-secondary: #2dd4b3;
+  --color-secondary-hover: #5fe9cb;
+  --color-secondary-light: #134e45;
+  --color-success: #4ade80;
+  --color-success-light: #14532d;
+  --color-success-bg: #052e16a2;
+  --color-success-text: #86efac;
+  --color-warning: #fbbf24;
+  --color-warning-light: #44380f;
+  --color-warning-bg: #292211ad;
+  --color-warning-text: #fbbf24;
+  --color-danger-light: #450a0a;
+  --color-danger-bg: #3c0d0de1;
+  --color-danger-text: #fca5a5;
+  --color-info: #60a5fa;
+  --color-info-light: #1e3a5f;
+  --color-info-bg: #0c1e36ad;
+  --color-info-text: #93c5fd;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-dropdown: 0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--color-background),
+    0 0 0 4px var(--color-primary);
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  border-color: var(--color-border-focus) !important;
+}
+
+/* NOTE: unlayered to override the global :focus-visible rule above. */
+.write-in-chips:focus-within {
+  border-color: var(--color-border-focus);
+  box-shadow:
+    0 0 0 2px var(--color-background),
+    0 0 0 4px var(--color-primary);
+}
+
+.write-in-chips input:focus-visible {
+  box-shadow: none;
+}
+
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: 1rem;
+  }
+}
+
+button:active {
+  @apply scale-97;
+}
+
+.no-transitions,
+.no-transitions * {
+  transition: none !important;
+}
+
+.live-dot {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot {
+    animation: none;
+  }
+}
+
+.blob {
+  border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+}
+
+.blob-2 {
+  border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+}
+
+.blob-3 {
+  border-radius: 40% 60% 55% 45% / 55% 40% 60% 45%;
+}
+
+@layer components {
+  table tbody tr:has([data-row-action]) {
+    position: relative;
+    cursor: pointer;
+  }
+
+  table tbody tr [data-row-action] {
+    position: static;
+  }
+
+  table tbody tr [data-row-action]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+
+  table
+    tbody
+    tr:has([data-row-action])
+    :is(a, button, label, input, select, textarea, [data-menu], .btn):not(
+      [data-row-action]
+    ) {
+    position: relative;
+    z-index: 1;
+  }
+
+  .flash-region {
+    position: fixed;
+    top: max(1rem, env(safe-area-inset-top));
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    z-index: 60;
+    height: 0;
+    width: min(28rem, calc(100vw - 2rem));
+    max-height: calc(100dvh - 2rem);
+    pointer-events: auto;
+    overflow: visible;
+    transform: translateX(-50%);
+  }
+
+  .flash-region .alert {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    pointer-events: auto;
+    overflow-wrap: anywhere;
+    box-shadow: var(--shadow-elevated);
+    transform: translateY(-100%) scale(0.98);
+    transform-origin: top center;
+    transition:
+      transform 0.26s var(--ease-out),
+      opacity 0.26s var(--ease-out),
+      height 0.26s var(--ease-out),
+      box-shadow 0.2s var(--ease-out);
+    will-change: transform, opacity;
+  }
+
+  .flash-region .alert[data-flash-mounted="false"] {
+    opacity: 0;
+  }
+
+  .flash-region .alert[data-flash-mounted="true"] {
+    opacity: 1;
+  }
+
+  .flash-region .alert[data-flash-visible="false"] {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .flash-region[data-flash-expanded="false"]
+    .alert[data-flash-front="false"]
+    > * {
+    opacity: 0;
+    transition: opacity 0.26s var(--ease-out);
+  }
+
+  .flash-region .alert[data-flash-closing="true"] {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  @media (min-width: 640px) {
+    .flash-region {
+      top: max(1.5rem, env(safe-area-inset-top));
+      max-height: calc(100dvh - 3rem);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .flash-region .alert,
+    .flash-region .alert[data-flash-mounted="false"] {
+      opacity: 1;
+      transition: none;
+    }
+  }
+
+  .alert {
+    border-radius: 0.5rem;
+    padding: 1rem;
+    border-width: 1px;
+    border-style: solid;
+    /* Trim the first and last line's half-leading so the padding above the
+       cap height matches the padding below the baseline. */
+    text-box: auto;
+  }
+
+  .alert-success {
+    background-color: var(--color-success-bg);
+    border-color: var(--color-success-light);
+    color: var(--color-success-text);
+  }
+
+  .alert-warning {
+    background-color: var(--color-warning-bg);
+    border-color: var(--color-warning-light);
+    color: var(--color-warning-text);
+  }
+
+  .alert-error,
+  .alert-danger {
+    background-color: var(--color-danger-bg);
+    border-color: var(--color-danger-light);
+    color: var(--color-danger-text);
+  }
+
+  .alert-info {
+    background-color: var(--color-info-bg);
+    border-color: var(--color-info-light);
+    color: var(--color-info-text);
+  }
+
+  .alert-default {
+    background-color: var(--color-bg-tertiary);
+    border-color: var(--color-border);
+    color: var(--color-foreground-secondary);
+  }
+
+  .btn {
+    --bg: var(--color-primary);
+    --y: 2px;
+    --shade: hsla(30deg, 20.6%, 23%, 0.25);
+    --hl1: rgba(255, 255, 255, 0.085);
+    --hl2: transparent;
+
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 1rem;
+    padding: 0.625rem 1rem;
+    font-weight: 500;
+    transition:
+      translate 0.15s,
+      scale 0.15s,
+      box-shadow 0.15s;
+    background-color: var(--bg);
+    @apply text-box-trim-both;
+    box-shadow:
+      inset 0 1px 0 0 var(--hl1),
+      inset 0 3px 5px -3px var(--hl2),
+      0 var(--y) 0 0 var(--shade),
+      0 var(--y) 0 0 var(--bg);
+
+    &:hover {
+      @apply translate-y-px;
+      --y: 1px;
+    }
+
+    &:active {
+      @apply translate-y-0.5 scale-[99.4%];
+      --y: 0px;
+    }
+
+    &:focus {
+      outline: none;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+  }
+
+  .dark .btn {
+    --shade: hsla(30deg, 20.6%, 15%, 0.45);
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    --bg: #ef4f2d;
+    --hl1: rgba(255, 255, 255, 0.3);
+    --hl2: rgba(255, 255, 255, 0.22);
+
+    color: white;
+    background-image: linear-gradient(180deg, #fb6953, #ef4f2d);
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.16);
+  }
+
+  .btn-danger {
+    --bg: #e23636;
+    --hl1: rgba(255, 255, 255, 0.3);
+    --hl2: rgba(255, 255, 255, 0.22);
+
+    color: white;
+    background-image: linear-gradient(180deg, #f56363, #e23636);
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.16);
+  }
+
+  .dark .btn-primary,
+  .dark .btn-danger {
+    --hl1: rgba(255, 255, 255, 0.22);
+    --hl2: rgba(255, 255, 255, 0.18);
+
+    font-weight: 600;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.22);
+  }
+
+  .btn-secondary {
+    --bg: var(--color-bg-secondary);
+    --shade: hsla(30deg, 20.6%, 35%, 0.25);
+    --hl1: transparent;
+
+    border: 1px solid var(--color-border);
+    color: var(--color-foreground);
+    background-image: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.5),
+      rgba(0, 0, 0, 0.02)
+    );
+  }
+
+  .dark .btn-secondary {
+    --shade: hsla(30deg, 0%, 28%, 0.35);
+
+    background-image: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(0, 0, 0, 0.06)
+    );
+  }
+
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-foreground-secondary);
+    cursor: pointer;
+    transition:
+      background-color 0.1s,
+      border-color 0.1s,
+      color 0.1s;
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+
+    box-shadow: inset 0 -2px 1px -1px var(--color-border);
+
+    position: relative;
+    @apply before:bg-foreground rounded-md before:absolute before:inset-0 before:rounded-md before:border before:border-transparent before:opacity-3 before:transition before:duration-150 hover:duration-0 hover:before:opacity-0 hover:before:duration-0 dark:hover:before:opacity-10;
+  }
+
+  .icon-btn:disabled,
+  .icon-btn[aria-disabled="true"] {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .icon-btn:hover {
+    box-shadow: inset 0 0 0 1.25px var(--color-border);
+  }
+
+  .dark .icon-btn:hover {
+    box-shadow: inset 0 -2px 0px -1px var(--color-border);
+  }
+
+  .icon-btn-clear,
+  .icon-btn-clear:hover,
+  .dark .icon-btn-clear:hover {
+    box-shadow: none;
+  }
+
+  .icon-btn-clear::before {
+    content: none;
+  }
+
+  .icon-btn-clear:hover {
+    color: var(--color-foreground);
+  }
+
+  .card {
+    border-radius: 1rem;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-bg-secondary);
+    box-shadow: var(--shadow-card);
+  }
+
+  .card-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  /* 24px is right once a card is one column of several. Full-bleed on a
+     phone it is 48px of the 440px viewport, on top of whatever the page
+     wrapper already spent — the panel stacks p-4 outside this and lands at
+     40px a side. Give the narrow viewport 16px and step up at sm. */
+  .card-body {
+    padding: 1rem;
+  }
+
+  @media (width >= 40rem) {
+    .card-body {
+      padding: 1.5rem;
+    }
+  }
+}
+
+/* `.panel-bleed` marks a panel page whose cards should run to the viewport
+   edge on a phone and stack as one continuous band: the wrapper drops its
+   padding, the cards give up the side border and corners they can no longer
+   sit inside, and the gaps between them close. Each card also drops its own
+   top border and leans on the rule above it — the header's border-b for the
+   first, the previous card's border-b for the rest — so a closed gap reads as
+   one 1px divider rather than two stacked borders.
+
+   A stack spells the space between its cards three ways — the wrapper's own
+   `gap-*`, `space-y-*` (which Tailwind v4 compiles to `margin-block-end`), and
+   a card's own `mt-*` — so the bleed closes all three rather than leaving each
+   page to remember which one it used.
+
+   Cards reached through a wrapper (cfp-edit nests its own inside a form) bleed
+   too, which is why the selector is a descendant one and not `> .card`.
+   Non-card content in a bled page has no card-body to inset it and asks for
+   `max-sm:px-3` itself.
+
+   This lives in `@layer utilities`, not `components`: bled cards carry `mt-6`,
+   and only a same-layer rule with two classes of specificity outranks it. The
+   wrapper's own padding is the opposite case — it is a default a page may want
+   to change, so `:where` drops it to zero specificity and any `p-*` utility on
+   the wrapper still wins. */
+@layer utilities {
+  @media (width < 40rem) {
+    .panel-bleed {
+      gap: 0;
+    }
+
+    .panel-bleed .card {
+      margin-top: 0;
+      margin-bottom: 0;
+      border-radius: 0;
+      border-top-width: 0;
+      border-left-width: 0;
+      border-right-width: 0;
+    }
+  }
+
+  @media (width >= 40rem) {
+    :where(.panel-bleed) {
+      padding: 1rem;
+    }
+  }
+}
+
+@layer base {
+  select {
+    background-color: var(--color-bg-secondary);
+  }
+
+  /* iOS Safari renders date and time inputs as native pickers with an
+     intrinsic width wider than a phone viewport, and `width: 100%` does not
+     shrink them past it — they push straight through the card or grid track
+     that holds them. Every one of these is authored `w-full` in a form column,
+     so normalise the minimum once here instead of per widget: several are
+     built by Django `DateTimeInput`s that pass no class at all. No effect on
+     engines that size these inputs normally. */
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  input[type="month"],
+  input[type="week"] {
+    min-width: 0;
+  }
+}
+
+select:not([multiple]):not([size]) {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 1rem;
+  padding-right: 2rem;
+}
+
+/* The card's link is a full-bleed overlay (.session-link); every other
+   control inside the card sits above it so it stays clickable. */
+.session :is(button, input, select, textarea, [role="button"]),
+.session a:not(.session-link) {
+  position: relative;
+  z-index: 20;
+}
+
+.time-slot-section[data-ended] .session:not(:hover) {
+  filter: grayscale(50%) brightness(0.95);
+}
+
+hr {
+  border-top: 1px solid var(--color-warm-400);
+  flex-grow: 1;
+}
+
+.dark hr {
+  border-top-color: var(--color-neutral-700);
+}
+
+.hoverboard {
+  position: relative;
+
+  &::before {
+    --transition: 0.18s;
+    position-anchor: --a;
+    pointer-events: none;
+    content: "";
+    position: absolute;
+    inset: anchor(inside);
+    background-color: var(--color-bg-tertiary);
+    border-radius: 0.5em;
+    z-index: -1;
+    transition:
+      inset var(--transition),
+      top var(--transition),
+      left var(--transition),
+      height var(--transition),
+      opacity var(--transition),
+      color var(--transition),
+      width var(--transition);
+    transition-timing-function: linear(
+      0 0%,
+      0.2342 12.49%,
+      0.4374 24.99%,
+      0.6093 37.49%,
+      0.6835 43.74%,
+      0.7499 49.99%,
+      0.8086 56.25%,
+      0.8593 62.5%,
+      0.9023 68.75%,
+      0.9375 75%,
+      0.9648 81.25%,
+      0.9844 87.5%,
+      0.9961 93.75%,
+      1 100%
+    );
+  }
+
+  & > a:is(:hover, :focus-visible) {
+    anchor-name: --a;
+  }
+}
