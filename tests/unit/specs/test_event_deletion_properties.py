@@ -55,7 +55,7 @@ def test_someone_off_the_team_is_refused(ballot, user_id):
 @given(ballots(), _user_ids)
 @example(_ballot(managers={1, 2, 3}, approvers=(1,)), UserId(2))
 @example(_ballot(managers={1, 2, 3, 4, 5}, approvers=(1,)), UserId(2))
-def test_the_event_is_deleted_exactly_when_enough_managers_approve(ballot, user_id):
+def test_the_event_is_deleted_by_its_approvers_exactly_at_the_quorum(ballot, user_id):
     decision = decide_approval(ballot, user_id)
 
     approving = _approving_managers(ballot) | ({user_id} & ballot.managers)
@@ -63,6 +63,8 @@ def test_the_event_is_deleted_exactly_when_enough_managers_approve(ballot, user_
         len(ballot.managers)
     )
     assert isinstance(decision, Deleted) == quorum
+    if isinstance(decision, Deleted):
+        assert decision.approvers == approving
 
 
 @given(ballots(), _user_ids)
