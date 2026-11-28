@@ -34,6 +34,7 @@ from ludamus.links.db.django.parley import ParleyRepository
 from ludamus.links.db.django.parley_conversations import ParleyConversationRepository
 from ludamus.links.db.django.parley_mentions import ParleyMentionRepository
 from ludamus.links.db.django.parley_owned_chats import (
+    BoardChatRepository,
     EncounterChatRepository,
     PartyChatRepository,
 )
@@ -329,6 +330,10 @@ class Repositories:
     @cached_property
     def encounter_chats(self) -> EncounterChatRepository:
         return EncounterChatRepository()
+
+    @cached_property
+    def board_chats(self) -> BoardChatRepository:
+        return BoardChatRepository()
 
     @cached_property
     def parley_mentions(self) -> ParleyMentionRepository:

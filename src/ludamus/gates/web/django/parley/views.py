@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.urls import reverse
 from django.utils.translation import gettext as _
-from django.utils.translation import ngettext
+from django.utils.translation import ngettext, pgettext
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
@@ -74,6 +74,7 @@ def _copy() -> dict[str, str]:
         "emptyEncounter": _(
             "A chat for everyone signed up for this encounter. Say hello to everyone."
         ),
+        "emptyBoard": _("A chat for everyone at this board. Say hello to everyone."),
         "emptySession": _("You found the table first. Leave a note for the others."),
         "readOnly": _("You can read this conversation, but not write in it."),
         "emptyReadOnly": _("Nobody has written here yet."),
@@ -116,6 +117,11 @@ def _copy() -> dict[str, str]:
         "encounterHint": _(
             "The organizer and everyone signed up are here. To leave this chat,"
             " cancel your signup."
+        ),
+        "boardRoom": pgettext("the whiteboard a chat belongs to", "Board"),
+        "boardHint": _(
+            "The board's creator and everyone who opened it are here. It closes"
+            " when the board is deleted."
         ),
         "moderatorDelete": _("Delete as moderator"),
         "muteOneHour": _("Mute for 1 hour"),

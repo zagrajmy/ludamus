@@ -60,8 +60,8 @@ env = environ.Env(
     PARLEY_AGENT_HOST=(str, ""),
     PARLEY_SIGNING_PRIVATE_KEY=(str, ""),
     PARLEY_MENTIONS_SECRET=(str, ""),
-    # Board
-    BOARD_HOST=(str, ""),
+    # Board: where Little Table, the whiteboard boards embed, runs
+    LITTLE_TABLE_URL=(str, "https://littletable.top"),
     CREDENTIALS_ENCRYPTION_KEY=str,
     DEBUG=(bool, False),
     # Email transport: consolemail:// (default), smtp://mailpit:1025 for the
@@ -779,13 +779,10 @@ if PARLEY_AGENT_HOST:
         ]
     )
 
-# Board: the board app, a Worker with its own pages that asks Django for
-# passes across origins. Its passes are signed with Parley's key. A
-# deployment's Worker serves board.<ROOT_DOMAIN>, a laptop runs it on 8788
-# beside the app, and tests have none. No Django page talks to it.
-BOARD_HOST = env("BOARD_HOST") or (
-    {"development": "localhost:8788", "test": ""}.get(ENV, f"board.{ROOT_DOMAIN}")
-)
+# Board: a board is a Little Table room shown in a frame. Little Table is a
+# hosted tldraw app with its own licence; Zagrajmy embeds it and never ships
+# tldraw. Empty turns boards off.
+LITTLE_TABLE_URL = env("LITTLE_TABLE_URL").rstrip("/")
 
 # Vendor Dependencies Configuration
 # Download with: mise run dj downloadvendor

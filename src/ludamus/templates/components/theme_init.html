@@ -5,7 +5,7 @@ CSP nonce.{% endcomment %}
 <meta name="theme-color" content="#fdfcfb">
 <script{% nonce %}>
     function syncThemeColor() {
-        // NOTE: The browser bar meets the sticky navbar. CSS isn't loaded at first paint, so these mirror its --color-bg-secondary in src/ludamus/client/src/theme.css.
+        // NOTE: The browser bar meets the sticky navbar. CSS isn't loaded at first paint, so these mirror its --color-bg-secondary in src/ludamus/client/src/index.css.
         document.querySelector('meta[name="theme-color"]').content =
             document.documentElement.classList.contains('dark') ? '#171717' : '#fdfcfb';
     }

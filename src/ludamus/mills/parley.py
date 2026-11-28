@@ -489,6 +489,7 @@ class ParleyRevocationService(ParleyRevocationServiceProtocol):
         memberships: ParleyMembershipOutboxProtocol,
         party_chats: ParleyOwnedChatProtocol,
         encounter_chats: ParleyOwnedChatProtocol,
+        board_chats: ParleyOwnedChatProtocol,
     ) -> None:
         self._repository = repository
         self._outbox = outbox
@@ -496,6 +497,7 @@ class ParleyRevocationService(ParleyRevocationServiceProtocol):
         self._memberships = memberships
         self._party_chats = party_chats
         self._encounter_chats = encounter_chats
+        self._board_chats = board_chats
 
     def revoke_event_user(self, *, event_id: int, user_id: int) -> None:
         if (sphere_id := self._repository.read_event_sphere_id(event_id)) is not None:
@@ -507,18 +509,20 @@ class ParleyRevocationService(ParleyRevocationServiceProtocol):
         self.age_changed(user_id=user_id)
 
     def age_changed(self, *, user_id: int) -> None:
-        # Who may be in their conversations, and their parties' and
-        # encounters' chats, can hang on their age; the Worker hears each list
+        # Who may be in their conversations, and their parties', encounters'
+        # and boards' chats, can hang on their age; the Worker hears each list
         # again.
         self._memberships.schedule(
             conversation_ids=self._conversations.conversation_ids_of(user_id)
         )
-        for chats in (self._party_chats, self._encounter_chats):
+        for chats in (self._party_chats, self._encounter_chats, self._board_chats):
             chats.sync_owners_of(user_id)
 
     def sphere_chat_switched(self, *, sphere_id: int) -> None:
         for encounter_id in self._repository.list_encounters_with_people(sphere_id):
             self._encounter_chats.sync(encounter_id)
+        for board_id in self._repository.list_board_ids(sphere_id):
+            self._board_chats.sync(board_id)
 
     def revoke_sphere(self, *, sphere_id: int) -> None:
         self._outbox.schedule(sphere_ids=[sphere_id], subject=REVOKE_EVERYONE)

@@ -3,6 +3,7 @@ from __future__ import annotations
 from django.db.models import Q
 
 from ludamus.links.db.django.models import (
+    Board,
     Encounter,
     ParleyBlock,
     ParleyConversation,
@@ -54,8 +55,8 @@ def _policy(conversation: ParleyConversation) -> ParleyConversationPolicy:
 
 
 def _given_name(conversation: ParleyConversation) -> str:
-    # A party's or encounter's chat goes by its name for as long as there is
-    # one.
+    # A party's, encounter's or board's chat goes by its name for as long as
+    # there is one.
     if conversation.party_id is not None:
         name = (
             Party.objects.filter(pk=conversation.party_id)
@@ -66,6 +67,13 @@ def _given_name(conversation: ParleyConversation) -> str:
     if conversation.encounter_id is not None:
         title = (
             Encounter.objects.filter(pk=conversation.encounter_id)
+            .values_list("title", flat=True)
+            .first()
+        )
+        return title or ""
+    if conversation.board_id is not None:
+        title = (
+            Board.objects.filter(pk=conversation.board_id)
             .values_list("title", flat=True)
             .first()
         )

@@ -12,8 +12,7 @@ import re
 
 from tests.integration.repo_paths import CLIENT_SRC
 
-# The tokens, shared by the site and the board app.
-PALETTE = CLIENT_SRC / "theme.css"
+PALETTE = CLIENT_SRC / "index.css"
 
 # Below this the sRGB transfer function is linear; above it, a power curve.
 SRGB_LINEAR_CUTOFF = 0.03928

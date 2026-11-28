@@ -13,11 +13,11 @@
   ("I'm interested" → "Zgłaszam się"), declining it → "Nie tym razem". Keep
   board copy gender-neutral: nouns ("zgłoszenie") over past-tense verbs
   ("zgłosiłeś się")
-- **board** (the whiteboard with dice, `/b/…`) → "tablica"; a **place** on it
-  → "miejsce"; a die is written "k6", not "d6" (`d%(sides)s` → "k%(sides)s");
-  **roll** → "rzut", the button "Rzuć". Keep it gender-neutral too:
-  "%(name)s rolled" → "%(name)s rzuca", not "rzucił(a)". The listings board
-  (`/board/`) stays "Ogłoszenia", so the two never share a name.
+- **board** (a Little Table whiteboard framed on `/b/…`) → "tablica"; the
+  chat's label for it is `pgettext("the whiteboard a chat belongs to",
+  "Board")`, because plain "Board" is the listings board. That one (`/board/`)
+  stays "Ogłoszenia", so the two never share a name. "Little Table" is a
+  product name and stays in English.
 - **Gender in Polish UI copy:** address the reader without gendered forms.
   Prefer status phrases with present tense ("jesteś na liście", "jesteś
   na tym punkcie programu"), imperatives ("zaloguj się"), and impersonal

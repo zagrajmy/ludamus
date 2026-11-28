@@ -14,6 +14,8 @@ export type Copy = Record<
   | "blockedPeople"
   | "blockHideConfirm"
   | "blockPerson"
+  | "boardHint"
+  | "boardRoom"
   | "cancelLabel"
   | "closeLabel"
   | "confirmAge"
@@ -26,6 +28,7 @@ export type Copy = Record<
   | "deleteLabel"
   | "detailsLabel"
   | "directMessage"
+  | "emptyBoard"
   | "emptyDirect"
   | "emptyEncounter"
   | "emptyEvent"
@@ -174,7 +177,7 @@ export type ConversationInfo = {
   canWrite: boolean;
   id: string;
   isAdmin: boolean;
-  kind: "direct" | "encounter" | "group" | "party" | "staff";
+  kind: "board" | "direct" | "encounter" | "group" | "party" | "staff";
   members: Person[];
   // The name its members gave it; empty when they gave none.
   name: string;

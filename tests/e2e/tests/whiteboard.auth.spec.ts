@@ -1,181 +1,148 @@
-import { type Browser, devices, type Locator, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
+import fs from "node:fs";
+import path from "node:path";
+
+import { analyzePageAccessibility } from "./helpers/a11y";
 import { attachArtifacts } from "./helpers/artifacts";
 import { assertNoCspViolations, installCspViolationCollector } from "./helpers/csp";
 import { expect, test } from "./helpers/fixtures";
+import {
+  bootstrap,
+  type Conversation,
+  FakeWorker,
+  launcherOf,
+  panelOf,
+  routeBootstrap,
+} from "./helpers/parley";
 
-// The board, end to end against the board app on its own origin: the
-// Worker serves the built client and the rooms on :8790 (playwright.config.ts
-// builds and starts it; .env.e2e points BOARD_HOST at it), and the client asks
-// Django on :8000 for passes across origins. Nothing here is faked: Django
-// signs the passes, the Worker verifies them, runs the tldraw sync room and
-// draws every die.
+// A board is a Little Table room in a frame, with Zagrajmy's own chat beside
+// it. .env.e2e points LITTLE_TABLE_URL here, and each test answers for this
+// origin itself, so the frame loads a real https document and nothing leaves
+// the machine. bootstrap_data.py seeds "Crew board", which the e2e-tester has
+// opened, and its chat; .board.json names them.
+const LITTLE_TABLE = "https://littletable.example.test";
+const seeded = JSON.parse(fs.readFileSync(path.join(__dirname, "..", ".board.json"), "utf8")) as {
+  chatId: number;
+  shareCode: string;
+};
 
-const GUEST = "Ania";
-const BOARD_APP = "http://localhost:8790";
-const ON_BOARD_APP = /^http:\/\/localhost:8790\/b\/(\w+)$/u;
-const PHONE = devices["Pixel 7"];
-
-// The board's own controls sit in tldraw's bottom bar; the sheets they open
-// are dialogs named after them.
-const sheet = (page: Page, name: string): Locator => page.getByRole("dialog", { name });
-
-async function openSheet(page: Page, name: string): Promise<Locator> {
-  const panel = sheet(page, name);
-  if (!(await panel.isVisible())) await page.getByRole("button", { name, exact: true }).click();
-  await expect(panel).toBeVisible();
-  return panel;
+async function serveLittleTable(page: Page): Promise<void> {
+  await page.route(`${LITTLE_TABLE}/**`, (route) =>
+    route.fulfill({
+      body: `<h1>Room ${new URL(route.request().url()).pathname}</h1>`,
+      contentType: "text/html",
+    }),
+  );
 }
 
-async function closeSheet(page: Page, name: string): Promise<void> {
-  await sheet(page, name).getByRole("button", { name: "Close" }).click();
-  await expect(sheet(page, name)).toBeHidden();
-}
+test.describe("Boards", () => {
+  test("a board added from its Little Table link opens in a frame and joins the list", async ({
+    page,
+  }, testInfo) => {
+    await serveLittleTable(page);
+    await installCspViolationCollector(page);
+    const title = `Heist night ${Date.now()}`;
 
-// What a person reads on the canvas; tldraw also measures text off-screen.
-const onBoard = (page: Page, text: string): Locator =>
-  page.getByTestId("canvas").getByText(text, { exact: true });
+    await page.goto("/boards/");
+    await expect(page.getByRole("heading", { name: "My boards", level: 1 })).toBeVisible();
+    await page.getByRole("link", { name: "Add board" }).click();
 
-// A sticky note with words on it, put down at a point of the screen.
-async function putNote(page: Page, { at, text }: { at: { x: number; y: number }; text: string }) {
-  await page.getByTestId("tools.note").click();
-  await page.mouse.click(at.x, at.y);
-  await page.keyboard.type(text);
-  await page.keyboard.press("Escape");
-  await expect(onBoard(page, text)).toBeVisible();
-}
+    await expect(page.getByRole("heading", { name: "Add board", level: 1 })).toBeVisible();
+    await page.getByLabel("Board name").fill(title);
+    // A link to anywhere but Little Table is refused, and says what it wants.
+    await page.getByLabel("Little Table link").fill("https://elsewhere.example.test/b/x");
+    await page.getByRole("button", { name: "Add board" }).click();
+    await expect(
+      page.getByText(`Paste a Little Table board link, like ${LITTLE_TABLE}/b/…`),
+    ).toBeVisible();
 
-async function guestAtPhone(browser: Browser, url: string): Promise<Page> {
-  // NOTE: storageState undefined, not {}: the chromium-auth project's
-  // signed-in state must not leak into the guest.
-  const context = await browser.newContext({ ...PHONE, storageState: undefined });
-  const page = await context.newPage();
-  await installCspViolationCollector(page);
-  await page.goto(url);
-  return page;
-}
+    await page.getByLabel("Little Table link").fill(`${LITTLE_TABLE}/b/heist-42`);
+    await page.getByRole("button", { name: "Add board" }).click();
 
-// The board app's page leaves with a policy of its own, so "no violations"
-// below means something.
-async function expectOwnPolicy(page: Page): Promise<void> {
-  const response = await page.request.get(page.url());
-  const policy = response.headers()["content-security-policy"] ?? "";
-  expect(policy).toContain("default-src 'none'");
-  expect(policy).toContain("connect-src 'self' ws://localhost:8790 http://localhost:8000");
-}
+    await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
+    // SAFETY: with default-src 'none' the frame loads only when the page's
+    // policy names Little Table, so this heading proves the override.
+    const frame = page.getByTitle(`${title} on Little Table`);
+    await expect(
+      frame.contentFrame().getByRole("heading", { name: "Room /b/heist-42" }),
+    ).toBeVisible();
+    const newTab = page.getByRole("link", { name: "Open in a new tab" });
+    await expect(newTab).toHaveAttribute("href", `${LITTLE_TABLE}/b/heist-42?lang=en`);
+    await expect(newTab).toHaveAttribute("target", "_blank");
+    await assertNoCspViolations(page);
+    await analyzePageAccessibility(page);
 
-const shoot = async (page: Page, name: string, facts: object) =>
-  attachArtifacts(test.info(), { name, region: page.locator("body"), facts });
+    // Its creator edits it with the link it was added from.
+    await page.getByRole("link", { name: "Edit board" }).click();
+    await expect(page.getByLabel("Board name")).toHaveValue(title);
+    await expect(page.getByLabel("Little Table link")).toHaveValue(`${LITTLE_TABLE}/b/heist-42`);
 
-// The newest roll log entry as it reads, line by line, without its last
-// line: the time, which each screen formats from its own clock.
-async function newestRoll(dialog: Locator): Promise<string> {
-  const entry = dialog.getByRole("listitem").first();
-  await expect(entry).toBeVisible();
-  const lines = (await entry.innerText()).split("\n").map((line) => line.trim());
-  return lines.slice(0, -1).filter(Boolean).join(" ");
-}
+    await page.goto("/boards/");
+    const listed = page.getByRole("link", { name: new RegExp(`^${title} Yours`, "u") });
+    await expect(listed).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Crew board Opened/u })).toBeVisible();
 
-test("a creator and a guest share one board: drawing, dice, places, link reset", async ({
-  browser,
-  page,
-}) => {
-  test.setTimeout(180_000);
-  await installCspViolationCollector(page);
+    await attachArtifacts(testInfo, {
+      facts: { added: title, href: await listed.getAttribute("href"), room: "heist-42" },
+      name: "boards-list",
+      region: page.getByRole("main"),
+    });
+  });
 
-  // The creator starts a board from "My boards" and lands on the board app,
-  // which takes the language from the address and then drops it.
-  await page.goto("/boards/");
-  const site = new URL(page.url()).origin;
-  await page.getByRole("button", { name: "New board" }).first().click();
-  await expect(page).toHaveURL(ON_BOARD_APP);
-  const boardUrl = page.url();
-  const shareCode = ON_BOARD_APP.exec(boardUrl)![1]!;
-  await expect(page.getByRole("button", { name: "Dice", exact: true })).toBeVisible();
-  await expectOwnPolicy(page);
+  test("the board's chat opens beside the frame", async ({ page }) => {
+    const chat: Conversation = {
+      canWrite: true,
+      id: `conversation:${seeded.chatId}`,
+      isAdmin: false,
+      kind: "board",
+      members: [
+        { avatarUrl: "", id: "1", name: bootstrap.user.name },
+        { avatarUrl: "", id: "2", name: "Board Host" },
+      ],
+      name: "Crew board",
+      state: "active",
+      title: "Crew board",
+    };
+    await serveLittleTable(page);
+    await routeBootstrap(page, [{ conversations: [chat] }]);
+    await FakeWorker.install(page);
 
-  // The guest opens the old link on the site, on a phone, and Django sends
-  // them on to the board app, where they name themself once.
-  const guest = await guestAtPhone(browser, `${site}/b/${shareCode}/`);
-  await expect(guest).toHaveURL(boardUrl);
-  await guest.getByLabel("Your name").fill(GUEST);
-  await shoot(guest, "board-guest-name", { step: "guest names themself", name: GUEST });
-  await guest.getByRole("button", { name: "Join the board" }).click();
-  await expect(guest.getByRole("button", { name: "Dice", exact: true })).toBeVisible();
+    await page.goto(`/b/${seeded.shareCode}/`);
+    await expect(
+      page
+        .getByTitle("Crew board on Little Table")
+        .contentFrame()
+        .getByRole("heading", { name: "Room /b/crew-room" }),
+    ).toBeVisible();
+    // Not the creator: nothing here changes the board.
+    await expect(page.getByRole("link", { name: "Edit board" })).toHaveCount(0);
 
-  // What the creator draws turns up on the guest's phone.
-  await putNote(page, { at: { x: 200, y: 300 }, text: "Hello table" });
-  await expect(onBoard(guest, "Hello table")).toBeVisible();
+    await launcherOf(page).click();
+    const panel = panelOf(page);
+    // The chat opens on this page's own conversation, the board's.
+    await expect(panel.getByRole("heading", { name: "Crew board" })).toBeVisible();
+    await expect(panel.getByText(bootstrap.copy.emptyBoard)).toBeVisible();
+    await analyzePageAccessibility(page);
+  });
 
-  // The guest rolls 2d6; both roll logs show the same dice.
-  const guestDice = await openSheet(guest, "Dice");
-  await guestDice.getByRole("button", { name: "Add d6" }).click();
-  await guestDice.getByRole("button", { name: "Add d6" }).click();
-  await guestDice.getByRole("button", { name: "Roll 2d6" }).click();
-  await expect(guestDice.getByRole("listitem").first()).toContainText(GUEST);
-  const rolled = await newestRoll(guestDice);
-  const total = Number(/Total:\s*(\d+)/u.exec(rolled)?.[1]);
-  expect(total).toBeGreaterThanOrEqual(2);
-  expect(total).toBeLessThanOrEqual(12);
+  test("a guest with the link sees the board and is asked to log in for the chat", async ({
+    browser,
+  }) => {
+    // NOTE: storageState undefined, not {}: the signed-in state must not leak.
+    const context = await browser.newContext({ storageState: undefined });
+    const page = await context.newPage();
+    await serveLittleTable(page);
 
-  const creatorDice = await openSheet(page, "Dice");
-  await expect.poll(async () => newestRoll(creatorDice)).toBe(rolled);
-  await shoot(guest, "board-guest-rolled", { step: "guest rolled 2d6", rolled });
-  await shoot(page, "board-creator-sees-roll", { step: "creator sees the roll", rolled });
-  await closeSheet(page, "Dice");
-  await closeSheet(guest, "Dice");
+    await page.goto(`/b/${seeded.shareCode}/`);
 
-  // The creator makes a place of a note off the guest's small screen; the
-  // guest jumps to it from the places list.
-  await putNote(page, { at: { x: 1100, y: 250 }, text: "The map" });
-  const creatorPlaces = await openSheet(page, "Places");
-  await creatorPlaces.getByRole("button", { name: "Add to places" }).click();
-  await creatorPlaces.getByLabel("Place name").fill("The map");
-  await creatorPlaces.getByRole("button", { name: "Save" }).click();
-  await expect(creatorPlaces.getByRole("button", { name: "The map", exact: true })).toBeVisible();
-  await closeSheet(page, "Places");
-
-  const farNote = onBoard(guest, "The map");
-  await expect(farNote).not.toBeInViewport();
-  const guestPlaces = await openSheet(guest, "Places");
-  await guestPlaces.getByRole("button", { name: "The map", exact: true }).click();
-  await expect(sheet(guest, "Places")).toBeHidden();
-  await expect(farNote).toBeInViewport();
-  await shoot(guest, "board-guest-at-place", { step: "guest jumped to a place", place: "The map" });
-
-  // From "My boards" the creator names the board, so its row is easy to
-  // tell apart, then resets its link and opens the board again.
-  const title = `Mörk Borg night ${Date.now()}`;
-  await page.goto("/boards/");
-  const byLink = page
-    .getByRole("listitem")
-    .filter({ has: page.locator(`a[href^="${BOARD_APP}/b/${shareCode}?"]`) });
-  await byLink.getByRole("button", { name: "Board actions" }).click();
-  await byLink.getByRole("link", { name: "Rename" }).click();
-  await page.getByLabel("Board name").fill(title);
-  await page.getByRole("button", { name: "Save name" }).click();
-  await expect(page.getByText("Board renamed.")).toBeVisible();
-
-  const row = page.getByRole("listitem").filter({ hasText: title });
-  await row.getByRole("button", { name: "Board actions" }).click();
-  await row.getByRole("button", { name: /Reset link/u }).click();
-  await page.getByRole("alertdialog").getByRole("button", { name: "Reset link" }).click();
-  await expect(page.getByText("The board has a new link.")).toBeVisible();
-  await expect(page.locator(`a[href^="${BOARD_APP}/b/${shareCode}?"]`)).toHaveCount(0);
-  await page.getByRole("link", { name: new RegExp(title, "u") }).click();
-  await expect(page).toHaveURL(ON_BOARD_APP);
-  await expect(page).not.toHaveURL(boardUrl);
-  await expect(onBoard(page, "Hello table")).toBeVisible();
-
-  // The new link version puts the guest, who only had the old link, out.
-  await expect(
-    guest.getByText("The board's link was reset. Ask its creator for the new one."),
-  ).toBeVisible();
-  await expect(guest.getByRole("link", { name: /^Back to / })).toBeVisible();
-  await shoot(guest, "board-guest-link-reset", { step: "guest put out by the link reset" });
-  await shoot(page, "board-creator-after-reset", { step: "creator back on the board" });
-
-  await assertNoCspViolations(page);
-  await assertNoCspViolations(guest);
-  await guest.context().close();
+    await expect(page.getByRole("heading", { name: "Crew board", level: 1 })).toBeVisible();
+    await expect(page.getByTitle("Crew board on Little Table")).toBeVisible();
+    await expect(page.getByRole("main").getByRole("link", { name: "Log in" })).toHaveAttribute(
+      "href",
+      new RegExp(`\\?next=/b/${seeded.shareCode}/$`, "u"),
+    );
+    await expect(page.getByRole("button", { name: "Open chat" })).toHaveCount(0);
+    await context.close();
+  });
 });

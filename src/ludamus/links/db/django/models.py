@@ -22,7 +22,7 @@ from unidecode import unidecode
 from ludamus.links.db.django.uploads import unique_upload_to
 from ludamus.pacts.availability import DayPart
 from ludamus.pacts.billing import STANDARD_TICKET_FEE_BPS, PlanSource
-from ludamus.pacts.board import BOARD_TITLE_MAX_LENGTH
+from ludamus.pacts.board import BOARD_ROOM_CODE_MAX_LENGTH, BOARD_TITLE_MAX_LENGTH
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.encounter import EncountersPolicy, InviteeStatus
 from ludamus.pacts.enrollment import (
@@ -287,7 +287,8 @@ REASON_MAX_LENGTH = 255  # EventBan.reason column width; reused by the safety re
 class ParleyConversation(models.Model):
     """A chat between people, apart from any sphere's rooms.
 
-    Direct, a group, a party's, an encounter's or a staff case's thread.
+    Direct, a group, a party's, an encounter's, a board's or a staff case's
+    thread.
     """
 
     class Kind(models.TextChoices):
@@ -296,6 +297,7 @@ class ParleyConversation(models.Model):
         PARTY = "party"
         ENCOUNTER = "encounter"
         STAFF = "staff"
+        BOARD = "board"
 
     kind = models.CharField(max_length=10, choices=Kind.choices)
     # NOTE: a party's chat, and the reports made in it, outlive the party, so
@@ -311,6 +313,15 @@ class ParleyConversation(models.Model):
     # NOTE: kept past the encounter for the same reason as `party`.
     encounter = models.OneToOneField(
         "Encounter",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="parley_chat",
+    )
+    # NOTE: kept past the board for the same reason as `party`.
+    board = models.OneToOneField(
+        "Board",
         null=True,
         blank=True,
         on_delete=models.DO_NOTHING,
@@ -2359,8 +2370,8 @@ class Board(models.Model):
     creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name="boards")
     title = models.CharField(max_length=BOARD_TITLE_MAX_LENGTH)
     share_code = models.CharField(max_length=32, unique=True)
-    # Moves on with every link reset; the Worker drops older connections.
-    link_version = models.PositiveIntegerField(default=0)
+    # The Little Table room the board's frame opens: <LITTLE_TABLE_URL>/b/<code>.
+    room_code = models.CharField(max_length=BOARD_ROOM_CODE_MAX_LENGTH)
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
 

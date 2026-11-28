@@ -95,6 +95,7 @@ export function roomKind(copy: Bootstrap["copy"], room: Room): string {
   if (conversation.kind === "direct") return copy.directMessage;
   const members = counted(copy, "members", conversation.members.length);
   const owners: Partial<Record<ConversationInfo["kind"], string>> = {
+    board: copy.boardRoom,
     encounter: copy.encounterRoom,
     party: copy.partyRoom,
   };

@@ -24,6 +24,7 @@ const CONVERSATION_KINDS: readonly unknown[] = [
   "group",
   "party",
   "encounter",
+  "board",
   "staff",
 ] satisfies ConversationKind[];
 // A lookup's claims, as staff's order to delete the message they name.

@@ -4,16 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from django.db.models import F, OuterRef, Q, Subquery
+from django.db.models import OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
 
-from ludamus.links.db.django.models import Board, BoardVisit, Sphere, User
-from ludamus.pacts.board import (
-    BoardDTO,
-    BoardListItemDTO,
-    BoardRepositoryProtocol,
-    BoardSphereDTO,
-)
+from ludamus.links.db.django.models import Board, BoardVisit
+from ludamus.pacts.board import BoardDTO, BoardListItemDTO, BoardRepositoryProtocol
 from ludamus.pacts.errors import NotFoundError
 
 if TYPE_CHECKING:
@@ -32,7 +27,12 @@ def _get(**lookup: int | str) -> Board:
 class BoardRepository(BoardRepositoryProtocol):
     @staticmethod
     def create(
-        *, sphere_id: int, creator_id: UserId, title: str, share_code: str
+        *,
+        sphere_id: int,
+        creator_id: UserId,
+        title: str,
+        share_code: str,
+        room_code: str,
     ) -> BoardDTO:
         return BoardDTO.model_validate(
             Board.objects.create(
@@ -40,6 +40,7 @@ class BoardRepository(BoardRepositoryProtocol):
                 creator_id=creator_id,
                 title=title,
                 share_code=share_code,
+                room_code=room_code,
             )
         )
 
@@ -48,44 +49,28 @@ class BoardRepository(BoardRepositoryProtocol):
         return BoardDTO.model_validate(_get(share_code=share_code, sphere_id=sphere_id))
 
     @staticmethod
-    def read_shared(share_code: str) -> BoardDTO:
-        return BoardDTO.model_validate(_get(share_code=share_code))
-
-    @staticmethod
-    def read_sphere(sphere_id: int) -> BoardSphereDTO:
-        sphere = Sphere.objects.select_related("site").get(pk=sphere_id)
-        return BoardSphereDTO(name=sphere.name, domain=sphere.site.domain)
-
-    @staticmethod
     def read_owned(*, pk: int, sphere_id: int, creator_id: UserId) -> BoardDTO:
         return BoardDTO.model_validate(
             _get(pk=pk, sphere_id=sphere_id, creator_id=creator_id)
         )
 
     @staticmethod
-    def rename(*, pk: int, title: str) -> None:
+    def update(*, pk: int, title: str, room_code: str) -> None:
         board = _get(pk=pk)
         board.title = title
-        board.save(update_fields=["title", "modification_time"])
-
-    @staticmethod
-    def reset_link(*, pk: int, share_code: str) -> BoardDTO:
-        board = Board.objects.select_for_update().get(pk=pk)
-        board.share_code = share_code
-        board.link_version = F("link_version") + 1
-        board.save(update_fields=["share_code", "link_version", "modification_time"])
-        board.refresh_from_db()
-        return BoardDTO.model_validate(board)
+        board.room_code = room_code
+        board.save(update_fields=["title", "room_code", "modification_time"])
 
     @staticmethod
     def delete(pk: int) -> None:
         Board.objects.filter(pk=pk).delete()
 
     @staticmethod
-    def record_visit(*, pk: int, user_id: UserId, now: datetime) -> None:
-        BoardVisit.objects.update_or_create(
+    def record_visit(*, pk: int, user_id: UserId, now: datetime) -> bool:
+        _visit, created = BoardVisit.objects.update_or_create(
             board_id=pk, user_id=user_id, defaults={"last_opened_at": now}
         )
+        return created
 
     @staticmethod
     def list_for(*, sphere_id: int, user_id: UserId) -> list[BoardListItemDTO]:
@@ -116,10 +101,3 @@ class BoardRepository(BoardRepositoryProtocol):
             )
             for board in boards
         ]
-
-    @staticmethod
-    def read_user_name(user_id: UserId) -> str:
-        try:
-            return User.objects.get(pk=user_id).get_full_name()
-        except User.DoesNotExist as exception:
-            raise NotFoundError from exception

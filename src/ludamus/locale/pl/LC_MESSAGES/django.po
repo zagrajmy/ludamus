@@ -1307,7 +1307,7 @@ msgstr "Zarządzaj miejscami zapisanymi dla innych…"
 #: src/ludamus/templates/user/user/_party_create_modal.html
 #: src/ludamus/templates/user/user/parties.html
 #: src/ludamus/templates/user/user/party_detail.html
-#: src/ludamus/templates/whiteboard/edit.html
+#: src/ludamus/templates/whiteboard/form.html
 msgid "Cancel"
 msgstr "Anuluj"
 
@@ -3915,6 +3915,10 @@ msgstr ""
 "Czat dla wszystkich zapisanych na to spotkanie. Przywitaj się ze wszystkimi."
 
 #: src/ludamus/gates/web/django/parley/views.py
+msgid "A chat for everyone at this board. Say hello to everyone."
+msgstr "Czat dla wszystkich przy tej tablicy. Przywitaj się ze wszystkimi."
+
+#: src/ludamus/gates/web/django/parley/views.py
 msgid "You found the table first. Leave a note for the others."
 msgstr "Pierwsza osoba przy stole! Zostaw wiadomość dla pozostałych."
 
@@ -4061,6 +4065,19 @@ msgid ""
 msgstr ""
 "Są tu organizator i wszyscy zapisani. Żeby opuścić ten czat, wypisz się ze "
 "spotkania."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgctxt "the whiteboard a chat belongs to"
+msgid "Board"
+msgstr "Tablica"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid ""
+"The board's creator and everyone who opened it are here. It closes when the "
+"board is deleted."
+msgstr ""
+"Są tu twórca tablicy i wszyscy, którzy ją otworzyli. Czat zamyka się, gdy "
+"tablica zostanie usunięta."
 
 #: src/ludamus/gates/web/django/parley/views.py
 msgid "Delete as moderator"
@@ -4474,7 +4491,6 @@ msgstr "Zapisano nazwę."
 #: src/ludamus/gates/web/django/parley/views.py
 #: src/ludamus/templates/user/user/parties.html
 #: src/ludamus/templates/user/user/party_detail.html
-#: src/ludamus/templates/whiteboard/edit.html
 msgid "Save name"
 msgstr "Zapisz nazwę"
 
@@ -5965,28 +5981,30 @@ msgstr "Nazwa tablicy"
 msgid "Everyone at the board sees this name."
 msgstr "Tę nazwę widzą wszyscy przy tablicy."
 
+#: src/ludamus/gates/web/django/whiteboard/forms.py
+msgid "Little Table link"
+msgstr "Link do Little Table"
+
+#: src/ludamus/gates/web/django/whiteboard/forms.py
+msgid "Open the board on Little Table and copy its address here."
+msgstr "Otwórz tablicę w Little Table i wklej tu jej adres."
+
 #: src/ludamus/gates/web/django/whiteboard/views.py
 #, python-format
-msgid "Board %(date)s"
-msgstr "Tablica %(date)s"
+msgid "Paste a Little Table board link, like %(example)s."
+msgstr "Wklej link do tablicy w Little Table, na przykład %(example)s."
 
 #: src/ludamus/gates/web/django/whiteboard/views.py
-msgid "Board renamed."
-msgstr "Zmieniono nazwę tablicy."
+msgid "Give the board a name."
+msgstr "Nadaj tablicy nazwę."
 
 #: src/ludamus/gates/web/django/whiteboard/views.py
-msgid "The board has a new link. The old one no longer opens it."
-msgstr "Tablica ma nowy link. Stary już jej nie otwiera."
+msgid "Board saved."
+msgstr "Zapisano tablicę."
 
 #: src/ludamus/gates/web/django/whiteboard/views.py
 msgid "Board deleted."
 msgstr "Usunięto tablicę."
-
-#: src/ludamus/gates/web/django/whiteboard/views.py
-msgid "Board deleted. Anyone still on it can keep drawing until they leave."
-msgstr ""
-"Usunięto tablicę. Osoby, które są na niej teraz, mogą rysować, dopóki z niej "
-"nie wyjdą."
 
 #: src/ludamus/inits/request_context.py
 msgid "Sphere not found"
@@ -8867,6 +8885,7 @@ msgstr "Akcje"
 #: src/ludamus/templates/sphere/panel/connections/list.html
 #: src/ludamus/templates/sphere/panel/guilds/list.html
 #: src/ludamus/templates/user/user/parties.html
+#: src/ludamus/templates/whiteboard/_row.html
 msgid "Edit"
 msgstr "Edycja"
 
@@ -15882,6 +15901,7 @@ msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
 
 #: src/ludamus/templates/tools/page.html
+#: src/ludamus/templates/whiteboard/board.html
 msgid "Open in a new tab"
 msgstr "Otwórz w nowej karcie"
 
@@ -16433,7 +16453,6 @@ msgid "More actions"
 msgstr "Więcej opcji"
 
 #: src/ludamus/templates/user/user/parties.html
-#: src/ludamus/templates/whiteboard/_row.html
 msgid "Rename"
 msgstr "Zmień nazwę"
 
@@ -16847,8 +16866,9 @@ msgstr ""
 "pokazania przy wejściu."
 
 #: src/ludamus/templates/whiteboard/_create_button.html
-msgid "New board"
-msgstr "Nowa tablica"
+#: src/ludamus/templates/whiteboard/form.html
+msgid "Add board"
+msgstr "Dodaj tablicę"
 
 #: src/ludamus/templates/whiteboard/_row.html
 msgid "Yours"
@@ -16868,38 +16888,54 @@ msgid "Board actions"
 msgstr "Opcje tablicy"
 
 #: src/ludamus/templates/whiteboard/_row.html
-msgid "Reset link"
-msgstr "Wygeneruj nowy link"
-
-#: src/ludamus/templates/whiteboard/_row.html
-msgid "Guests with the old link drop off"
-msgstr "Goście ze starym linkiem tracą dostęp"
-
-#: src/ludamus/templates/whiteboard/_row.html
 #, python-format
 msgid ""
-"Give “%(title)s” a new link? The old link stops working, and guests who came "
-"by it drop off the board."
+"Delete “%(title)s”? It leaves everyone’s list and its chat closes. The "
+"drawing stays on Little Table."
 msgstr ""
-"Wygenerować nowy link do tablicy „%(title)s”? Stary link przestanie działać, "
-"a goście, którzy przez niego weszli, stracą dostęp do tablicy."
-
-#: src/ludamus/templates/whiteboard/_row.html
-#, python-format
-msgid ""
-"Delete “%(title)s”? Its link stops working for everyone. This cannot be "
-"undone."
-msgstr ""
-"Usunąć tablicę „%(title)s”? Jej link przestanie działać dla wszystkich. Tego "
-"nie da się cofnąć."
+"Usunąć „%(title)s”? Zniknie z list wszystkich, a jej czat się zamknie. "
+"Rysunek zostanie w Little Table."
 
 #: src/ludamus/templates/whiteboard/_row.html
 msgid "Delete board"
 msgstr "Usuń tablicę"
 
-#: src/ludamus/templates/whiteboard/edit.html
-msgid "Rename board"
-msgstr "Zmień nazwę tablicy"
+#: src/ludamus/templates/whiteboard/board.html
+#: src/ludamus/templates/whiteboard/form.html
+msgid "Edit board"
+msgstr "Edytuj tablicę"
+
+#: src/ludamus/templates/whiteboard/board.html
+#, python-format
+msgid ""
+"<a href=\"%(login_url)s?next=%(next)s\" class=\"text-primary underline\">Log "
+"in</a> to talk with everyone at this board in the chat."
+msgstr ""
+"<a href=\"%(login_url)s?next=%(next)s\" class=\"text-primary "
+"underline\">Zaloguj się</a>, aby rozmawiać na czacie ze wszystkimi przy tej "
+"tablicy."
+
+#: src/ludamus/templates/whiteboard/board.html
+#, python-format
+msgid "%(title)s on Little Table"
+msgstr "%(title)s w Little Table"
+
+#: src/ludamus/templates/whiteboard/form.html
+#, python-format
+msgid ""
+"Boards run on <a href=\"%(little_table_url)s/\" target=\"_blank\" "
+"rel=\"noopener noreferrer\" class=\"text-primary underline\">Little Table</"
+"a>, a shared whiteboard with dice. Start a board there, then paste its link "
+"here. Everyone you share the board with sees it next to the chat."
+msgstr ""
+"Tablice działają w <a href=\"%(little_table_url)s/\" target=\"_blank\" "
+"rel=\"noopener noreferrer\" class=\"text-primary underline\">Little Table</"
+"a>, wspólnej tablicy z kośćmi. Załóż tam tablicę, a potem wklej tu jej link. "
+"Każdy, komu ją udostępnisz, zobaczy ją obok czatu."
+
+#: src/ludamus/templates/whiteboard/form.html
+msgid "Save board"
+msgstr "Zapisz tablicę"
 
 #: src/ludamus/templates/whiteboard/index.html
 msgid "No boards yet"
@@ -16907,11 +16943,66 @@ msgstr "Nie masz jeszcze tablic"
 
 #: src/ludamus/templates/whiteboard/index.html
 msgid ""
-"Start a board, share its link, and everyone draws and rolls dice on it "
-"together. Boards you join show up here too."
+"Add a Little Table board and share its link: everyone draws and rolls dice "
+"on it, with the chat beside it. Boards you open show up here too."
 msgstr ""
-"Załóż tablicę i udostępnij jej link, a wszyscy razem będą na niej rysować i "
-"rzucać kośćmi. Tu pojawią się też tablice, do których dołączysz."
+"Dodaj tablicę z Little Table i udostępnij jej link: wszyscy rysują na niej i "
+"rzucają kośćmi, a obok jest czat. Tu pojawią się też tablice, które "
+"otworzysz."
+
+#~ msgid ""
+#~ "A chat for everyone at this board. Say hello to everyone.Czat dla "
+#~ "wszystkich zapisanych na to spotkanie. Przywitaj się ze wszystkimi."
+#~ msgstr "Czat dla wszystkich przy tej tablicy. Przywitaj się ze wszystkimi."
+
+#, python-format
+#~ msgid ""
+#~ "<a href=\"%(login_url)s?next=%(next)s\" class=\"text-primary "
+#~ "underline\">Log in</a> to talk with everyone at this board in the "
+#~ "chat.Konto nie jest potrzebne. <a href=\"%(login_url)s?next=%(next)s\" "
+#~ "class=\"underline underline-offset-4\">Zaloguj się</a> najpierw, a bilety "
+#~ "trafią na twoje konto."
+#~ msgstr ""
+#~ "<a href=\"%(login_url)s?next=%(next)s\" class=\"text-primary "
+#~ "underline\">Zaloguj się</a>, aby rozmawiać na czacie ze wszystkimi przy "
+#~ "tej tablicy."
+
+#, python-format
+#~ msgid "Board %(date)s"
+#~ msgstr "Tablica %(date)s"
+
+#~ msgid "The board has a new link. The old one no longer opens it."
+#~ msgstr "Tablica ma nowy link. Stary już jej nie otwiera."
+
+#~ msgid "Board deleted. Anyone still on it can keep drawing until they leave."
+#~ msgstr ""
+#~ "Usunięto tablicę. Osoby, które są na niej teraz, mogą rysować, dopóki z "
+#~ "niej nie wyjdą."
+
+#~ msgid "Reset link"
+#~ msgstr "Wygeneruj nowy link"
+
+#~ msgid "Guests with the old link drop off"
+#~ msgstr "Goście ze starym linkiem tracą dostęp"
+
+#, python-format
+#~ msgid ""
+#~ "Give “%(title)s” a new link? The old link stops working, and guests who "
+#~ "came by it drop off the board."
+#~ msgstr ""
+#~ "Wygenerować nowy link do tablicy „%(title)s”? Stary link przestanie "
+#~ "działać, a goście, którzy przez niego weszli, stracą dostęp do tablicy."
+
+#, python-format
+#~ msgid ""
+#~ "Delete “%(title)s”? Its link stops working for everyone. This cannot be "
+#~ "undone."
+#~ msgstr ""
+#~ "Usunąć tablicę „%(title)s”? Jej link przestanie działać dla wszystkich. "
+#~ "Tego nie da się cofnąć."
+
+#~ msgid "Rename board"
+#~ msgstr "Zmień nazwę tablicy"
 
 #~ msgid "There is already a session scheduled at this space and time."
 #~ msgstr ""
@@ -17238,9 +17329,6 @@ msgstr ""
 #~ "Zalogowane osoby mogą rozmawiać w pokoju całej sfery i w pokojach punktów "
 #~ "programu, w których biorą udział."
 
-#~ msgid "Give the party a name."
-#~ msgstr "Nadaj drużynie nazwę."
-
 #~ msgid "Create Encounter"
 #~ msgstr "Utwórz spotkanie"
 
@@ -17367,9 +17455,6 @@ msgstr ""
 
 #~ msgid "Images are coming soon."
 #~ msgstr "Dodawanie obrazów już wkrótce."
-
-#~ msgid "Join the board"
-#~ msgstr "Dołącz do tablicy"
 
 #~ msgid "The board's link was reset. Ask its creator for the new one."
 #~ msgstr ""

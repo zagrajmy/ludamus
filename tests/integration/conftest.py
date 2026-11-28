@@ -355,6 +355,7 @@ class BoardFactory(DjangoModelFactory):
     creator = SubFactory(UserFactory)
     title = Faker("sentence", nb_words=3)
     share_code = Sequence(lambda n: f"board{n:07d}")
+    room_code = Sequence(lambda n: f"room{n}")
 
 
 class ListingFactory(DjangoModelFactory):

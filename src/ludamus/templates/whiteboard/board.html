@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {{ board.title }}
+{% endblock title %}
+{% block parley_room %}{% if board.chat_id %}conversation:{{ board.chat_id }}{% endif %}{% endblock parley_room %}
+{% block header_section %}
+    {% get_current_language as LANGUAGE_CODE %}
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 class="min-w-0 break-words text-xl font-semibold text-foreground">{{ board.title }}</h1>
+        <div class="flex flex-wrap gap-2">
+            {% if board.is_owner %}
+                {% url 'web:boards:edit' pk=board.pk as edit_url %}
+                {% translate "Edit board" as t_edit %}
+                {% tessera_button t_edit href=edit_url variant="secondary" icon="pencil-square" full_width_mobile=False %}
+            {% endif %}
+            {% translate "Open in a new tab" as t_open %}
+            {% tessera_button t_open href=board.room_url|add:"?lang="|add:LANGUAGE_CODE variant="secondary" icon="arrow-top-right-on-square" target="_blank" rel="noopener noreferrer" full_width_mobile=False %}
+        </div>
+    </div>
+    {% if not current_user %}
+        {% url 'web:crowd:auth0:login' as login_url %}
+        <p class="mb-4 text-sm text-foreground-secondary">
+            {% blocktranslate trimmed with next=request.path|urlencode %}
+                <a href="{{ login_url }}?next={{ next }}"
+                   class="text-primary underline">Log in</a> to talk with everyone at this board in the chat.
+            {% endblocktranslate %}
+        </p>
+    {% endif %}
+{% endblock header_section %}
+{% block body %}
+    {% get_current_language as LANGUAGE_CODE %}
+    {% comment %}SAFETY: the sandbox leaves out allow-top-navigation, so Little
+    Table cannot move this window, and allow-forms, which it has no use for.
+    allow-same-origin keeps its own storage and socket working on its origin.
+    referrerpolicy keeps the board's link, which opens this page, from Little
+    Table.{% endcomment %}
+    <iframe src="{{ board.room_url }}?lang={{ LANGUAGE_CODE }}"
+            title="{% blocktranslate with title=board.title %}{{ title }} on Little Table{% endblocktranslate %}"
+            sandbox="allow-scripts allow-same-origin allow-popups"
+            allow="clipboard-write"
+            referrerpolicy="no-referrer"
+            class="w-full grow min-h-[70dvh] rounded-lg border border-border bg-bg-secondary"></iframe>
+{% endblock body %}

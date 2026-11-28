@@ -49,11 +49,10 @@ class TestBoardsPageView:
             HTTPStatus.OK,
             template_name="whiteboard/index.html",
             context_data={
-                "board_origin": "http://localhost:8788",
                 "boards": [
                     _item(visited, is_owner=False, opened_at=opened_at),
                     _item(created, is_owner=True, opened_at=created.creation_time),
-                ],
+                ]
             },
         )
 
@@ -66,55 +65,12 @@ class TestBoardsPageView:
             response,
             HTTPStatus.OK,
             template_name="whiteboard/index.html",
-            context_data={"board_origin": "http://localhost:8788", "boards": []},
+            context_data={"boards": []},
         )
 
-    def test_unavailable_without_a_signing_key(self, authenticated_client, settings):
-        settings.PARLEY_SIGNING_PRIVATE_KEY = ""
-
-        assert_response_404(authenticated_client.get(URL))
-
-    def test_unavailable_without_a_worker(self, client, board_settings):
+    def test_unavailable_without_little_table(self, client, board_settings):
         # NOTE: the 404 comes before the login redirect, which would leak
         # that the page exists.
-        board_settings.BOARD_HOST = ""
+        board_settings.LITTLE_TABLE_URL = ""
 
         assert_response_404(client.get(URL))
-
-
-class TestNewBoardFormAction:
-    # Browsers apply the page's form-action to the redirect that follows
-    # "New board", which lands on the board app's origin.
-    def test_page_lets_its_form_end_on_the_board_app(
-        self, authenticated_client, settings
-    ):
-        settings.SECURE_CSP = {"default-src": ["'none'"], "form-action": ["'self'"]}
-
-        response = authenticated_client.get(URL)
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="whiteboard/index.html",
-            context_data={"board_origin": "http://localhost:8788", "boards": []},
-            headers={
-                "Content-Security-Policy": (
-                    "default-src 'none'; form-action 'self' http://localhost:8788"
-                )
-            },
-        )
-
-    def test_policy_without_form_action_is_left_alone(
-        self, authenticated_client, settings
-    ):
-        settings.SECURE_CSP = {"default-src": ["'self'"]}
-
-        response = authenticated_client.get(URL)
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="whiteboard/index.html",
-            context_data={"board_origin": "http://localhost:8788", "boards": []},
-            headers={"Content-Security-Policy": "default-src 'self'"},
-        )

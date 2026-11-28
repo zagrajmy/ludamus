@@ -1,417 +1,161 @@
-# RFC 0003 — Board (tablica): a whiteboard with dice
+# RFC 0003 — Board (tablica): Little Table in a frame, our chat beside it
 
-**Status:** 🟡 draft, from an interview with the maintainer (2026-11-12)
-**Adds:** a shared whiteboard for playing roleplaying games online
-**Touches:** a new Worker (`workers/board`), a new React entry in
-`src/ludamus/client`, a small Django slice (board records, pages, pass signing)
+**Status:** 🟡 draft. First written 2026-11-12 as "a tldraw tabletop with
+dice"; reworked 2026-11-28 to embed Little Table instead of hosting tldraw.
+**Adds:** a list of boards per sphere, a board page that frames a Little
+Table room, and a Parley chat for each board
+**Touches:** a small Django slice (board records, pages, a board chat kind),
+Parley's conversation kinds, the page CSP
 
 The feature is called the **board** (Polish: *tablica*). It is a vertical
 thing that a group looks at together, like a pinboard, not a table.
 
 ## TL;DR
 
-The maintainer's group plays indie roleplaying games on plain tldraw
-whiteboards and prefers that to Roll20. The first version is therefore
-**tldraw with dice on it**, hosted inside Zagrajmy:
+The maintainer's group plays indie roleplaying games on plain whiteboards
+and prefers that to Roll20. That whiteboard now exists on its own:
+**Little Table** (<https://littletable.top>), a tldraw whiteboard with dice
+rolls, search over text in images and secret layers, which describes itself
+as "a virtual tabletop without bloat".
 
-- A signed-in Zagrajmy user creates a board. Anyone with the link joins,
-  with or without an account.
-- The board is a multiplayer tldraw canvas. Character sheets, handouts and
-  maps are images on the canvas, and people draw on them.
-- 3D dice roll over the canvas. Everyone sees the same result, and the
-  server picks it.
-- Shared **places** let everyone jump to a sheet or a handout with one tap.
-- It works on a phone first.
+Zagrajmy does not host a whiteboard. It keeps what only it can do, and
+links to Little Table for the rest:
 
-Everything else (the game master's private layer, PDF import, tokens,
-clocks, cards, links to encounters,
-parties and Parley chat) comes in later slices and only if play shows the
-need.
+- A signed-in user **adds** a board to their sphere: a name and the link of
+  a Little Table room (`https://littletable.top/b/<code>`).
+- The board's page, `/b/<share_code>/`, shows the room in an `<iframe>`,
+  with an "Open in a new tab" link beside it.
+- Everyone signed in who opens the page joins the board's **Parley chat**,
+  Zagrajmy's own, which opens from the chat button on that page.
+- **My boards** lists the boards a person added or opened on the sphere.
+
+## Why the change: tldraw's licence
+
+The first version (PR #1847) bundled the tldraw SDK into a Worker of our own
+(`workers/board`), served it from `board.<ROOT_DOMAIN>`, and signed passes
+for its rooms. tldraw is source-available, not open source. Its licence asks
+for a key per deployment and domain, and the free hobby key is granted for
+non-commercial projects at tldraw's discretion. Zagrajmy is AGPL-3.0, and
+anyone who self-hosts it would have shipped tldraw with no key of their own.
+
+Little Table carries its own tldraw licence on its own domain. When we embed
+it, Zagrajmy neither bundles, builds nor serves any tldraw code, so the
+licence question leaves this repository. What went:
+
+- `workers/board/` (the Worker, its Durable Object rooms, its React client,
+  dice, places and tests), its npm dependencies (tldraw, the dice libraries)
+  and `.github/workflows/deploy-board.yml`, with its CI and deploy jobs.
+- Django's pass signing for the board (`BoardPassClaims`,
+  `BoardDeletionClaims`, the bootstrap endpoint, the throttle, guest names
+  in the session), the Worker client that wiped rooms, `BOARD_HOST`, the
+  link version and the "Reset link" action.
 
 ## Why not Roll20
 
-Roll20 and similar tools assume one kind of game: a game master, a battle
-map, initiative, hit points and line of sight. Indie games need none of
-these, and many have no game master. The tools also need setup before play
-(campaigns, accounts, pages, layers), their sheets are forms tied to one
-rule system, and they are weak as whiteboards and on phones.
-
-The product principle that follows:
+Unchanged from the first draft. Roll20 and similar tools assume one kind of
+game: a game master, a battle map, initiative, hit points and line of sight.
+Indie games need none of these.
 
 > The board never knows which game you play. It gives the group a surface
 > and a few physical-feeling objects, as a real table does.
 
-Consequences:
+Little Table follows that principle. Zagrajmy adds no rules on top.
 
-- No rules engine, no form-based sheets, no initiative, no hit points.
-- A sheet is not a hidden form. It is an image on the canvas like any
-  handout, and everyone sees it.
-- A game master is optional, and a board works with none. A game master
-  has one extra power: a private layer that the players do not see (phase 2).
-- No voice, video, marketplace, compendium or dynamic lighting.
-
-## The first version in detail
+## How it works
 
 ### Boards and people
 
-- **Create:** only a signed-in user, inside a sphere. Creation is one
-  action with no form. The title defaults to a generated name and is
-  editable in place later.
-- **Join:** the link is `/b/<share_code>/`, the same shape as the encounter
-  link `/e/<share_code>/`. A signed-in user enters directly. A guest types
-  a display name once, and the browser remembers it.
-- **Rights:** everyone at the board can draw, move things, upload images
-  and roll dice. Guests cannot create or delete boards.
-- **Housekeeping:** the creator can rename the board, remove a person,
-  reset the link (which removes every guest), and delete the board.
-- **My boards:** a signed-in user sees a list of boards they created or
-  joined.
+- **Add:** only a signed-in user, inside a sphere. The form asks for a
+  name and a Little Table link. A link that is not
+  `<LITTLE_TABLE_URL>/b/<code>` is refused with an example of the right
+  shape. Only the room's code is stored.
+- **Open:** `/b/<share_code>/`, the same shape as the encounter link
+  `/e/<share_code>/`, scoped to the sphere it was added on. The link is the
+  capability, as with an encounter. A guest sees the frame and a line
+  asking them to log in for the chat.
+- **Chat:** a Parley conversation of kind `board`, owned by the board as an
+  encounter owns its chat. Its people are the creator and everyone signed in
+  who opened the page, narrowed by the same rules as party and encounter
+  chats (two people at least, and a lone pair must be allowed direct
+  messages). It follows the sphere's chat switch. Nobody leaves or renames
+  it by hand.
+- **Housekeeping:** the creator edits the name or the room link and
+  deletes the board. Deleting takes it off every list and empties its chat.
+  The chat's record stays for any report made in it. The drawing stays on
+  Little Table, which owns it.
 
-A board is its own record. It does not belong to an encounter, a session
-or a party. Later slices link those to a board, never the reverse.
+### The frame
 
-### Canvas
-
-The canvas is the stock tldraw editor with multiplayer sync. tldraw already
-has the parts the group uses: images, drawing on top of images, text,
-locking a shape, and a grid mode that snaps shapes to a square grid. The
-first version adds no custom shapes.
-
-### Places
-
-A board gets large, and a phone screen is small. A **place** (Polish:
-*miejsce*) is a named spot on the board that anyone can jump to.
-
-- Any shape can become a place: select it, choose "Add to places", and
-  type a name. Examples: "Ania's sheet", "Basic moves", "The map".
-- To mark an area, draw a tldraw frame around it and make the frame a
-  place.
-- Places are shared. The whole group sees one list, so a game master can
-  prepare places for the players before the game.
-- The list opens from the bottom bar. One tap moves the view to the place
-  and zooms to fit it.
-- A place follows its shape when the shape moves, and it goes away when
-  the shape is deleted.
-- Each person can star one place as "mine". A starred place sits first in
-  that person's list. The star is the only private part.
-
-The name is "places" and not "bookmarks" for two reasons. tldraw already
-calls its link-preview shape a bookmark, and Zagrajmy already has session
-bookmarks.
-
-A place is stored as a name in the shape's own metadata. tldraw sync
-carries it like any other shape property, so places need no server work.
-
-### Dice
-
-- A dice button sits in the thumb zone. It opens a tray: tap dice to build
-  a pool (d4, d6, d8, d10, d12, d20, d100), then roll. One tap repeats the
-  last pool.
-- The dice tumble over the whole canvas on every connected screen and stay
-  until the next roll or a tap.
-- A roll log keeps who rolled, the pool, each die and the total. It
-  survives a reload.
-- The board does not interpret a roll. It shows the dice and the sum, and
-  the group reads them by the rules of its game.
-- People who prefer reduced motion get the result without the animation.
-
-### Phone first
-
-The phone is the primary design target. Every screen is designed at phone
-width first and tested there first, and the desktop view is the adaptation.
-
-- The canvas fills the screen. One bottom bar holds dice, roll log and
-  people. Each opens as a sheet that slides up over the canvas.
-- Every control is reachable with one thumb and is at least 44 px.
-- A whole game is playable from a phone: create a board, share the link
-  through the phone's share menu, add a sheet from the camera or the photo
-  library, draw on it, and roll.
-- The page is fast on a mobile connection. The board page loads tldraw and
-  the dice code only, and the dice code loads after the canvas is usable.
-- The desktop view puts the same controls in a side rail.
-
-## The private layer (phase 2)
-
-A game master can keep things on the board that the players do not see:
-notes on a map, a monster's sheet, the next handout.
-
-- **Who is a game master.** The creator of a board can turn on "I am the
-  game master" and can give the same role to other people. A board with
-  no game master has no private layer.
-- **Two layers, one switch.** The board has a public layer and a private
-  layer above it. A game master switches between them with one control in
-  the bar. Hiding is never an action on a single object.
-- **The switch is visible.** On the private layer the whole canvas changes:
-  a coloured edge around the screen and a label, "Private layer. Players
-  do not see this." A game master cannot mistake one layer for the other.
-- **Working on the private layer.** Everything a game master draws, types
-  or drops there belongs to the private layer. The public layer stays
-  visible underneath, dimmed and not selectable, so a private note sits
-  exactly where it belongs on the map.
-- **Working on the public layer.** A game master sees private things as
-  faint ghosts that cannot be selected. Players see nothing of them.
-- **Reveal.** A game master selects things on the private layer and
-  chooses "Move to the board". "Move to the private layer" does the
-  reverse.
-- **Places.** A place on the private layer appears only in a game master's
-  list. It appears for the players when its shape moves to the board.
-
-### How secret is it
-
-The private layer is a **screen**, not a vault (decided 2026-11-12). Every
-device receives every shape, and a player's client does not draw the
-private ones. This is like a cardboard game master's screen: it stops
-looking, not a determined player who opens the browser's developer tools.
-
-Each shape records its layer in its own metadata, and tldraw draws or
-skips a shape per client. The server refuses a write to a private shape
-from a person who is not a game master.
-
-A vault, where private shapes never reach a player's device, would need a
-second document or a filter in the sync server. It is the same problem as
-private hands of cards and waits until cards need it.
-
-## Architecture
-
-**Decided 2026-11-22: the board is its own application on its own
-subdomain, and Django stays the owner of accounts and board records.**
-The first build mounted the board page inside Django. This section's
-diagram and the "Client" paragraph below describe that first build. The
-move is phase 1b in the plan.
-
-Why the page moves out of Django:
-
-- A tldraw licence key is tied to domains. One fixed domain is simple to
-  license. Every sphere domain, custom domains included, is not.
-- The board gets a security policy of its own. It can allow WebAssembly
-  for dice physics while the main site's policy stays strict.
-- The board deploys alone with Alchemy. Its 700 KB of scripts leave the
-  Django build, and a broken board release cannot break the main site.
-- tldraw is not open source. A separate application keeps it out of what
-  a self-hoster of Zagrajmy runs.
-- On its own origin the board can be added to a phone's home screen.
-
-Why it is not fully independent: the shared sign-in, parties, Parley and
-encounters all live in Django. A second copy of users and boards would
-need a sync, and that is where bugs come from.
-
-The shape after the move:
-
-- The board Worker serves the React application as static assets and
-  runs the rooms. The client code lives in the Worker's package.
-- Django keeps the `Board` records, "My boards", the create action and the
-  pass endpoint. The old page at `/b/<code>/` redirects to the board's
-  domain.
-- The board application asks Django for a pass across origins. The two
-  hosts are the same site, so the browser sends the session cookie.
-- The board application carries its own Polish and English texts.
-
-The board follows Parley's shape: Django renders the page and signs a
-pass, a React island runs in the page, and a Worker with Durable Objects
-holds the live state.
-
-```text
-browser ── GET /b/<code>/ ──────────────▶ Django (page, pass, board record)
-   │
-   ├── WebSocket  /rooms/<board id> ────▶ Worker ─▶ Durable Object (one per board)
-   ├── POST       /rooms/<board id>/roll ▶ Worker ─▶   tldraw sync room + roll log
-   └── PUT / GET  /assets/<key> ─────────▶ Worker ─▶ R2 bucket (images)
+```html
+<iframe src="<LITTLE_TABLE_URL>/b/<code>?lang=<pl|en>"
+        title="<board name> on Little Table"
+        sandbox="allow-scripts allow-same-origin allow-popups"
+        allow="clipboard-write"
+        referrerpolicy="no-referrer">
 ```
 
-### Django slice
+- `sandbox` leaves out `allow-top-navigation` (the room cannot move our
+  window) and `allow-forms` (Little Table's own policy is
+  `form-action 'none'`). `allow-same-origin` keeps its storage and
+  WebSocket working on its own origin.
+- `referrerpolicy="no-referrer"` keeps the board's share link, which opens
+  our page, away from Little Table.
+- The board page's CSP adds `frame-src <LITTLE_TABLE_URL>` for that
+  response only, as the external tool page does.
+- `?lang=` opens Little Table in the reader's language. It knows `en` and
+  `pl`.
 
-- **Model `Board`:** sphere, creator, title, share code, link version,
-  created time. A second small table records which users joined, for the
-  "my boards" list.
-- **Layers:** DTOs and protocols in `pacts`, `BoardService` in `mills`, the
-  repository in `links`, views in `gates/web/django/board/`. Views call
-  `request.services.boards`.
-- **Pages:** the board page (public, full screen), the "my boards" list
-  and the create action (signed-in).
-- **Pass:** a bootstrap endpoint returns a short-lived signed token, as
-  `parley_bootstrap` does. Claims: board id, link version, a person id
-  (user id, or a random guest id kept in the Django session), display
-  name, and whether the person is the creator. The token uses its own
-  audience, so a Parley pass cannot open a board and the reverse.
-- **Feature switch:** the feature is off when the Worker host or the
-  tldraw licence key is not configured, as `PARLEY_AVAILABLE` works today.
+### Configuration
 
-### Worker (`workers/board`)
+`LITTLE_TABLE_URL` (default `https://littletable.top`) names the origin.
+Empty turns every board route into a 404. A self-hoster can point it at
+their own Little Table, and the stored codes keep working.
 
-Same toolchain as `workers/parley`: TypeScript, `wrangler.json` for the
-runtime, Alchemy for deploys, Vitest with the Workers pool, varlock for
-inputs.
+## What we know about Little Table, and what we assumed
 
-- **`BoardRoom` Durable Object, SQLite storage, one per board.** It wraps
-  tldraw's `TLSocketRoom` from `@tldraw/sync-core` and persists the
-  document in the object's SQLite storage.
-- **Roll endpoint.** The object draws each die with
-  `crypto.getRandomValues`, stores the roll in a `rolls` table, and sends
-  it to every connection as a tldraw sync custom message. Rolls are not
-  part of the tldraw document, so nobody can edit a result.
-- **Assets.** Uploads go to an R2 bucket under an unguessable key scoped to
-  the board. The Worker checks the pass, the content type (images only in
-  the first version) and a size limit.
-- **Limits.** A cap on connections per board, on upload size, on stored
-  bytes per board, and a rate limit on rolls and uploads per person.
-- **Reset and delete.** Django calls the Worker with a signed request when
-  the creator resets the link or deletes the board. The object drops
-  connections with an older link version, or deletes its storage and its
-  R2 objects.
-- **Logs.** One wide event per connection, roll, upload and refusal, with
-  board id and person kind (member or guest), never the display name.
+Read off <https://littletable.top> on 2026-11-28: its landing page, its web
+app manifest ("A shared whiteboard with dice, for games at the table and
+online") and its client bundle.
 
-### Client (`src/ludamus/client/src/board/`)
-
-A new entry in the existing Vite build, loaded only by the board page.
-
-- `<Tldraw>` with `useSync` from `@tldraw/sync`, an asset store that
-  uploads to the Worker, and the user's name and colour from the pass.
-- A dice layer: a full-screen transparent canvas above tldraw that ignores
-  pointer events. Each client plays its own animation and lands the dice on
-  the values the server sent. The animations differ between screens. The
-  results do not.
-- The bottom bar, dice tray, roll log and people list, built with Tailwind
-  and the copy passed from Django for Polish and English, as Parley does.
-
-## Risks and gates
-
-These are checked before the build starts (phase 0).
-
-1. **tldraw licence.** The SDK does not run in production without a key.
-   The free hobby licence is for non-commercial projects and tldraw grants
-   it at its discretion. Zagrajmy earns money elsewhere, so the answer is
-   uncertain. The commercial price is not published. Action: apply for the
-   hobby licence now and describe the project honestly. See O-2 for the
-   fallback.
-2. **Licence mix.** This repository is AGPL-3.0. tldraw is source-available
-   and not open source. Someone who self-hosts Zagrajmy needs their own
-   tldraw key, and the feature stays off without it. Whether an AGPL
-   project may depend on the SDK at all needs a short check of both licence
-   texts. This is not legal advice.
-3. **3D dice on phones.** The dice library must accept results chosen by
-   the server, run well on a mid-range phone, and pass the site's
-   Content-Security-Policy (WebAssembly and blob workers need explicit
-   allowances). Candidates: `@3d-dice/dice-box-threejs` and
-   `@3d-dice/dice-box`. A one-day spike decides.
-4. **Abuse by anonymous guests.** A public link lets anyone upload images
-   to our storage. The limits above, the link reset and the per-board byte
-   cap contain it. Image uploads stay behind the pass.
-5. **Sphere on a custom domain.** Parley keeps its pass in a
-   `SameSite=Strict` cookie, which a custom domain cannot send. The
-   board sends the pass on the WebSocket request instead, so a board
-   works on every sphere domain.
-6. **API drift.** The plan assumes current tldraw sync APIs
-   (`TLSocketRoom`, SQLite storage for Durable Objects, custom messages,
-   `useSync`). Phase 0 confirms them against the installed version.
+- Rooms are `https://littletable.top/b/<code>`, and `/boards` lists your own.
+  `?lang=en|pl` picks the language.
+- Its client also has a "hosted" mode, with a bootstrap URL that has a
+  `{code}` placeholder and an exit link, so a host can sign people in. The
+  public deployment runs without it. We do not use it.
+- **It does not allow framing yet.** Every page answers with
+  `X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors
+  'none'`. Until Little Table lists Zagrajmy's domains in `frame-ancestors`
+  (and drops `X-Frame-Options`), the frame stays blank and "Open in a new
+  tab" is the way in. This is the main open item below.
+- Assumed: room codes are `[A-Za-z0-9_-]{1,64}`. Little Table publishes no
+  API for creating rooms, so a board's room is made on Little Table and
+  pasted here.
 
 ## Plan
 
-Each phase ends with something a group can play on.
-
-### Phase 0 — gates (about 2 days)
-
-Progress, 2026-11-12:
-
-- Done: tldraw sync 5.6 runs in a Durable Object with SQLite storage. A
-  desktop browser and a phone-sized browser drew on the same board and
-  received the same server roll.
-- Decided: development starts without a licence key. The maintainer
-  applies for the hobby licence before the first production deploy.
-- Open: the 3D dice spike, and the licence texts.
-
-- Apply for the tldraw licence. Read both licence texts for the AGPL
-  question.
-- Spike: tldraw sync in a Durable Object with SQLite storage, opened from
-  two browsers.
-- Spike: 3D dice with server-chosen values on a phone, under the site's
-  Content-Security-Policy.
-- Decide O-1 to O-4.
-
-### Phase 1 — tldraw with dice (the first version)
-
-1. (Done, with the roll endpoint of step 5.) Worker skeleton:
-   `workers/board` copied from Parley's toolchain,
-   pass verification, the `BoardRoom` object, sync over WebSocket. Vitest:
-   a valid pass connects; a wrong audience, an expired pass and an old
-   link version are refused.
-2. Django slice: `Board` model with a reversible migration, service,
-   repository, bootstrap endpoint, create action, board page, guest name
-   step. Python tests: a guest cannot create; a foreign board id returns
-   404; resetting the link changes the version.
-3. Client: the tldraw island with sync, presence names, phone layout,
-   places.
-4. Assets: R2 bucket, upload and download routes, limits.
-5. Dice: roll endpoint, roll log storage, custom message, dice layer,
-   tray, log, reduced-motion path.
-6. Housekeeping: rename, remove a person, reset link, delete, "my
-   boards" list.
-7. Delivery: Alchemy stack with staging and production stages, a deploy
-   workflow beside `deploy-parley.yml`, CSP entries, `mise run start`
-   wiring, strings in both languages.
-8. End-to-end test with Playwright and two browser contexts, one signed
-   in and one guest, at a phone viewport: create a board, join by link,
-   draw a shape in one and see it in the other, roll dice in one and read
-   the same result in both logs, add a place in one and jump to it from the other,
-   reset the link and see the guest removed.
-   The run saves screenshots of both screens as its artifact.
-
-### Phase 1b — the board moves to its own subdomain
-
-Progress, 2026-11-22: built; the first deploy waits on DNS and the tldraw
-licence key (`workers/board/README.md`, "Deployment"). The board answers
-at `board.<ROOT_DOMAIN>`; `vtt.`, `tabletop.` and `tablica.` redirect to it.
-The pass request goes to the root domain and finds the board by its share
-code alone, whatever its sphere.
-
-1. The Worker serves the client as static assets, with its own strict
-   security policy, a web app manifest and the tldraw licence key.
-2. The client moves from `src/ludamus/client/src/board/` into
-   `workers/board`, with its own Vite build and its own texts.
-3. Django's pass endpoint answers the board's origin, with tests for
-   every origin it must refuse.
-4. Django's board page becomes a redirect. The Vite entry, the tldraw
-   packages and the copy module leave the Django build.
-5. An Alchemy stack deploys the Worker with its domain, as Parley's does.
-6. The end-to-end test runs against the new shape.
-
-### Phase 2 — private layer, paper and pieces
-
-- The private layer, as described in "The private layer" above.
-- Drop a PDF: each page becomes a locked image on the canvas.
-- Tokens: an image cropped to a circle that snaps to the grid. Hex grid.
-- Clocks (a segmented circle that fills on tap) and counters.
-
-### Phase 3 — Zagrajmy links
-
-- An encounter can carry a board. Its page shows "Open the board".
-- A party can open a board, and the people list shows its members.
-- The Parley conversation of the encounter or party opens from the
-  bottom bar.
-
-### Later, only on demand
-
-- Cards and decks with private hands. This needs per-person visibility,
-  which plain tldraw sync does not have, so it is a design of its own.
-- An anonymous safety button (X-card).
+1. Done (this branch): the Django slice, the `board` chat kind, the frame
+   with its CSP, the e2e spec, and the removal of `workers/board`.
+2. Little Table allows framing from `zagrajmy.net`, its subdomains and
+   staging, and sphere custom domains, if they should get it.
+3. Later, only on demand: an encounter or a party carries a board; creating
+   the Little Table room from Zagrajmy in one step, if Little Table offers an
+   API for it.
 
 ## Open questions
 
-- **O-2 Licence fallback.** If tldraw refuses the hobby licence: pay for a
-  commercial licence, or change to an open-source canvas (Excalidraw is
-  MIT)? The dice, the pass and the Django slice do not depend on tldraw,
-  so about half of phase 1 survives a change.
-- **O-3 Retention.** Default proposal: a board lives until its creator
-  deletes it, and a board nobody opened for 12 months is deleted after an
-  e-mail to the creator.
-- **O-4 Guest uploads.** Default proposal: guests may upload images,
-  because players bring their own sheets. The creator can turn it off per
-  board.
-- **O-5 Party.** What should a party's board do beyond listing members and
-  opening the party chat?
+- **O-1 Framing.** Little Table answers `frame-ancestors 'none'`. Which
+  origins should it allow, and do sphere custom domains count?
+- **O-2 Who may open a board.** The share link opens the page for anyone,
+  but the Little Table link it frames is visible to whoever opens it. A
+  board cannot be closed to someone once they have seen the room's link. Is
+  that enough, or should the page require sign-in?
+- **O-3 Hosted mode.** Little Table's hosted mode could take Zagrajmy's
+  sign-in (names, owners) into the room. Do we want that coupling back?
+- **O-4 Retention.** Boards live until their creator deletes them. A board
+  nobody opened for 12 months could go after an e-mail to its creator.
 
 ## Non-goals
 
-Rules automation, form-based character sheets, initiative and hit points,
-fog of war that follows tokens, voice and video, a content marketplace, and
-charging money for the board.
+Hosting or bundling a whiteboard, rules automation, form-based character
+sheets, initiative and hit points, voice and video, a content marketplace,
+and charging money for the board.

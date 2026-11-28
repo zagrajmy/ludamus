@@ -666,10 +666,13 @@ def test_a_message_the_room_lacks_or_ones_own_takes_no_report(answer):
 
 
 class FakeChatSpheres:
-    def __init__(self, *, event_spheres=None, chat_spheres=(), encounters=None):
+    def __init__(
+        self, *, event_spheres=None, chat_spheres=(), encounters=None, boards=None
+    ):
         self._event_spheres = event_spheres or {}
         self._chat_spheres = list(chat_spheres)
         self._encounters = encounters or {}
+        self._boards = boards or {}
 
     def read_event_sphere_id(self, event_id):
         return self._event_spheres.get(event_id)
@@ -679,6 +682,9 @@ class FakeChatSpheres:
 
     def list_encounters_with_people(self, sphere_id):
         return self._encounters.get(sphere_id, [])
+
+    def list_board_ids(self, sphere_id):
+        return self._boards.get(sphere_id, [])
 
 
 class FakeOutbox:
@@ -728,6 +734,7 @@ def _revocations(repository, conversations=()):
         memberships=FakeMemberships(),
         party_chats=FakeOwnedChats(),
         encounter_chats=FakeOwnedChats(),
+        board_chats=FakeOwnedChats(),
     )
     return service, outbox
 
@@ -757,7 +764,7 @@ def test_a_disabled_account_or_an_age_change_resyncs_its_conversations_and_parti
     change,
 ):
     memberships, party_chats = FakeMemberships(), FakeOwnedChats()
-    encounter_chats = FakeOwnedChats()
+    encounter_chats, board_chats = FakeOwnedChats(), FakeOwnedChats()
     service = ParleyRevocationService(
         repository=FakeChatSpheres(),
         outbox=FakeOutbox(),
@@ -765,6 +772,7 @@ def test_a_disabled_account_or_an_age_change_resyncs_its_conversations_and_parti
         memberships=memberships,
         party_chats=party_chats,
         encounter_chats=encounter_chats,
+        board_chats=board_chats,
     )
 
     getattr(service, change)(user_id=123)
@@ -772,6 +780,7 @@ def test_a_disabled_account_or_an_age_change_resyncs_its_conversations_and_parti
     assert memberships.synced == [8, 9]
     assert party_chats.synced == [123]
     assert encounter_chats.synced == [123]
+    assert board_chats.synced == [123]
 
 
 def test_turning_chat_off_revokes_everyone_in_the_sphere():
@@ -847,17 +856,21 @@ def test_a_reports_copy_goes_once_its_message_is_a_year_old():
     assert reports.cleared == ["a year ago to the second", "two years ago"]
 
 
-def test_switching_a_sphere_s_chat_brings_its_encounters_with_people_in_step():
-    encounter_chats = FakeOwnedChats()
+def test_switching_a_sphere_s_chat_brings_its_encounters_and_boards_in_step():
+    encounter_chats, board_chats = FakeOwnedChats(), FakeOwnedChats()
     service = ParleyRevocationService(
-        repository=FakeChatSpheres(encounters={45: [3, 8], 46: [9]}),
+        repository=FakeChatSpheres(
+            encounters={45: [3, 8], 46: [9]}, boards={45: [5], 46: [6]}
+        ),
         outbox=FakeOutbox(),
         conversations=FakeConversations([]),
         memberships=FakeMemberships(),
         party_chats=FakeOwnedChats(),
         encounter_chats=encounter_chats,
+        board_chats=board_chats,
     )
 
     service.sphere_chat_switched(sphere_id=45)
 
     assert encounter_chats.owners == [3, 8]
+    assert board_chats.owners == [5]

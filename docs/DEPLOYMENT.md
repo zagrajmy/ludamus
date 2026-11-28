@@ -209,14 +209,13 @@ Scopes: **L** = local, **D** = docker local, **P** = prod.
 - `ROOT_DOMAIN` — root domain for the site — P
 - `SESSION_COOKIE_DOMAIN` — cookie domain — P
 
-**Board** (optional, prod):
+**Board** (optional, any scope):
 
-- `BOARD_HOST` — the board app's host, default `board.<ROOT_DOMAIN>`. Django
-  redirects `/b/<code>/` there and answers its pass requests from that
-  origin alone. The board is off without `PARLEY_SIGNING_PRIVATE_KEY`. The
-  board app deploys on its own (`workers/board/README.md`) and needs the
-  session cookie's domain (`SESSION_COOKIE_DOMAIN`, `.<ROOT_DOMAIN>`) to
-  cover the root domain — P
+- `LITTLE_TABLE_URL` — where Little Table runs, default
+  `https://littletable.top`. A board's page frames `<LITTLE_TABLE_URL>/b/<code>`
+  and its policy's `frame-src` names this origin alone. Empty turns boards off.
+  Little Table has to let Zagrajmy's domains frame it (`frame-ancestors`) —
+  see `docs/rfc/0003-board.md` — L D P
 
 **Database:**
 

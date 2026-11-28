@@ -1,66 +1,38 @@
-"""Boards: who may open one, and the pass that lets them onto it."""
+"""Boards: Little Table rooms a sphere keeps a list of, each with its chat."""
 
 from __future__ import annotations
 
 import logging
 import string
-import unicodedata
-from hashlib import sha256
-from secrets import choice, token_urlsafe
+from secrets import choice
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 from ludamus.pacts.board import (
     BOARD_TITLE_MAX_LENGTH,
-    BoardBootstrapDTO,
-    BoardDeletionClaims,
-    BoardNameInvalidError,
-    BoardNameRequiredError,
-    BoardPassClaims,
-    BoardPersonDTO,
+    BoardPageDTO,
+    BoardRoomLinkInvalidError,
     BoardServiceProtocol,
-    BoardThrottledError,
     BoardTitleInvalidError,
-    BoardWorkerUnavailableError,
 )
 from ludamus.pacts.errors import NotFoundError
-from ludamus.specs.board import (
-    BOARD_BOOTSTRAP_LIMIT,
-    BOARD_BOOTSTRAP_WINDOW_SECONDS,
-    BOARD_DELETION_TOKEN_LIFETIME,
-    BOARD_NAME_MAX_LENGTH,
-    BOARD_PASS_LIFETIME,
-    BOARD_SHARE_CODE_LENGTH,
-)
+from ludamus.specs.board import BOARD_ROOM_PATH, BOARD_SHARE_CODE_LENGTH
 
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from ludamus.pacts.board import (
-        BoardDTO,
-        BoardGuestDTO,
-        BoardListItemDTO,
-        BoardRepositoryProtocol,
-        BoardRoomsProtocol,
-        BoardSignerProtocol,
-        BoardWorkerDTO,
-    )
-    from ludamus.pacts.cache import CounterProtocol
+    from ludamus.pacts.board import BoardDTO, BoardListItemDTO, BoardRepositoryProtocol
     from ludamus.pacts.ids import UserId
+    from ludamus.pacts.parley import ParleyOwnedChatProtocol
     from ludamus.pacts.services import TransactionProtocol
 
 logger = logging.getLogger(__name__)
 
 _SHARE_CODE_ALPHABET = string.ascii_letters + string.digits
-_MEMBER = "u:"
-_GUEST = "g:"
 
 
 def _new_share_code() -> str:
     return "".join(choice(_SHARE_CODE_ALPHABET) for _ in range(BOARD_SHARE_CODE_LENGTH))
-
-
-def _printable(text: str) -> bool:
-    return not any(unicodedata.category(char).startswith("C") for char in text)
 
 
 def _clean_title(title: str) -> str:
@@ -70,16 +42,30 @@ def _clean_title(title: str) -> str:
     return cleaned
 
 
-def clean_display_name(name: str) -> str:
-    """Return the name as the board shows it.
+def room_code_of(*, link: str, origin: str) -> str:
+    """Read a Little Table room's code from the link its page gives.
+
+    Only rooms on `origin` count: the frame and the page's frame-src name
+    that origin alone, so a link elsewhere would open a frame that never loads.
 
     Raises:
-        BoardNameInvalidError: when nothing printable is left, or too much.
+        BoardRoomLinkInvalidError: the link is not <origin>/b/<code>.
+
+    Returns:
+        The room's code.
     """
-    cleaned = " ".join(name.split())
-    if not cleaned or len(cleaned) > BOARD_NAME_MAX_LENGTH or not _printable(cleaned):
-        raise BoardNameInvalidError
-    return cleaned
+    try:
+        address = urlsplit(link.strip())
+    except ValueError as error:
+        raise BoardRoomLinkInvalidError from error
+    expected = urlsplit(origin)
+    same_origin = (address.scheme, address.netloc.lower()) == (
+        expected.scheme,
+        expected.netloc.lower(),
+    )
+    if not same_origin or not (match := BOARD_ROOM_PATH.fullmatch(address.path)):
+        raise BoardRoomLinkInvalidError
+    return match["code"]
 
 
 class BoardService(BoardServiceProtocol):
@@ -88,240 +74,140 @@ class BoardService(BoardServiceProtocol):
         *,
         transaction: TransactionProtocol,
         boards: BoardRepositoryProtocol,
-        signer: BoardSignerProtocol,
-        counter: CounterProtocol,
-        rooms: BoardRoomsProtocol,
-        worker: BoardWorkerDTO | None,
+        chats: ParleyOwnedChatProtocol,
+        little_table_url: str,
     ) -> None:
         self._transaction = transaction
         self._boards = boards
-        self._signer = signer
-        self._counter = counter
-        self._rooms = rooms
-        self._worker = worker
+        self._chats = chats
+        self._origin = little_table_url
 
     def available(self) -> bool:
-        return self._worker is not None
+        return bool(self._origin)
 
-    def _require_available(self) -> BoardWorkerDTO:
-        if self._worker is None:
+    def _require_available(self) -> str:
+        if not self._origin:
             raise NotFoundError
-        return self._worker
+        return self._origin
 
-    def origin(self) -> str:
-        """Where the board app runs; the only origin its passes are given to.
+    def room_url(self, room_code: str) -> str:
+        return f"{self._require_available()}/b/{room_code}"
+
+    def create(
+        self, *, sphere_id: int, user_id: UserId, title: str, room_link: str
+    ) -> BoardDTO:
+        """Keep a Little Table room on this sphere's list, and open its chat.
 
         Raises:
-            NotFoundError: no board app is configured.
-        """
-        return self._require_available().http_origin
+            BoardTitleInvalidError: the title is empty or too long.
+            BoardRoomLinkInvalidError: the link is not a Little Table room.
 
-    def create(self, *, sphere_id: int, user_id: UserId, title: str) -> BoardDTO:
-        self._require_available()
+        Returns:
+            The new board.
+        """
+        origin = self._require_available()
+        cleaned = _clean_title(title)
+        room_code = room_code_of(link=room_link, origin=origin)
         board = self._boards.create(
             sphere_id=sphere_id,
             creator_id=user_id,
-            title=_clean_title(title),
+            title=cleaned,
             share_code=_new_share_code(),
+            room_code=room_code,
         )
+        self._chats.sync(board.pk)
         logger.info(
             "Board created",
             extra={"board_id": board.pk, "sphere_id": sphere_id, "user_id": user_id},
         )
         return board
 
-    def open(self, *, share_code: str, sphere_id: int) -> BoardDTO:
-        """Find a board of this sphere by its link, for the sphere's old address."""
-        self._require_available()
-        return self._boards.read_by_share_code(
-            share_code=share_code, sphere_id=sphere_id
-        )
+    def open(
+        self, *, share_code: str, sphere_id: int, user_id: UserId | None, now: datetime
+    ) -> BoardPageDTO:
+        """Find a board of this sphere by its link, for whoever holds it.
 
-    def bootstrap(
-        self,
-        *,
-        share_code: str,
-        user_id: UserId | None,
-        guest: BoardGuestDTO,
-        requested_name: str | None,
-        client_ip: str,
-        now: datetime,
-    ) -> BoardBootstrapDTO:
-        """Sign a pass onto the board for whoever is asking.
-
-        A member is named by their account, and the board joins their list.
-        A guest keeps the id and name the session remembers, and a name given
-        now replaces the remembered one.
-
-        The board app asks the app's root domain, whatever sphere the board is
-        on, so the board is found by its share code alone. The code is the
-        capability: whoever holds the link may open the board, on any sphere.
-
-        Raises:
-            BoardThrottledError: the address asked too often just now.
-            BoardNameRequiredError: a guest with no name given or remembered.
+        The link is the capability, as with an encounter's. A signed-in
+        person who opens it gets the board on their list and joins its chat.
 
         Returns:
-            The pass, where to use it, and who it names.
+            The board's frame and, for a signed-in person, its chat.
         """
-        self._require_available()
-        self._throttle(client_ip=client_ip, now=now)
-        board = self._boards.read_shared(share_code)
-        person = self._person(
-            board=board, user_id=user_id, guest=guest, requested_name=requested_name
+        origin = self._require_available()
+        board = self._boards.read_by_share_code(
+            share_code=share_code, sphere_id=sphere_id
         )
+        chat_id = None
         if user_id is not None:
-            self._boards.record_visit(pk=board.pk, user_id=user_id, now=now)
-        sphere = self._boards.read_sphere(board.sphere_id)
-        issued_at = int(now.timestamp())
-        token = self._signer.sign(
-            BoardPassClaims(
-                iss="ludamus",
-                aud="board",
-                sub=person.id,
-                board=str(board.pk),
-                link=board.link_version,
-                name=person.name,
-                owner=person.owner,
-                iat=issued_at,
-                exp=int((now + BOARD_PASS_LIFETIME).timestamp()),
+            first_visit = self._boards.record_visit(
+                pk=board.pk, user_id=user_id, now=now
             )
-        )
-        logger.info(
-            "Board pass issued",
-            extra={
-                "board_id": board.pk,
-                "person_kind": "member" if user_id is not None else "guest",
-                "owner": person.owner,
-            },
-        )
-        return BoardBootstrapDTO(
-            pass_token=token,
-            board_id=str(board.pk),
-            person=person,
+            chat_id = self._chats.chat_id(board.pk)
+            if first_visit or chat_id is None:
+                self._chats.sync(board.pk)
+                chat_id = self._chats.chat_id(board.pk)
+            if first_visit:
+                logger.info(
+                    "Board joined", extra={"board_id": board.pk, "user_id": user_id}
+                )
+        return BoardPageDTO(
+            pk=board.pk,
             title=board.title,
-            sphere_name=sphere.name,
-            sphere_domain=sphere.domain,
+            share_code=board.share_code,
+            room_url=f"{origin}/b/{board.room_code}",
+            room_origin=origin,
+            is_owner=board.creator_id == user_id,
+            chat_id=chat_id,
         )
-
-    def _person(
-        self,
-        *,
-        board: BoardDTO,
-        user_id: UserId | None,
-        guest: BoardGuestDTO,
-        requested_name: str | None,
-    ) -> BoardPersonDTO:
-        if user_id is not None:
-            name = " ".join(self._boards.read_user_name(user_id).split())
-            return BoardPersonDTO(
-                id=f"{_MEMBER}{user_id}",
-                name=name[:BOARD_NAME_MAX_LENGTH],
-                owner=board.creator_id == user_id,
-            )
-        if requested_name is not None:
-            name = clean_display_name(requested_name)
-        elif guest.name is not None:
-            try:
-                name = clean_display_name(guest.name)
-            except BoardNameInvalidError as exception:
-                raise BoardNameRequiredError from exception
-        else:
-            raise BoardNameRequiredError
-        guest_id = (
-            guest.id
-            if guest.id is not None and guest.id.startswith(_GUEST)
-            else f"{_GUEST}{token_urlsafe(12)}"
-        )
-        return BoardPersonDTO(id=guest_id, name=name, owner=False)
-
-    def _throttle(self, *, client_ip: str, now: datetime) -> None:
-        # The address lives in the cache for one window, hashed, and nowhere
-        # else.
-        window = int(now.timestamp()) // BOARD_BOOTSTRAP_WINDOW_SECONDS
-        address = sha256(client_ip.encode()).hexdigest()
-        key = f"board_bootstrap_rate:{window}:{address}"
-        hits = self._counter.hit(key, window_seconds=BOARD_BOOTSTRAP_WINDOW_SECONDS)
-        if hits > BOARD_BOOTSTRAP_LIMIT:
-            logger.warning("Board pass refused: too many requests")
-            raise BoardThrottledError
 
     def read_owned(self, *, pk: int, sphere_id: int, user_id: UserId) -> BoardDTO:
         self._require_available()
         return self._boards.read_owned(pk=pk, sphere_id=sphere_id, creator_id=user_id)
 
-    def rename(
-        self, *, pk: int, sphere_id: int, user_id: UserId, title: str
+    def update(
+        self, *, pk: int, sphere_id: int, user_id: UserId, title: str, room_link: str
     ) -> BoardDTO:
-        cleaned = _clean_title(title)
-        with self._transaction.atomic():
-            board = self.read_owned(pk=pk, sphere_id=sphere_id, user_id=user_id)
-            self._boards.rename(pk=board.pk, title=cleaned)
-            return self.read_owned(pk=pk, sphere_id=sphere_id, user_id=user_id)
+        """Rename the board or point it at another Little Table room.
 
-    def reset_link(self, *, pk: int, sphere_id: int, user_id: UserId) -> BoardDTO:
-        """Give the board a new link and move it to a new link version.
-
-        The Worker drops every connection made with an older version as soon
-        as a pass with the new one arrives, so guests who had only the old
-        link are out.
+        Raises:
+            BoardTitleInvalidError: the title is empty or too long.
+            BoardRoomLinkInvalidError: the link is not a Little Table room.
 
         Returns:
-            The board with its new share code and link version.
+            The board as saved.
         """
+        origin = self._require_available()
+        cleaned = _clean_title(title)
+        room_code = room_code_of(link=room_link, origin=origin)
         with self._transaction.atomic():
             board = self.read_owned(pk=pk, sphere_id=sphere_id, user_id=user_id)
-            reset = self._boards.reset_link(pk=board.pk, share_code=_new_share_code())
+            self._boards.update(pk=board.pk, title=cleaned, room_code=room_code)
+            updated = self.read_owned(pk=pk, sphere_id=sphere_id, user_id=user_id)
         logger.info(
-            "Board link reset",
+            "Board updated",
             extra={
-                "board_id": reset.pk,
-                "link_version": reset.link_version,
+                "board_id": pk,
                 "user_id": user_id,
+                "room_changed": board.room_code != room_code,
             },
         )
-        return reset
+        return updated
 
-    def delete(
-        self, *, pk: int, sphere_id: int, user_id: UserId, now: datetime
-    ) -> bool:
-        """Delete the board, then have the Worker wipe what was drawn on it.
+    def delete(self, *, pk: int, sphere_id: int, user_id: UserId) -> None:
+        """Take the board off every list and empty its chat.
 
-        The record goes first and stays gone whatever the Worker answers: the
-        link stops opening the board at once, and no new pass is signed for
-        it. A Worker that does not confirm leaves the room's document and
-        roll log behind, unreachable, and anyone still connected on it.
-
-        Returns:
-            Whether the Worker confirmed the wipe.
+        The chat's record stays, with any reports made in it, as an
+        encounter's does. The Little Table room is Little Table's: whoever
+        has its link still reaches it there.
         """
         with self._transaction.atomic():
             board = self.read_owned(pk=pk, sphere_id=sphere_id, user_id=user_id)
             self._boards.delete(board.pk)
+        self._chats.sync(board.pk)
         logger.info(
             "Board deleted",
             extra={"board_id": board.pk, "sphere_id": sphere_id, "user_id": user_id},
         )
-        issued_at = int(now.timestamp())
-        token = self._signer.sign(
-            BoardDeletionClaims(
-                iss="ludamus",
-                aud="board-deletion",
-                board=str(board.pk),
-                iat=issued_at,
-                exp=int((now + BOARD_DELETION_TOKEN_LIFETIME).timestamp()),
-            )
-        )
-        try:
-            self._rooms.wipe(board_id=board.pk, token=token)
-        except BoardWorkerUnavailableError:
-            logger.exception(
-                "Board room not wiped: the Worker did not confirm",
-                extra={"board_id": board.pk},
-            )
-            return False
-        logger.info("Board room wiped", extra={"board_id": board.pk})
-        return True
 
     def list_mine(self, *, sphere_id: int, user_id: UserId) -> list[BoardListItemDTO]:
         if not self.available():

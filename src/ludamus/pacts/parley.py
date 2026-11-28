@@ -101,6 +101,8 @@ class ParleyConversationKind(StrEnum):
     PARTY = "party"
     # An encounter's own: its creator and everyone signed up for it.
     ENCOUNTER = "encounter"
+    # A board's own: its creator and everyone signed in who opened it.
+    BOARD = "board"
     # A staff case's thread, its members kept in step with who is staff.
     STAFF = "staff"
 
@@ -149,6 +151,13 @@ CONVERSATION_POLICIES: Mapping[ParleyConversationKind, ParleyConversationPolicy]
                 staff_only=False,
             ),
             ParleyConversationKind.ENCOUNTER: ParleyConversationPolicy(
+                needs_direct=False,
+                self_managed=False,
+                one_to_one=False,
+                pair_needs_direct=True,
+                staff_only=False,
+            ),
+            ParleyConversationKind.BOARD: ParleyConversationPolicy(
                 needs_direct=False,
                 self_managed=False,
                 one_to_one=False,
@@ -414,6 +423,10 @@ class ParleyRepositoryProtocol(Protocol):
     @staticmethod
     def list_encounters_with_people(sphere_id: int) -> list[int]: ...
 
+    # The sphere's boards: its chat switch opens or closes each one's chat.
+    @staticmethod
+    def list_board_ids(sphere_id: int) -> list[int]: ...
+
 
 class ParleySignerProtocol(Protocol):
     def sign(
@@ -444,7 +457,8 @@ class ParleyRevocationServiceProtocol(Protocol):
 
     def age_changed(self, *, user_id: int) -> None: ...
 
-    # The sphere's chat was turned on or off; its encounters' chats follow.
+    # The sphere's chat was turned on or off; its encounters' and boards'
+    # chats follow.
     def sphere_chat_switched(self, *, sphere_id: int) -> None: ...
 
 

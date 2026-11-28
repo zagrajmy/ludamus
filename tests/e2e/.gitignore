@@ -6,3 +6,4 @@ test-results
 .e2e-mail/
 .promotion-scenario.json
 .parley-mention-mail.json
+.board.json

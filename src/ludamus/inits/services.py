@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING
 
 from django.conf import settings
 
-from ludamus.inits.board import board_service
 from ludamus.inits.builders import (
+    build_boards,
     build_credentials_decryptor,
     build_credentials_encryptor,
     build_email_verification,
@@ -14,6 +14,7 @@ from ludamus.inits.builders import (
     build_encounters,
     build_konwencik_export,
     build_listings,
+    build_parley_board_chats,
     build_parley_encounter_chats,
     build_printables_reminder,
     build_sites,
@@ -204,7 +205,7 @@ class Services:
 
     @cached_property
     def boards(self) -> BoardService:
-        return board_service(transaction=self._transaction, boards=self._repos.boards)
+        return build_boards(parley_membership_outbox())
 
     @cached_property
     def parley(self) -> ParleyService:
@@ -259,6 +260,7 @@ class Services:
             memberships=parley_membership_outbox(),
             party_chats=self.parley_party_chats,
             encounter_chats=self.parley_encounter_chats,
+            board_chats=build_parley_board_chats(parley_membership_outbox()),
         )
 
     @cached_property

@@ -26,6 +26,7 @@ from ludamus.links.signed_tokens import (
     DjangoEmailTokenCodec,
     DjangoSphereUnsubscribeTokenCodec,
 )
+from ludamus.mills.board import BoardService
 from ludamus.mills.dashboard import SphereSubscriptionService
 from ludamus.mills.encounter import EncounterService
 from ludamus.mills.encounter_calendar import EncounterGuests
@@ -151,6 +152,26 @@ def build_parley_encounter_chats(
         transaction=DjangoTransaction(),
         repository=Repositories().encounter_chats,
         outbox=outbox,
+    )
+
+
+def build_parley_board_chats(
+    outbox: ParleyMembershipOutboxProtocol,
+) -> ParleyOwnedChatService:
+    return ParleyOwnedChatService(
+        transaction=DjangoTransaction(),
+        repository=Repositories().board_chats,
+        outbox=outbox,
+    )
+
+
+def build_boards(outbox: ParleyMembershipOutboxProtocol) -> BoardService:
+    little_table_url: str = settings.LITTLE_TABLE_URL
+    return BoardService(
+        transaction=DjangoTransaction(),
+        boards=Repositories().boards,
+        chats=build_parley_board_chats(outbox),
+        little_table_url=little_table_url,
     )
 
 

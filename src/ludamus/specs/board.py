@@ -1,16 +1,8 @@
 """Business invariants for the board."""
 
-from datetime import timedelta
+import re
 
-# A pass only opens the socket; the client asks for a new one to reconnect.
-BOARD_PASS_LIFETIME = timedelta(minutes=5)
-# NOTE: the Worker refuses longer names (MAX_NAME_LENGTH in
-# workers/board/src/limits.ts); keep the two equal.
-BOARD_NAME_MAX_LENGTH = 40
 # About 71 bits: the link is the only thing between a stranger and the board.
 BOARD_SHARE_CODE_LENGTH = 12
-# Django sends a deletion at once; a token that lives longer only widens
-# the window for a replay.
-BOARD_DELETION_TOKEN_LIFETIME = timedelta(minutes=1)
-BOARD_BOOTSTRAP_LIMIT = 30
-BOARD_BOOTSTRAP_WINDOW_SECONDS = 60
+# A Little Table room's path, /b/<code>, as its own pages link to it.
+BOARD_ROOM_PATH = re.compile(r"/b/(?P<code>[A-Za-z0-9_-]{1,64})/?")

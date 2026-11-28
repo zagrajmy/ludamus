@@ -36,6 +36,8 @@ from ludamus.pacts.availability import DayPart, programme_date
 from ludamus.links.db.django.models import (
     AgendaItem,
     Announcement,
+    Board,
+    BoardVisit,
     Connection,
     Encounter,
     EnrollmentConfig,
@@ -45,6 +47,8 @@ from ludamus.links.db.django.models import (
     EventProposalSettings,
     Facilitator,
     Notification,
+    ParleyConversation,
+    ParleyConversationMember,
     PayoutAccount,
     PersonalDataField,
     ProposalCategory,
@@ -595,6 +599,41 @@ def _create_notifications_scenario() -> None:
         title="Autumn Open: doors to hall B open at 9:00",
         body="Bring your badge. Coffee is by the entrance.",
         url="",
+    )
+
+
+def _create_board_scenario(sphere: Sphere, *, tester: User) -> None:
+    """Seed a board the e2e-tester already opened, with its chat between two.
+
+    Its creator is an account of its own, so the board is the tester's to open
+    and not to change. board.auth.spec.ts reads the chat's id from
+    .board.json: it fakes the chat bootstrap, which has to name that room.
+    """
+    host = User.objects.create_user(
+        username="e2e-board-host",
+        email="e2e-board-host@test.local",
+        password="e2e-board-host-123",
+        name="Board Host",
+        slug="e2e-board-host",
+        age_band=AgeBand.SIXTEEN_PLUS,
+    )
+    board = Board.objects.create(
+        sphere=sphere,
+        creator=host,
+        title="Crew board",
+        share_code="e2eCrewBoard",
+        room_code="crew-room",
+    )
+    BoardVisit.objects.create(board=board, user=tester, last_opened_at=timezone.now())
+    chat = ParleyConversation.objects.create(
+        kind=ParleyConversation.Kind.BOARD, board=board
+    )
+    for member in (host, tester):
+        ParleyConversationMember.objects.create(
+            conversation=chat, user=member, state=ParleyConversationMember.State.ACTIVE
+        )
+    (REPO_ROOT / "tests" / "e2e" / ".board.json").write_text(
+        json.dumps({"chatId": chat.pk, "shareCode": board.share_code}), encoding="utf-8"
     )
 
 
@@ -2505,6 +2544,7 @@ def main() -> None:
     # notification overlay + list e2e.
     _create_notifications_scenario()
     _create_mention_mail_scenario()
+    _create_board_scenario(sphere, tester=tester)
     _create_unlisted_and_team_scenario(sphere)
     _create_event_deletion_scenario()
 

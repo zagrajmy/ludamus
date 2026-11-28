@@ -22,7 +22,7 @@
             </ul>
         {% else %}
             {% translate "No boards yet" as t_empty_title %}
-            {% translate "Start a board, share its link, and everyone draws and rolls dice on it together. Boards you join show up here too." as t_empty_text %}
+            {% translate "Add a Little Table board and share its link: everyone draws and rolls dice on it, with the chat beside it. Boards you open show up here too." as t_empty_text %}
         {% empty_state icon="pencil-square" title=t_empty_title text=t_empty_text %}
             {% include "whiteboard/_create_button.html" %}
         {% end_empty_state %}

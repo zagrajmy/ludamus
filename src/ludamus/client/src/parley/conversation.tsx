@@ -559,6 +559,7 @@ export function Conversation({
   const { conversation } = room;
   const writableEmpty = {
     conversation: {
+      board: copy.emptyBoard,
       direct: copy.emptyDirect,
       encounter: copy.emptyEncounter,
       group: copy.emptyGroup,

@@ -1,114 +1,188 @@
-import time
+from datetime import UTC, datetime
 from http import HTTPStatus
+from unittest.mock import ANY
 
 import pytest
-import requests
-import responses
 from django.contrib.messages import constants
 from django.urls import reverse
-from django.utils import formats
-from django.utils.timezone import localdate
 
-from ludamus.links.db.django.models import Board
-from tests.integration.conftest import BoardFactory, SphereFactory
+from ludamus.inits.services import Services
+from ludamus.links.db.django.models import (
+    Board,
+    ParleyConversation,
+    ParleyConversationMember,
+)
+from ludamus.pacts.board import BoardDTO
+from ludamus.pacts.parley import ParleyMemberState
+from ludamus.pacts.user import AgeBand
+from tests.integration.conftest import BoardFactory, SphereFactory, UserFactory
 from tests.integration.utils import (
     FormErrorsMatcher,
     assert_response,
     assert_response_404,
 )
-from tests.integration.web.whiteboard.helpers import board_dto, verified_claims
+from tests.integration.web.whiteboard.conftest import LITTLE_TABLE
 
 INDEX = reverse("web:boards:index")
+CREATE = reverse("web:boards:create")
 # About 71 bits out of letters and digits.
 SHARE_CODE_LENGTH = 12
+LINK_ERROR = f"Paste a Little Table board link, like {LITTLE_TABLE}/b/…."
 
 
-class TestBoardCreateActionView:
-    URL = reverse("web:boards:create")
+def _edit_url(board):
+    return reverse("web:boards:edit", kwargs={"pk": board.pk})
 
+
+def _delete_url(board):
+    return reverse("web:boards:delete", kwargs={"pk": board.pk})
+
+
+class TestBoardCreatePageView:
     def test_guest_cannot_create(self, client):
-        response = client.post(self.URL)
+        response = client.post(CREATE, {"title": "T", "room_link": "x"})
 
         assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={self.URL}"
+            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={CREATE}"
         )
         assert not Board.objects.exists()
 
-    def test_creates_a_dated_board_and_opens_it(
+    def test_shows_the_form(self, authenticated_client):
+        response = authenticated_client.get(CREATE)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="whiteboard/form.html",
+            context_data={"form": ANY, "board": None, "little_table_url": LITTLE_TABLE},
+        )
+
+    def test_keeps_a_little_table_room_and_opens_its_page(
         self, authenticated_client, active_user, sphere
     ):
-        response = authenticated_client.post(self.URL)
+        response = authenticated_client.post(
+            CREATE,
+            {"title": "  Mothership  ", "room_link": f"{LITTLE_TABLE}/b/AbC12-x_9?x=1"},
+        )
 
         board = Board.objects.get()
-        # Straight to the board app, in the language the creator reads.
         assert_response(
             response,
             HTTPStatus.FOUND,
-            url=f"http://localhost:8788/b/{board.share_code}?lang=en",
+            url=reverse("web:boards:board", kwargs={"share_code": board.share_code}),
         )
-        today = formats.date_format(localdate(), "MONTH_DAY_FORMAT")
-        assert (board.sphere_id, board.creator_id, board.title) == (
-            sphere.pk,
-            active_user.pk,
-            f"Board {today}",
-        )
-        assert len(board.share_code) == SHARE_CODE_LENGTH
+        assert (
+            board.sphere_id,
+            board.creator_id,
+            board.title,
+            board.room_code,
+            len(board.share_code),
+        ) == (sphere.pk, active_user.pk, "Mothership", "AbC12-x_9", SHARE_CODE_LENGTH)
+        # A chat of one would be nobody's: it opens with the second person.
+        assert not ParleyConversation.objects.filter(board_id=board.pk).exists()
 
-    def test_requires_post(self, authenticated_client):
+    @pytest.mark.parametrize(
+        "link",
+        (
+            "https://evil.example.com/b/AbC123",
+            f"{LITTLE_TABLE}/boards",
+            f"{LITTLE_TABLE}/b/",
+            f"{LITTLE_TABLE.replace('https', 'http')}/b/AbC123",
+            "not a link",
+        ),
+    )
+    def test_a_link_that_is_not_a_little_table_room_is_refused(
+        self, authenticated_client, link
+    ):
+        response = authenticated_client.post(CREATE, {"title": "T", "room_link": link})
+
         assert_response(
-            authenticated_client.get(self.URL), HTTPStatus.METHOD_NOT_ALLOWED
+            response,
+            HTTPStatus.OK,
+            template_name="whiteboard/form.html",
+            context_data={
+                "form": FormErrorsMatcher(room_link=[LINK_ERROR]),
+                "board": None,
+                "little_table_url": LITTLE_TABLE,
+            },
         )
+        assert not Board.objects.exists()
 
     def test_feature_unavailable(self, authenticated_client, board_settings):
-        board_settings.BOARD_HOST = ""
+        board_settings.LITTLE_TABLE_URL = ""
 
-        assert_response_404(authenticated_client.post(self.URL))
+        response = authenticated_client.post(
+            CREATE, {"title": "T", "room_link": "https://littletable.top/b/AbC123"}
+        )
+
+        assert_response_404(response)
         assert not Board.objects.exists()
 
 
 class TestBoardEditPageView:
-    def _url(self, board):
-        return reverse("web:boards:edit", kwargs={"pk": board.pk})
+    def test_shows_the_owner_s_board(self, authenticated_client, active_user, sphere):
+        board = BoardFactory(sphere=sphere, creator=active_user)
 
-    def test_renames(self, authenticated_client, active_user, sphere):
+        response = authenticated_client.get(_edit_url(board))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="whiteboard/form.html",
+            context_data={
+                "form": ANY,
+                "board": BoardDTO.model_validate(board),
+                "little_table_url": LITTLE_TABLE,
+            },
+        )
+
+    def test_renames_and_moves_to_another_room(
+        self, authenticated_client, active_user, sphere
+    ):
         board = BoardFactory(sphere=sphere, creator=active_user)
 
         response = authenticated_client.post(
-            self._url(board), {"title": "  Mothership  "}
+            _edit_url(board),
+            {"title": "Mothership", "room_link": f"{LITTLE_TABLE}/b/Other1/"},
         )
 
         assert_response(
             response,
             HTTPStatus.FOUND,
             url=INDEX,
-            messages=[(constants.SUCCESS, "Board renamed.")],
+            messages=[(constants.SUCCESS, "Board saved.")],
         )
         board.refresh_from_db()
-        assert board.title == "Mothership"
+        assert (board.title, board.room_code) == ("Mothership", "Other1")
 
-    def test_empty_name_is_refused(self, authenticated_client, active_user, sphere):
-        board = BoardFactory(sphere=sphere, creator=active_user, title="Before")
+    def test_a_foreign_link_is_refused(self, authenticated_client, active_user, sphere):
+        board = BoardFactory(sphere=sphere, creator=active_user, room_code="Before")
 
-        response = authenticated_client.post(self._url(board), {"title": "   "})
+        response = authenticated_client.post(
+            _edit_url(board),
+            {"title": "T", "room_link": "https://evil.example.com/b/After"},
+        )
 
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="whiteboard/edit.html",
+            template_name="whiteboard/form.html",
             context_data={
-                "board": board_dto(board),
-                "form": FormErrorsMatcher(title=["This field is required."]),
+                "form": FormErrorsMatcher(room_link=[LINK_ERROR]),
+                "board": BoardDTO.model_validate(board),
+                "little_table_url": LITTLE_TABLE,
             },
         )
         board.refresh_from_db()
-        assert board.title == "Before"
+        assert board.room_code == "Before"
 
     @pytest.mark.parametrize("method", ("get", "post"))
     def test_not_the_creator(self, authenticated_client, sphere, method):
         board = BoardFactory(sphere=sphere, title="Before")
 
         response = getattr(authenticated_client, method)(
-            self._url(board), {"title": "Hijacked"}
+            _edit_url(board),
+            {"title": "Hijacked", "room_link": f"{LITTLE_TABLE}/b/Hijacked"},
         )
 
         assert_response_404(response)
@@ -118,82 +192,34 @@ class TestBoardEditPageView:
     def test_own_board_in_another_sphere(self, authenticated_client, active_user):
         board = BoardFactory(sphere=SphereFactory(), creator=active_user, title="B")
 
-        response = authenticated_client.post(self._url(board), {"title": "Moved"})
+        response = authenticated_client.post(
+            _edit_url(board), {"title": "Moved", "room_link": f"{LITTLE_TABLE}/b/M"}
+        )
 
         assert_response_404(response)
         board.refresh_from_db()
         assert board.title == "B"
 
 
-class TestBoardResetLinkActionView:
-    def _url(self, board):
-        return reverse("web:boards:reset-link", kwargs={"pk": board.pk})
-
-    def test_new_code_new_version_and_the_old_link_is_dead(
-        self, authenticated_client, active_user, sphere
-    ):
-        board = BoardFactory(sphere=sphere, creator=active_user)
-        old_code = board.share_code
-
-        response = authenticated_client.post(self._url(board))
-
-        reset = [
-            (
-                constants.SUCCESS,
-                "The board has a new link. The old one no longer opens it.",
-            )
-        ]
-        assert_response(response, HTTPStatus.FOUND, url=INDEX, messages=reset)
-        board.refresh_from_db()
-        assert board.share_code != old_code
-        assert board.link_version == 1
-        # NOTE: the 404 page shows no toasts, so the message is still queued.
-        assert_response_404(
-            authenticated_client.get(
-                reverse("web:boards:board", kwargs={"share_code": old_code})
-            ),
-            messages=reset,
-        )
-        bootstrap = authenticated_client.post(
-            reverse("web:boards:bootstrap", kwargs={"share_code": board.share_code}),
-            data="{}",
-            content_type="application/json",
-            headers={"origin": "http://localhost:8788"},
-        )
-        assert verified_claims(bootstrap.json()["pass"])["link"] == 1
-
-    def test_not_the_creator(self, authenticated_client, sphere):
-        board = BoardFactory(sphere=sphere)
-        old_code = board.share_code
-
-        assert_response_404(authenticated_client.post(self._url(board)))
-        board.refresh_from_db()
-        assert (board.share_code, board.link_version) == (old_code, 0)
-
-    def test_guest_is_sent_to_sign_in(self, client, sphere):
-        board = BoardFactory(sphere=sphere)
-        url = self._url(board)
-
-        assert_response(
-            client.post(url), HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
-
-
 class TestBoardDeleteActionView:
-    def _url(self, board):
-        return reverse("web:boards:delete", kwargs={"pk": board.pk})
-
-    def test_deletes_and_has_the_worker_wipe_the_room(
-        self, authenticated_client, active_user, sphere
+    def test_deletes_and_empties_its_chat(
+        self, authenticated_client, sixteen_plus_user, sphere
     ):
-        board = BoardFactory(sphere=sphere, creator=active_user)
-        wipe = f"http://localhost:8788/rooms/{board.pk}/delete"
+        board = BoardFactory(sphere=sphere, creator=sixteen_plus_user)
+        visitor = UserFactory(age_band=AgeBand.SIXTEEN_PLUS)
+        Services().boards.open(
+            share_code=board.share_code,
+            sphere_id=sphere.pk,
+            user_id=visitor.pk,
+            now=datetime.now(UTC),
+        )
+        assert set(
+            ParleyConversationMember.objects.filter(
+                conversation__board_id=board.pk, state=ParleyMemberState.ACTIVE
+            ).values_list("user_id", flat=True)
+        ) == {sixteen_plus_user.pk, visitor.pk}
 
-        with responses.RequestsMock() as worker:
-            worker.post(wipe, status=204)
-            before = int(time.time())
-            response = authenticated_client.post(self._url(board))
-            [call] = worker.calls
+        response = authenticated_client.post(_delete_url(board))
 
         assert_response(
             response,
@@ -201,62 +227,28 @@ class TestBoardDeleteActionView:
             url=INDEX,
             messages=[(constants.SUCCESS, "Board deleted.")],
         )
-        assert not Board.objects.filter(pk=board.pk).exists()
-        scheme, token = call.request.headers["Authorization"].split(" ")
-        claims = verified_claims(token)
-        issued_at = claims.pop("iat")
-        assert before <= issued_at <= int(time.time())
-        assert (scheme, claims) == (
-            "Bearer",
-            {
-                "iss": "ludamus",
-                # NOTE: a board pass says "board"; the Worker wipes only on this.
-                "aud": "board-deletion",
-                "board": str(board.pk),
-                "exp": issued_at + 60,
-            },
-        )
-
-    @pytest.mark.parametrize(
-        "failure", (503, 403, requests.ConnectionError("Worker away"))
-    )
-    def test_deletion_stands_when_the_worker_does_not_wipe(
-        self, authenticated_client, active_user, sphere, failure
-    ):
-        board = BoardFactory(sphere=sphere, creator=active_user)
-        wipe = f"http://localhost:8788/rooms/{board.pk}/delete"
-
-        with responses.RequestsMock() as worker:
-            if isinstance(failure, int):
-                worker.post(wipe, status=failure)
-            else:
-                worker.post(wipe, body=failure)
-            response = authenticated_client.post(self._url(board))
-
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            url=INDEX,
-            messages=[
-                (
-                    constants.WARNING,
-                    (
-                        "Board deleted. Anyone still on it can keep drawing "
-                        "until they leave."
-                    ),
-                )
-            ],
-        )
-        assert not Board.objects.filter(pk=board.pk).exists()
+        assert not Board.objects.exists()
+        # The chat's record stays for any report made in it; nobody is in it.
+        chat = ParleyConversation.objects.get(board_id=board.pk)
+        assert set(chat.members.values_list("state", flat=True)) == {
+            ParleyMemberState.LEFT
+        }
 
     def test_not_the_creator(self, authenticated_client, sphere):
         board = BoardFactory(sphere=sphere)
 
-        assert_response_404(authenticated_client.post(self._url(board)))
+        assert_response_404(authenticated_client.post(_delete_url(board)))
         assert Board.objects.filter(pk=board.pk).exists()
 
     def test_own_board_in_another_sphere(self, authenticated_client, active_user):
         board = BoardFactory(sphere=SphereFactory(), creator=active_user)
 
-        assert_response_404(authenticated_client.post(self._url(board)))
+        assert_response_404(authenticated_client.post(_delete_url(board)))
         assert Board.objects.filter(pk=board.pk).exists()
+
+    def test_requires_post(self, authenticated_client, active_user, sphere):
+        board = BoardFactory(sphere=sphere, creator=active_user)
+
+        assert_response(
+            authenticated_client.get(_delete_url(board)), HTTPStatus.METHOD_NOT_ALLOWED
+        )

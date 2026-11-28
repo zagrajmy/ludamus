@@ -26,7 +26,6 @@ from ludamus.pacts.moderation import (
     StatementOfReasons,
 )
 from ludamus.specs.moderation import NOTICES_PER_ADDRESS, RECEIPTS_PER_ADDRESS
-from tests.unit.cache_fakes import FakeCounter
 from tests.unit.factories import FakeTransaction
 
 IP = "203.0.113.7"
@@ -36,6 +35,17 @@ FIRST_CASE_ID = 101
 GIVEN_CASE_ID = 7
 PROVISION = "art. 286 § 1 Kodeksu karnego"
 LAST_DAY = date(2026, 12, 31)
+
+
+class FakeCounter:
+    def __init__(self):
+        self.hits = {}
+        self.windows = {}
+
+    def hit(self, key, *, window_seconds):
+        self.hits[key] = self.hits.get(key, 0) + 1
+        self.windows[key] = window_seconds
+        return self.hits[key]
 
 
 class FakeCases:

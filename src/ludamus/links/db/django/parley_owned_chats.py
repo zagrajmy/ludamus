@@ -1,10 +1,12 @@
-"""The chats a party or an encounter owns, one repository per kind of owner."""
+"""The chats a party, an encounter or a board owns, one repository per kind."""
 
 from __future__ import annotations
 
 from django.db.models import Q
 
 from ludamus.links.db.django.models import (
+    Board,
+    BoardVisit,
     Encounter,
     EncounterRSVP,
     ParleyConversation,
@@ -180,6 +182,66 @@ class EncounterChatRepository(ParleyOwnedChatRepositoryProtocol):
     def chat_id(owner_id: int) -> int | None:
         return (
             ParleyConversation.objects.filter(encounter_id=owner_id)
+            .values_list("pk", flat=True)
+            .first()
+        )
+
+
+class BoardChatRepository(ParleyOwnedChatRepositoryProtocol):
+    kind = ParleyConversationKind.BOARD
+
+    @staticmethod
+    def lock(owner_id: int) -> None:
+        list(Board.objects.select_for_update().filter(pk=owner_id).values_list("pk"))
+
+    @staticmethod
+    def list_candidates(owner_id: int) -> list[ParleyChatCandidate]:
+        # Nobody while the board's sphere has chat off, or once it is gone.
+        creator_id = (
+            Board.objects.filter(pk=owner_id, sphere__parley_enabled=True)
+            .values_list("creator_id", flat=True)
+            .first()
+        )
+        if creator_id is None:
+            return []
+        visitors = BoardVisit.objects.filter(board_id=owner_id).values("user_id")
+        return _candidates(Q(pk=creator_id) | Q(pk__in=visitors))
+
+    @staticmethod
+    def set_members(*, owner_id: int, user_ids: list[int]) -> int | None:
+        chat = ParleyConversation.objects.filter(board_id=owner_id).first()
+        if chat is None and user_ids and Board.objects.filter(pk=owner_id).exists():
+            chat = ParleyConversation.objects.create(
+                kind=ParleyConversationKind.BOARD, board_id=owner_id
+            )
+        return _replace_members(chat, user_ids)
+
+    @staticmethod
+    def owner_ids_of(user_id: int) -> list[int]:
+        made = Board.objects.filter(creator_id=user_id).values_list("pk", flat=True)
+        visited = BoardVisit.objects.filter(user_id=user_id).values_list(
+            "board_id", flat=True
+        )
+        chats = ParleyConversationMember.objects.filter(
+            user_id=user_id, conversation__board_id__isnull=False
+        ).values_list("conversation__board_id", flat=True)
+        return sorted({*made, *visited, *chats})
+
+    @staticmethod
+    def list_owner_ids() -> list[int]:
+        orphaned = ParleyConversation.objects.filter(
+            board_id__isnull=False
+        ).values_list("board_id", flat=True)
+        return sorted({*Board.objects.values_list("pk", flat=True), *orphaned})
+
+    @staticmethod
+    def list_chat_ids() -> list[int]:
+        return _chat_ids(Q(board_id__isnull=False))
+
+    @staticmethod
+    def chat_id(owner_id: int) -> int | None:
+        return (
+            ParleyConversation.objects.filter(board_id=owner_id)
             .values_list("pk", flat=True)
             .first()
         )

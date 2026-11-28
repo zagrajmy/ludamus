@@ -76,8 +76,10 @@ export function Details({
 }) {
   const { copy, user } = bootstrap;
   const group = conversation.kind === "group";
-  // A party's or encounter's chat follows who is in it; nobody manages it here.
+  // A party's, encounter's or board's chat follows who is in it; nobody
+  // manages it here.
   const ownedHints: Partial<Record<ConversationInfo["kind"], string>> = {
+    board: copy.boardHint,
     encounter: copy.encounterHint,
     party: copy.partyHint,
   };
