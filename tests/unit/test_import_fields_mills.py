@@ -44,7 +44,7 @@ def world_fixture():
     return ImportWorld()
 
 
-class TestProposalImportAttachments:
+class TestProposalImportFields:
     def test_run_attaches_availability_for_chosen_options(self, world):
         _run(
             world,

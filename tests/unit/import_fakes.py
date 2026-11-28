@@ -4,6 +4,8 @@ The import services are tested against what they leave behind: which
 sessions, facilitators, field values and log entries exist afterwards. Each
 fake repo reads and writes the one `ImportWorld`, and its transaction rolls
 the world back when a savepoint or atomic block raises, as the database would.
+The module ends with the mapping recipes, expected values and setup helpers
+that the import tests share.
 """
 
 import copy
