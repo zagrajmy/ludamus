@@ -7,13 +7,15 @@ the world back when a savepoint or atomic block raises, as the database would.
 """
 
 import copy
+import json
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from itertools import count
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
 
+from ludamus.mills.propose.mapping import dedup_ident
+from ludamus.pacts.availability import AvailabilityDTO, DayPart
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.facilitators import FacilitatorDTO
 from ludamus.pacts.fields import PersonalDataFieldValueData, SessionFieldValueDTO
@@ -25,15 +27,13 @@ from ludamus.pacts.integrations import (
 from ludamus.pacts.propose import (
     ImportLogEntryCreateData,
     ImportLogEntryDTO,
+    ImportLogStatus,
     ImportRepos,
     ImportRow,
     ImportSettings,
 )
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.sessions import SessionDTO, SessionStatus
-
-if TYPE_CHECKING:
-    from ludamus.pacts.availability import AvailabilityDTO
 
 SPHERE_ID = 1
 EVENT_ID = 2
@@ -527,4 +527,51 @@ def import_repos(world: ImportWorld) -> ImportRepos:
         facilitators=FakeFacilitators(world),
         facilitator_change_logs=FakeFacilitatorChangeLogs(world),
         log_entries=FakeLogEntries(world),
+    )
+
+
+TITLE = {"Title": {"to": "session.title"}}
+NICK = {"Nick": {"to": "facilitator.display_name"}}
+FRI = {"to": "availability", "day": "2025-09-19", "part": "evening"}
+SAT = {"to": "availability", "day": "2025-09-20", "part": "morning"}
+FRI_OFFER = AvailabilityDTO(day=date(2025, 9, 19), offer=DayPart.EVENING)
+SAT_OFFER = AvailabilityDTO(day=date(2025, 9, 20), offer=DayPart.MORNING)
+
+
+def event_ident(identity: str) -> str:
+    return dedup_ident(event_id=EVENT_ID, identity=identity)
+
+
+def service_deps(world):
+    return {
+        "transaction": WorldTransaction(world),
+        "event_integrations": FakeEventIntegrations(world),
+        "repos": import_repos(world),
+    }
+
+
+def given_responses(world, *, questions, responses, **settings):
+    world.settings = {"questions": questions, **settings}
+    world.responses = responses
+
+
+def log_entry(**values) -> ImportLogEntryDTO:
+    defaults = {
+        "pk": 1,
+        "integration_id": INTEGRATION_PK,
+        "row_index": 0,
+        "status": ImportLogStatus.SUCCESS,
+        "reason": "",
+        "display_name": "",
+        "session_id": None,
+        "attempted_at": ATTEMPTED_AT,
+    }
+    return ImportLogEntryDTO(**(defaults | values))
+
+
+def logged_row(world, row, **values) -> int:
+    return world.add_log_entry(
+        response_json=json.dumps(row, ensure_ascii=False),
+        title=row.get("Title", ""),
+        **{"status": ImportLogStatus.SUCCESS} | values,
     )
