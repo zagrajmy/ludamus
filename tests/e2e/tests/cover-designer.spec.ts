@@ -56,7 +56,10 @@ test.describe("Cover designer on the event settings", () => {
     await dialog.getByRole("radio", { name: "Top left" }).check();
     await expect(cropNote).toBeVisible();
     await dialog.getByRole("radio", { name: "Middle right" }).check();
-    await dialog.getByRole("radio", { name: "Align right" }).check();
+    await dialog.getByRole("radio", { name: "Align left" }).focus();
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowRight");
+    await expect(dialog.getByRole("radio", { name: "Align right" })).toBeChecked();
     await expect(cropNote).toBeHidden();
 
     const plate = dialog.getByRole("checkbox", { name: "Background behind text" });
