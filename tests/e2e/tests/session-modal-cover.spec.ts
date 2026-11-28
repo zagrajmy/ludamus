@@ -17,17 +17,8 @@ const WHITE_COVER = {
   contentType: "image/svg+xml",
   body: '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900"><rect width="1600" height="900" fill="#ffffff"/></svg>',
 };
-const BUSY_COVER_PATH = path.join(
-  __dirname,
-  "..",
-  "..",
-  "..",
-  "src",
-  "ludamus",
-  "static",
-  "placeholder-images",
-  "04.webp",
-);
+// A busy photograph; the placeholder covers are flat patterns and too calm to stress the title.
+const BUSY_COVER_PATH = path.join(__dirname, "..", "assets", "busy-cover.webp");
 
 const VIEWPORTS = {
   desktop: { width: 1280, height: 800 },

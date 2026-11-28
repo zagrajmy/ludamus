@@ -6,9 +6,11 @@ from typing import TYPE_CHECKING
 
 from django.forms import ImageField
 from django.template.loader import render_to_string
+from django.utils.html import format_html
 
 from ludamus.pacts.images import StoredFile
 
+from .cover_designer import render_cover_designer
 from .inplace import INPLACE_DROPZONE_LOOK
 
 if TYPE_CHECKING:
@@ -25,7 +27,8 @@ def render_file_input(field: BoundField, *, inplace: bool = False) -> str:
     """Render a styled drag-and-drop file input.
 
     ``inplace`` draws it as the cover strip a session card shows while empty,
-    and at the upload's 16:9 with its crop guide once an image is picked.
+    and at the upload's 16:9 with its crop guide once an image is picked. A
+    widget with ``designer`` set also gets the cover designer's link under it.
 
     Returns:
         HTML string of the dropzone element.
@@ -37,7 +40,7 @@ def render_file_input(field: BoundField, *, inplace: bool = False) -> str:
     if accept and not is_image:
         is_image = all(t.strip().startswith("image/") for t in accept.split(","))
     dropzone_state = ("image" if is_image else "file") if initial_url else "empty"
-    return render_to_string(
+    dropzone = render_to_string(
         "components/file-dropzone.html",
         {
             "name": field.html_name,
@@ -56,3 +59,6 @@ def render_file_input(field: BoundField, *, inplace: bool = False) -> str:
             "inplace_class": INPLACE_DROPZONE_LOOK if inplace else "",
         },
     )
+    if not getattr(field.field.widget, "designer", False):
+        return dropzone
+    return format_html("{}\n{}", dropzone, render_cover_designer(field.id_for_label))

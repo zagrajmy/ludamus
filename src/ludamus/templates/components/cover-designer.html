@@ -1,0 +1,275 @@
+{% load i18n tessera vite_tags %}
+{% vite_asset_once 'src/cover-designer.ts' %}
+{% comment %}
+    The cover designer for one file input: a quiet link under its dropzone, and
+    the dialog the link opens (src/cover-designer.ts). The dialog waits in a
+    <template> so its controls never post with the surrounding form; the script
+    moves it into <body> on first open.
+
+    Variables:
+      id        the file input's id
+      patterns  (value, label) pairs, cover_designer.COVER_PATTERNS
+      palettes  (value, label) pairs, cover_designer.COVER_PALETTES
+      anchors   (value, label) pairs, cover_designer.TEXT_ANCHORS
+{% endcomment %}
+<button type="button"
+        data-cover-designer-open="{{ id }}"
+        aria-haspopup="dialog"
+        class="mt-1.5 inline-flex items-center gap-1 self-start rounded-sm text-xs text-foreground-muted underline decoration-foreground-muted/40 underline-offset-3 transition-colors hover:text-primary hover:decoration-current">
+    {% icon "paint-brush" variant="micro" class="size-3.5" %}
+    {% translate "Design a cover" %}
+</button>
+<template data-cover-designer-template="{{ id }}">
+    <dialog id="cover-designer-{{ id }}"
+            class="modal w-[calc(100%-2rem)] max-w-5xl overflow-hidden p-0 sm:h-[min(44rem,calc(100dvh-2rem))] max-sm:h-dvh max-sm:max-h-dvh max-sm:w-full max-sm:max-w-full max-sm:rounded-none max-sm:border-0"
+            aria-labelledby="cover-designer-{{ id }}-title"
+            data-cover-designer="{{ id }}"
+            data-message-unsupported="{% translate "This browser cannot draw covers. Open the page in a recent Chrome, Edge or Safari, or upload a picture instead." %}"
+            data-message-lost="{% translate "Drawing stopped. Close this window and open it again." %}"
+            data-message-saving="{% translate "Saving the image…" %}"
+            data-message-save-failed="{% translate "The image could not be saved. Try again, or upload a picture instead." %}"
+            data-ramp-warm="{% translate "Warm" %}"
+            data-ramp-coral="{% translate "Coral" %}"
+            data-ramp-teal="{% translate "Teal" %}"
+            data-size-large="{% translate "Large" %}"
+            data-size-medium="{% translate "Medium" %}"
+            data-size-small="{% translate "Small" %}">
+        <div class="flex items-center justify-between gap-3 border-b border-border py-1.5 pl-5 pr-2">
+            <h2 id="cover-designer-{{ id }}-title"
+                class="text-lg font-semibold text-foreground">{% translate "Design a cover" %}</h2>
+            {% tessera_dialog_close_button "cover-designer-"|add:id %}
+        </div>
+        <div class="grid min-h-0 flex-1 overflow-y-auto sm:grid-cols-[minmax(0,1fr)_19rem] sm:overflow-hidden">
+            <div class="grid content-start gap-2 bg-bg-tertiary p-4 sm:overflow-y-auto sm:p-5 max-sm:sticky max-sm:top-0 max-sm:z-10 max-sm:border-b max-sm:border-border">
+                <div class="relative aspect-video overflow-hidden rounded-xl bg-bg-secondary">
+                    <canvas data-cover-designer-stage
+                            role="img"
+                            aria-label="{% translate "Cover preview" %}"
+                            class="absolute inset-0 size-full"></canvas>
+                    <canvas data-cover-designer-words
+                            aria-hidden="true"
+                            class="pointer-events-none absolute inset-0 size-full"></canvas>
+                    <p data-cover-designer-error
+                       role="alert"
+                       hidden
+                       class="absolute inset-0 grid place-items-center bg-bg-tertiary p-6 text-center text-sm text-foreground text-pretty">
+                    </p>
+                </div>
+                <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-foreground-muted">
+                    {% translate "Crop guide" as crop_guide_label %}
+                    {% include "components/checkbox-field.html" with label=crop_guide_label checked=True hook_class="cover-designer-guide" only %}
+                    <span>{% translate "The dashed box is the part every card and banner keeps." %}</span>
+                </div>
+            </div>
+            <div class="grid content-start gap-5 p-4 sm:overflow-y-auto sm:border-l sm:border-border sm:p-5">
+                <fieldset class="grid min-w-0 gap-2">
+                    <legend class="mb-2 text-sm font-semibold text-foreground">{% translate "Pattern" %}</legend>
+                    <div class="grid grid-cols-3 gap-2">
+                        {% for value, label in patterns %}
+                            <label class="relative grid cursor-pointer gap-1">
+                                <input type="radio"
+                                       name="{{ id }}-pattern"
+                                       value="{{ value }}"
+                                       class="peer absolute inset-0 z-10 cursor-pointer opacity-0">
+                                <span class="relative aspect-[4/3] overflow-hidden rounded-lg bg-bg-tertiary ring-1 ring-border peer-checked:ring-2 peer-checked:ring-primary peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary">
+                                    <canvas data-cover-designer-thumb="{{ value }}"
+                                            aria-hidden="true"
+                                            class="absolute inset-0 size-full"></canvas>
+                                </span>
+                                <span class="text-center text-xs text-foreground-muted peer-checked:font-semibold peer-checked:text-foreground">{{ label }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+                <fieldset class="grid min-w-0 gap-2">
+                    <legend class="mb-2 text-sm font-semibold text-foreground">{% translate "Colors" %}</legend>
+                    <div class="grid grid-cols-4 gap-2">
+                        {% for value, label in palettes %}
+                            <label class="relative grid cursor-pointer gap-1">
+                                <input type="radio"
+                                       name="{{ id }}-palette"
+                                       value="{{ value }}"
+                                       class="peer absolute inset-0 z-10 cursor-pointer opacity-0">
+                                <span data-cover-designer-chips="{{ value }}"
+                                      class="grid h-8 grid-cols-[2fr_1fr_1fr] overflow-hidden rounded-lg ring-1 ring-border peer-checked:ring-2 peer-checked:ring-primary peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary"></span>
+                                <span class="text-center text-xs text-foreground-muted peer-checked:font-semibold peer-checked:text-foreground">{{ label }}</span>
+                            </label>
+                        {% endfor %}
+                        <label class="relative grid cursor-pointer gap-1">
+                            <input type="radio"
+                                   name="{{ id }}-palette"
+                                   value="custom"
+                                   class="peer absolute inset-0 z-10 cursor-pointer opacity-0">
+                            <span class="grid h-8 place-items-center rounded-lg bg-bg-tertiary text-xs text-foreground-muted ring-1 ring-border peer-checked:ring-2 peer-checked:ring-primary peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary">{% translate "Pick" %}</span>
+                            <span class="text-center text-xs text-foreground-muted peer-checked:font-semibold peer-checked:text-foreground">{% translate "Custom" %}</span>
+                        </label>
+                    </div>
+                    <div data-cover-designer-custom
+                         hidden
+                         class="grid gap-3 rounded-lg bg-bg-tertiary p-3">
+                        <div role="radiogroup" aria-labelledby="cover-designer-{{ id }}-ground">
+                            <p id="cover-designer-{{ id }}-ground"
+                               class="mb-1.5 text-xs font-semibold text-foreground">{% translate "Background" %}</p>
+                            <div data-cover-designer-ramp="ground" class="grid grid-cols-11 gap-1"></div>
+                        </div>
+                        <div role="radiogroup" aria-labelledby="cover-designer-{{ id }}-accent">
+                            <p id="cover-designer-{{ id }}-accent"
+                               class="mb-1.5 text-xs font-semibold text-foreground">{% translate "Accent" %}</p>
+                            <div data-cover-designer-ramp="accent" class="grid grid-cols-11 gap-1"></div>
+                        </div>
+                    </div>
+                </fieldset>
+                <fieldset class="grid min-w-0 gap-3">
+                    <legend class="mb-2 text-sm font-semibold text-foreground">{% translate "Layout" %}</legend>
+                    <div class="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-0.5">
+                        <label for="cover-designer-{{ id }}-density"
+                               class="text-sm text-foreground">{% translate "Size" %}</label>
+                        <output data-cover-designer-out="density"
+                                for="cover-designer-{{ id }}-density"
+                                class="text-xs tabular-nums text-foreground-muted"></output>
+                        <input type="range"
+                               id="cover-designer-{{ id }}-density"
+                               data-cover-designer-control="density"
+                               min="2.5"
+                               max="9"
+                               step="0.1"
+                               class="col-span-2 w-full accent-primary">
+                    </div>
+                    <div class="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-0.5">
+                        <label for="cover-designer-{{ id }}-amount"
+                               class="text-sm text-foreground">{% translate "Accent" %}</label>
+                        <output data-cover-designer-out="amount"
+                                for="cover-designer-{{ id }}-amount"
+                                class="text-xs tabular-nums text-foreground-muted"></output>
+                        <input type="range"
+                               id="cover-designer-{{ id }}-amount"
+                               data-cover-designer-control="amount"
+                               min="0"
+                               max="1"
+                               step="0.01"
+                               class="col-span-2 w-full accent-primary">
+                    </div>
+                    <div class="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-0.5">
+                        <label for="cover-designer-{{ id }}-angle"
+                               class="text-sm text-foreground">{% translate "Angle" %}</label>
+                        <output data-cover-designer-out="angle"
+                                for="cover-designer-{{ id }}-angle"
+                                class="text-xs tabular-nums text-foreground-muted"></output>
+                        <input type="range"
+                               id="cover-designer-{{ id }}-angle"
+                               data-cover-designer-control="angle"
+                               min="-45"
+                               max="45"
+                               step="1"
+                               class="col-span-2 w-full accent-primary">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="flex-1 text-sm text-foreground-muted">{% translate "Layout" %} <b data-cover-designer-out="seed"
+                                                                                                       class="font-semibold tabular-nums text-foreground"></b></span>
+                        <button type="button"
+                                class="btn btn-secondary"
+                                data-cover-designer-action="new-layout">{% translate "New layout" %}</button>
+                    </div>
+                </fieldset>
+                <fieldset class="grid min-w-0 gap-3">
+                    <legend class="mb-2 text-sm font-semibold text-foreground">{% translate "Text on cover" %}</legend>
+                    <div class="flex flex-wrap gap-2">
+                        <label class="relative inline-flex cursor-pointer select-none items-center rounded-lg bg-bg-tertiary px-3 py-2 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-border has-checked:bg-primary-light has-checked:text-primary has-focus-visible:ring-2 has-focus-visible:ring-primary/50 has-focus-visible:ring-offset-2">
+                            <input type="radio"
+                                   name="{{ id }}-text"
+                                   value="none"
+                                   class="absolute inset-0 cursor-pointer opacity-0">
+                            {% translate "No text" %}
+                        </label>
+                        <label class="relative inline-flex cursor-pointer select-none items-center rounded-lg bg-bg-tertiary px-3 py-2 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-border has-checked:bg-primary-light has-checked:text-primary has-focus-visible:ring-2 has-focus-visible:ring-primary/50 has-focus-visible:ring-offset-2">
+                            <input type="radio"
+                                   name="{{ id }}-text"
+                                   value="show"
+                                   class="absolute inset-0 cursor-pointer opacity-0">
+                            {% translate "Add text" %}
+                        </label>
+                    </div>
+                    <div data-cover-designer-text hidden class="grid gap-3">
+                        <div class="grid gap-1">
+                            <label for="cover-designer-{{ id }}-words"
+                                   class="text-sm text-foreground">{% translate "Text" %}</label>
+                            {% include "components/text-field.html" with name=id|add:"-words" id="cover-designer-"|add:id|add:"-words" maxlength=80 only %}
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div role="radiogroup"
+                                 aria-label="{% translate "Position" %}"
+                                 class="grid w-max grid-cols-3 gap-0.5 rounded-lg bg-bg-tertiary p-1">
+                                {% for value, label in anchors %}
+                                    <label title="{{ label }}"
+                                           class="relative grid size-5 cursor-pointer place-items-center rounded after:size-1.5 after:rounded-full after:bg-foreground-muted/60 after:content-[''] hover:after:bg-foreground has-checked:bg-bg-secondary has-checked:shadow-sm has-checked:after:size-2 has-checked:after:bg-primary has-focus-visible:outline-2 has-focus-visible:outline-primary">
+                                        <input type="radio"
+                                               name="{{ id }}-anchor"
+                                               value="{{ value }}"
+                                               aria-label="{{ label }}"
+                                               class="absolute inset-0 z-10 cursor-pointer opacity-0">
+                                    </label>
+                                {% endfor %}
+                            </div>
+                            <div role="radiogroup"
+                                 aria-label="{% translate "Alignment" %}"
+                                 class="flex gap-0.5 rounded-lg bg-bg-tertiary p-1">
+                                {% translate "Align left" as align_left %}
+                                {% translate "Align center" as align_center %}
+                                {% translate "Align right" as align_right %}
+                                <label title="{{ align_left }}"
+                                       class="relative grid size-8 cursor-pointer place-items-center rounded-md text-foreground-muted has-checked:bg-bg-secondary has-checked:text-foreground has-checked:shadow-sm has-focus-visible:outline-2 has-focus-visible:outline-primary">
+                                    <input type="radio"
+                                           name="{{ id }}-align"
+                                           value="left"
+                                           aria-label="{{ align_left }}"
+                                           class="absolute inset-0 z-10 cursor-pointer opacity-0">
+                                    {% icon "bars-3-bottom-left" variant="micro" class="size-4" %}
+                                </label>
+                                <label title="{{ align_center }}"
+                                       class="relative grid size-8 cursor-pointer place-items-center rounded-md text-foreground-muted has-checked:bg-bg-secondary has-checked:text-foreground has-checked:shadow-sm has-focus-visible:outline-2 has-focus-visible:outline-primary">
+                                    <input type="radio"
+                                           name="{{ id }}-align"
+                                           value="center"
+                                           aria-label="{{ align_center }}"
+                                           class="absolute inset-0 z-10 cursor-pointer opacity-0">
+                                    {% icon "bars-3" variant="micro" class="size-4" %}
+                                </label>
+                                <label title="{{ align_right }}"
+                                       class="relative grid size-8 cursor-pointer place-items-center rounded-md text-foreground-muted has-checked:bg-bg-secondary has-checked:text-foreground has-checked:shadow-sm has-focus-visible:outline-2 has-focus-visible:outline-primary">
+                                    <input type="radio"
+                                           name="{{ id }}-align"
+                                           value="right"
+                                           aria-label="{{ align_right }}"
+                                           class="absolute inset-0 z-10 cursor-pointer opacity-0">
+                                    {% icon "bars-3-bottom-right" variant="micro" class="size-4" %}
+                                </label>
+                            </div>
+                        </div>
+                        <p data-cover-designer-crop-note
+                           hidden
+                           class="text-xs text-foreground-muted">
+                            {% translate "Cards crop the top and bottom, so this text will be cut in some places." %}
+                        </p>
+                    </div>
+                </fieldset>
+            </div>
+        </div>
+        <div class="modal-footer flex flex-wrap items-center gap-2 border-t border-border px-5 pt-3">
+            <button type="button"
+                    class="btn btn-secondary"
+                    data-cover-designer-action="reroll">
+                {% icon "arrow-path" variant="mini" class="size-4" %}
+                <span class="btn-label">{% translate "Reroll" %}</span>
+            </button>
+            <p data-cover-designer-status
+               role="status"
+               class="min-w-0 flex-1 text-xs text-foreground-muted"></p>
+            <button type="button"
+                    class="btn btn-secondary"
+                    data-modal-close="cover-designer-{{ id }}">{% translate "Cancel" %}</button>
+            <button type="button"
+                    class="btn btn-primary"
+                    data-cover-designer-action="use">{% translate "Use cover" %}</button>
+        </div>
+    </dialog>
+</template>

@@ -85,6 +85,7 @@ export default defineConfig({
         "command-menu": resolve(rootDir, "src/command-menu.ts"),
         confirm: resolve(rootDir, "src/confirm.ts"),
         copy: resolve(rootDir, "src/copy.ts"),
+        "cover-designer": resolve(rootDir, "src/cover-designer.ts"),
         "design-page": resolve(rootDir, "src/design-page.ts"),
         djangoHmr: resolve(rootDir, "src/django-hmr.ts"),
         dropzone: resolve(rootDir, "src/dropzone.ts"),
