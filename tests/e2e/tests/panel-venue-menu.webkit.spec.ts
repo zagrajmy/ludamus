@@ -5,7 +5,10 @@ import { expect, test } from "./helpers/fixtures";
 const VENUES = "/panel/event/thornwood-days/venues/";
 
 test.describe("Venue actions on a phone", () => {
-  test.use({ storageState: managerState });
+  // NOTE: the page opens at phone size rather than being resized mid-test. A
+  // late `resize` closes a pinned menu (menu.ts), and WebKit can stop painting
+  // after `setViewportSize`, which hangs `toBeInViewport` past its timeout.
+  test.use({ storageState: managerState, viewport: { width: 375, height: 812 } });
 
   test("the last venue's menu is not cut off, so it can be deleted", async ({ page }, testInfo) => {
     const name = `Attic ${Date.now()}`;
@@ -14,7 +17,6 @@ test.describe("Venue actions on a phone", () => {
     await page.getByRole("button", { name: "Create space" }).click();
     await page.waitForURL(`**${VENUES}`);
 
-    await page.setViewportSize({ width: 375, height: 812 });
     const venue = page.getByRole("listitem").filter({ has: page.getByText(name, { exact: true }) });
     await venue.getByRole("button", { name: `More actions for ${name}` }).click();
     const remove = venue.getByRole("button", { name: "Delete" });
