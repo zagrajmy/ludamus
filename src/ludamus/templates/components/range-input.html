@@ -3,6 +3,7 @@
 {# so this draws both parts itself: the empty track in the border color, the filled part and thumb in primary. #}
 {# Firefox fills the track up to the thumb itself (::-moz-range-progress); WebKit and Blink need the #}
 {# --fill custom property, the value's share of the range as a percentage, kept current by the page's script. #}
+{# ludamus-disable:no-negative-margin -- WebKit puts a slider thumb at the top of its track, so a thumb taller than the track is centred by pulling it up half the difference #}
 <input type="range"
        name="{{ name }}"
        {% if id|default:"" %}id="{{ id }}"{% endif %}
