@@ -62,6 +62,8 @@
                           hx-post="{{ enroll_url }}"
                           hx-target="#enroll-actions-{{ session_pk }}"
                           hx-swap="outerHTML"
+                          data-roster-action="{{ actions.submit_value }}"
+                          data-roster-session="{{ session_pk }}"
                           {% if actions.confirm %}hx-confirm="{{ actions.confirm }}"{% endif %}>
                         {% csrf_token %}
                         <input type="hidden"
@@ -86,7 +88,9 @@
                               action="{{ enroll_url }}"
                               hx-post="{{ enroll_url }}"
                               hx-target="#enroll-actions-{{ session_pk }}"
-                              hx-swap="outerHTML">
+                              hx-swap="outerHTML"
+                              data-roster-action="{{ actions.submit_value }}"
+                              data-roster-session="{{ session_pk }}">
                             {% csrf_token %}
                             <input type="hidden"
                                    name="user_{{ viewer_pk }}"

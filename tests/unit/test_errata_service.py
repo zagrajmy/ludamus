@@ -1,6 +1,5 @@
 import re
 from datetime import UTC, datetime, timedelta
-from types import SimpleNamespace
 
 import pytest
 
@@ -8,6 +7,7 @@ from ludamus.mills.errata import ErrataService
 from ludamus.pacts.errata import ErratumDTO, ErratumKind
 from ludamus.pacts.errors import NotFoundError
 from ludamus.pacts.timetable import ScheduleChangeAction, ScheduleChangeLogDTO
+from tests.unit.factories import event_dto
 
 _EVENT_PK = 7
 _PUBLISHED = datetime(2026, 6, 1, 12, 0, tzinfo=UTC)
@@ -52,7 +52,7 @@ def _log(
 
 class FakeEvents:
     def __init__(self):
-        self.rows = {_EVENT_PK: SimpleNamespace(publication_time=_PUBLISHED)}
+        self.rows = {_EVENT_PK: event_dto(pk=_EVENT_PK, publication_time=_PUBLISHED)}
 
     def read(self, pk):
         return self.rows[pk]
@@ -274,7 +274,7 @@ class TestSetImportant:
         assert not logs.important_writes
 
     def test_an_unpublished_agenda_has_no_errata_to_flag(self, service, events, logs):
-        events.rows[_EVENT_PK] = SimpleNamespace(publication_time=None)
+        events.rows[_EVENT_PK] = event_dto(pk=_EVENT_PK, publication_time=None)
 
         with pytest.raises(NotFoundError, match=_refusal(1)):
             service.set_important(event_pk=_EVENT_PK, log_pks=[1], important=True)
@@ -338,7 +338,7 @@ class TestSetAcknowledged:
 
 class TestUnpublishedEvent:
     def test_nothing_is_an_erratum_before_publication(self, service, events, logs):
-        events.rows[_EVENT_PK] = SimpleNamespace(publication_time=None)
+        events.rows[_EVENT_PK] = event_dto(pk=_EVENT_PK, publication_time=None)
         logs.rows = [_log(1, ScheduleChangeAction.ASSIGN, new_space="Room A")]
 
         assert service.list_for_event(_EVENT_PK) == []

@@ -40,7 +40,7 @@ test("raising a full session's limit seats the first waiter, and only her", asyn
 
   for (const member of [first, second]) {
     const dialog = await openSession(member.page, title);
-    await expect(dialog.getByText("On the waiting list")).toBeVisible();
+    await expect(dialog.getByText("On the waiting list", { exact: true })).toBeVisible();
   }
 
   await page.goto(PANEL_URL);
@@ -66,12 +66,15 @@ test("raising a full session's limit seats the first waiter, and only her", asyn
 
   // One seat opened, so the second in the queue keeps waiting.
   const waiting = await openSession(second.page, title);
-  await expect(waiting.getByText("On the waiting list")).toBeVisible();
-  await waiting.getByRole("tab", { name: /Participants/ }).click();
-  const roster = waiting.getByRole("tabpanel");
-  await expect(roster).toHaveText(
-    /Enrolled \(2\/2\)[\s\S]*Ilse First[\s\S]*Waiting List[\s\S]*Otto Second/,
-  );
+  await expect(waiting.getByText("On the waiting list", { exact: true })).toBeVisible();
+  const roster = waiting.locator("[data-roster]");
+  await expect(roster).toContainText("2/2");
+  await expect(roster).toContainText("1 waiting");
+  await waiting.getByRole("button", { name: "Participants" }).click();
+  const people = waiting.getByRole("dialog", { name: "Participants" });
+  await expect(people.getByRole("img", { name: "Ilse First" })).toBeVisible();
+  await expect(people.getByText("Otto Second", { exact: true })).toBeVisible();
+  await expect(people.getByRole("heading", { name: "Waiting List" })).toBeVisible();
 
   await attachArtifacts(testInfo, {
     name: "capacity-promotion",

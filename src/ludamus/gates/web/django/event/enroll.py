@@ -7,6 +7,7 @@ fragment on the event page posts explicit actions and gets its footer back.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -335,7 +336,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 footer_state.viewer_status == SessionParticipationStatus.WAITING
             ),
         )
-        return TemplateResponse(
+        response = TemplateResponse(
             self.request,
             "event/parts/session-enroll-actions.html",
             {
@@ -351,6 +352,20 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 "notice": notice if footer.actions is None else "",
             },
         )
+        # The modal's roster showed the viewer's change before this answer
+        # came; the real outcome replaces that guess, refusals included.
+        response["HX-Trigger"] = json.dumps(
+            {
+                "roster-sync": {
+                    "session": session.pk,
+                    "status": footer_state.viewer_status or "",
+                    "enrolled": seats.enrolled_count,
+                    "waiting": seats.waiting_count,
+                    "limit": seats.effective_participants_limit,
+                }
+            }
+        )
+        return response
 
     def _drain_messages(self) -> str:
         # HX-Request responses swap only the footer fragment, so nothing

@@ -82,7 +82,7 @@ test.describe("Resigning after enrollment closes", () => {
 
     await page.reload();
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText("On the waiting list")).toHaveCount(0);
+    await expect(dialog.getByText("On the waiting list", { exact: true })).toHaveCount(0);
     await expect(dialog.getByRole("button", { name: "Join waiting list" })).toHaveCount(0);
   });
 });

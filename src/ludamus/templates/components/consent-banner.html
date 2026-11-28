@@ -19,8 +19,14 @@
     the card was a scroll dead zone. In-flow at the end of #app-scroll, the
     card's scrolls chain into the page scroller while it renders in the same
     corner.
+
+    The scroller runs under iOS Safari's floating toolbar (see .app-shell in
+    index.css), so the host sticks --toolbar-cover above the scroller's bottom
+    edge, not at it. The card is the topmost floating surface at every width:
+    over the chat button and chat window (z-50) and their menus (z-60), and
+    over the email banner, which hides meanwhile on a phone.
 {% endcomment %}
-<div class="sticky bottom-0 z-40 h-0 shrink-0">
+<div class="sticky bottom-(--toolbar-cover) z-70 h-0 shrink-0">
     <section id="consent-banner"
              class="consent-banner absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-auto sm:max-w-sm rounded-2xl border border-border bg-bg-secondary/95 backdrop-blur-lg shadow-lg"
              aria-label="{% translate "Cookie consent" %}"

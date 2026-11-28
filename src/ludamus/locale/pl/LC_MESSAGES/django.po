@@ -420,7 +420,7 @@ msgstr "Miejsce"
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "Max participants"
-msgstr "Maks. uczestników"
+msgstr "Liczba miejsc"
 
 #: src/ludamus/gates/web/django/encounter/forms.py
 msgid "Public encounter"
@@ -488,7 +488,7 @@ msgstr "Poczekaj chwilę przed ponownym zapisem."
 
 #: src/ludamus/gates/web/django/encounter/views.py
 msgid "You have already signed up."
-msgstr "Już się zapisałeś/aś."
+msgstr "Już jesteś na liście."
 
 #: src/ludamus/gates/web/django/encounter/views.py
 msgid "You have signed up!"
@@ -496,7 +496,7 @@ msgstr "Zapisano!"
 
 #: src/ludamus/gates/web/django/encounter/views.py
 msgid "You have been removed from this encounter."
-msgstr "Zostałeś/aś wypisany/a z tego spotkania."
+msgstr "Wypisano Cię z tego spotkania."
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "That event isn't available."
@@ -508,7 +508,7 @@ msgstr "Krytyczna porażka!"
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "You rolled a nat 1 on your Navigation check!"
-msgstr "Wyrzuciłeś naturalną 1 na teście Nawigacji!"
+msgstr "Wypadła naturalna 1 na teście Nawigacji!"
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "The path you seek has vanished into the mists."
@@ -516,7 +516,7 @@ msgstr "Ścieżka której szukasz zniknęła we mgle."
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "No-Show Player"
-msgstr "Gracz nie przyszedł"
+msgstr "Osoba nie przyszła"
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "Page didn't show up to the session"
@@ -556,7 +556,7 @@ msgstr "Poza mapą!"
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "You've wandered off the edge of the campaign map"
-msgstr "Zabłądziłeś poza krawędź mapy kampanii"
+msgstr "Ścieżka zeszła poza krawędź mapy kampanii"
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "Here be dragons... and 404 errors."
@@ -581,7 +581,7 @@ msgstr "Nieudana Teleportacja!"
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "You've accidentally teleported to the wrong website"
-msgstr "Przypadkowo teleportowałeś się na złą stronę internetową"
+msgstr "Przypadkowa teleportacja na złą stronę internetową"
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "The page you seek exists on another plane of existence."
@@ -655,7 +655,7 @@ msgstr "Strona Która Nie Powinna Istnieć"
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "You've stumbled upon knowledge that was never meant to exist"
-msgstr "Natknąłeś się na wiedzę, która nigdy nie miała istnieć"
+msgstr "Tu jest wiedza, która nigdy nie miała istnieć"
 
 #: src/ludamus/gates/web/django/error_views.py
 msgid "Your sanity takes 1d10 damage."
@@ -973,15 +973,13 @@ msgid ""
 "Cannot enroll: You are already enrolled in another session that conflicts "
 "with this time slot."
 msgstr ""
-"Nie można się zapisać: Jesteś już zapisany na inny punkt programu, który "
-"koliduje z tym terminem."
+"Nie można się zapisać: jesteś już na innym punkcie programu w tym samym "
+"terminie."
 
 #: src/ludamus/gates/web/django/event/anonymous.py
 #, python-format
 msgid "Session is full. You have been added to the waiting list for: %(title)s"
-msgstr ""
-"Punkt programu jest pełny. Zostałeś dodany do listy oczekujących na: "
-"%(title)s"
+msgstr "Punkt programu jest pełny. Jesteś na liście oczekujących na: %(title)s"
 
 #: src/ludamus/gates/web/django/event/anonymous.py
 #, python-format
@@ -1314,7 +1312,7 @@ msgstr "Anuluj"
 
 #: src/ludamus/gates/web/django/event/enroll_presentation.py
 msgid "You're enrolled"
-msgstr "Jesteś zapisany/a"
+msgstr "Jesteś na liście"
 
 #: src/ludamus/gates/web/django/event/enroll_presentation.py
 msgid "Leave"
@@ -1826,7 +1824,7 @@ msgstr "Przypisany do"
 #: src/ludamus/templates/event/propose/parts/review.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Presenter name"
-msgstr "Nazwa prowadzącego"
+msgstr "Prowadzi"
 
 #: src/ludamus/gates/web/django/event/panel/views/columns.py
 #: src/ludamus/gates/web/django/event/panel/views/google_docs_import.py
@@ -3290,10 +3288,6 @@ msgid "Your changes are saved."
 msgstr "Zmiany zapisane."
 
 #: src/ludamus/gates/web/django/event/views.py
-msgid "There is already a session scheduled at this space and time."
-msgstr "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
-
-#: src/ludamus/gates/web/django/event/views.py
 #, python-brace-format
 msgid "Proposal '{}' has been accepted and added to the agenda."
 msgstr "Zgłoszenie '{}' zostało zaakceptowane i dodane do programu."
@@ -3509,7 +3503,7 @@ msgid "Space name is required."
 msgstr "Nazwa przestrzeni jest wymagana."
 
 #: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/event/parts/_session_info_view.html
+#: src/ludamus/templates/event/parts/_session_roster.html
 #: src/ludamus/templates/event/print.html
 msgid "Capacity"
 msgstr "Pojemność"
@@ -3619,7 +3613,7 @@ msgstr "Tytuł jest wymagany."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Presenter name is required."
-msgstr "Nazwa prowadzącego jest wymagana."
+msgstr "Podaj, kto prowadzi."
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/event/parts/session-edit-form.html
@@ -3646,7 +3640,7 @@ msgstr "Puste pole lub 0 = bez zapisów"
 #: src/ludamus/templates/event/parts/session-edit-form.html
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Minimum Age"
-msgstr "Minimalny Wiek"
+msgstr "Minimalny wiek"
 
 #: src/ludamus/gates/web/django/forms.py src/ludamus/templates/event/print.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
@@ -5470,7 +5464,7 @@ msgstr "dziś"
 
 #: src/ludamus/gates/web/django/templatetags/enroll_tags.py
 msgid "Already enrolled"
-msgstr "Już zapisany"
+msgstr "Już na liście"
 
 #: src/ludamus/gates/web/django/templatetags/enroll_tags.py
 msgid "Seat held — awaiting their approval"
@@ -5514,6 +5508,7 @@ msgstr "Pełne"
 #: src/ludamus/gates/web/django/templatetags/schedule_tags.py
 #: src/ludamus/templates/event/_session_card.html
 #: src/ludamus/templates/event/anonymous_enroll.html
+#: src/ludamus/templates/event/parts/_session_roster.html
 msgid "waiting"
 msgstr "oczekuje"
 
@@ -5577,7 +5572,6 @@ msgstr "Skopiuj do schowka"
 
 #: src/ludamus/gates/web/django/templatetags/tessera/dialog_close_button.py
 #: src/ludamus/templates/components/bottom-sheet.html
-#: src/ludamus/templates/event/parts/session-modal.html
 #: src/ludamus/templates/user/user/_email_verify_modal.html
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "Close"
@@ -5682,6 +5676,22 @@ msgid "Under 13"
 msgstr "Poniżej 13 lat"
 
 #: src/ludamus/gates/web/django/user/forms.py
+msgid ""
+"How others see you on sessions and your profile. A nickname is fine — not an "
+"email address."
+msgstr ""
+"Tak będą Cię widzieć przy punktach programu i w profilu. Pseudonim jest w "
+"porządku — nie adres e-mail."
+
+#: src/ludamus/gates/web/django/user/forms.py
+msgid "Enter a display name."
+msgstr "Podaj nazwę wyświetlaną."
+
+#: src/ludamus/gates/web/django/user/forms.py
+msgid "Enter a display name, not an email address."
+msgstr "Podaj nazwę wyświetlaną, nie adres e-mail."
+
+#: src/ludamus/gates/web/django/user/forms.py
 #: src/ludamus/templates/event/anonymous_enroll.html
 msgid ""
 "Your public display name that others will see. This can be a nickname and "
@@ -5720,11 +5730,11 @@ msgstr ""
 
 #: src/ludamus/gates/web/django/user/forms.py
 msgid "Companion display name"
-msgstr "Nazwa wyświetlana towarzysza"
+msgstr "Nazwa wyświetlana osoby towarzyszącej"
 
 #: src/ludamus/gates/web/django/user/forms.py
 msgid "Enter one of your companions exactly as they are named."
-msgstr "Wpisz dokładną nazwę jednego ze swoich towarzyszy."
+msgstr "Wpisz dokładną nazwę jednej z osób towarzyszących."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid ""
@@ -5751,19 +5761,19 @@ msgstr "Proszę poprawić błędy poniżej."
 #: src/ludamus/gates/web/django/user/profile.py
 #, python-format
 msgid "You can only have up to %(max)s companions."
-msgstr "Możesz mieć maksymalnie %(max)s towarzyszy."
+msgstr "Możesz mieć maksymalnie %(max)s osób towarzyszących."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Companion added successfully!"
-msgstr "Towarzysz został dodany!"
+msgstr "Dodano osobę towarzyszącą!"
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Companion updated successfully!"
-msgstr "Zaktualizowano dane towarzysza!"
+msgstr "Zaktualizowano dane osoby towarzyszącej!"
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Companion deleted successfully."
-msgstr "Towarzysz został usunięty."
+msgstr "Usunięto osobę towarzyszącą."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Could not create a claim link for this person."
@@ -5782,7 +5792,8 @@ msgid ""
 "You're already signed in. Log out first to claim this profile into a new "
 "account."
 msgstr ""
-"Jesteś już zalogowany(-a). Wyloguj się, aby przejąć ten profil na nowe konto."
+"To konto jest już zalogowane. Wyloguj się, aby przejąć ten profil na nowe "
+"konto."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Mention emails turned on."
@@ -5802,15 +5813,15 @@ msgstr "Subskrypcja ponownie aktywna."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "If a matching player exists, they have been shadowbanned."
-msgstr "Jeśli pasujący gracz istnieje, został cicho zbanowany."
+msgstr "Jeśli pasująca osoba istnieje, została cicho zbanowana."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Player shadowbanned."
-msgstr "Gracz został cicho zbanowany."
+msgstr "Zbanowano."
 
 #: src/ludamus/gates/web/django/user/profile.py
 msgid "Shadowban removed."
-msgstr "Cichy ban został usunięty."
+msgstr "Ban został cofnięty."
 
 #: src/ludamus/gates/web/django/user/views.py
 msgid "Party created."
@@ -5864,7 +5875,7 @@ msgid ""
 msgstr ""
 "Żadne konto nie pasuje do tego adresu email ani nazwy użytkownika Discord. "
 "Poproś tę osobę o rejestrację, udostępnij jej swój link zaproszenia albo "
-"dodaj ją jako towarzysza, którego zapisujesz samodzielnie."
+"dodaj ją jako osobę towarzyszącą, którą zapisujesz samodzielnie."
 
 #: src/ludamus/gates/web/django/user/views.py
 msgid "Could not regenerate the invite link."
@@ -5876,25 +5887,25 @@ msgstr "Wygenerowano nowy link zaproszenia."
 
 #: src/ludamus/gates/web/django/user/views.py
 msgid "Enter a companion display name."
-msgstr "Podaj nazwę wyświetlaną towarzysza."
+msgstr "Podaj nazwę wyświetlaną osoby towarzyszącej."
 
 #: src/ludamus/gates/web/django/user/views.py
 msgid "Companion added to the party."
-msgstr "Towarzysz został dodany do drużyny."
+msgstr "Dodano osobę towarzyszącą do drużyny."
 
 #: src/ludamus/gates/web/django/user/views.py
 msgid "This companion is already in the party."
-msgstr "Ten towarzysz jest już w drużynie."
+msgstr "Ta osoba towarzysząca jest już w drużynie."
 
 #: src/ludamus/gates/web/django/user/views.py
 msgid "More than one companion has that display name. Rename one first."
 msgstr ""
-"Więcej niż jeden towarzysz ma tę nazwę wyświetlaną. Najpierw zmień nazwę "
-"jednego z nich."
+"Więcej niż jedna osoba towarzysząca ma tę nazwę wyświetlaną. Najpierw zmień "
+"nazwę jednej z nich."
 
 #: src/ludamus/gates/web/django/user/views.py
 msgid "No companion matches that display name."
-msgstr "Żaden towarzysz nie ma takiej nazwy wyświetlanej."
+msgstr "Żadna osoba towarzysząca nie ma takiej nazwy wyświetlanej."
 
 #: src/ludamus/gates/web/django/user/views.py
 msgid "This invite link is invalid."
@@ -5929,24 +5940,12 @@ msgid "Could not change this setting."
 msgstr "Nie udało się zmienić tego ustawienia."
 
 #: src/ludamus/gates/web/django/user/views.py
-msgid "The leader can now enroll you directly."
-msgstr "Od teraz lider może zapisywać Cię bezpośrednio."
+msgid "The leader can now sign you up without asking."
+msgstr "Od teraz lider może zapisywać Cię bez pytania."
 
 #: src/ludamus/gates/web/django/user/views.py
-msgid "Enrollments now wait for your approval."
-msgstr "Od teraz zapisy czekają na Twoją zgodę."
-
-#: src/ludamus/gates/web/django/user/views.py
-msgid "This party can now enroll together."
-msgstr "Ta drużyna może się teraz zapisywać razem."
-
-#: src/ludamus/gates/web/django/user/views.py
-msgid "This party no longer enrolls together."
-msgstr "Ta drużyna nie zapisuje się już razem."
-
-#: src/ludamus/gates/web/django/user/views.py
-msgid "A party that has enrolled keeps enrolling together."
-msgstr "Drużyna, która już się zapisała, nadal zapisuje się razem."
+msgid "We ask before each signup again."
+msgstr "Znów pytamy przed każdym zapisem."
 
 #: src/ludamus/gates/web/django/user/views.py
 msgid "You left the party."
@@ -6165,6 +6164,35 @@ msgstr "Odmowa"
 #: src/ludamus/templates/panel/timetable-log.html
 msgid "Removed"
 msgstr "Usunięto"
+
+#: src/ludamus/links/db/django/models.py
+msgid "Enter an https address with a plain domain name."
+msgstr "Podaj adres https ze zwykłą nazwą domeny."
+
+#: src/ludamus/links/db/django/models.py
+msgid "Enter domain names only, one per line, like cdn.example.org."
+msgstr ""
+"Podaj same nazwy domen, po jednej w wierszu, na przykład cdn.example.org."
+
+#: src/ludamus/links/db/django/models.py
+msgid "address"
+msgstr "adres"
+
+#: src/ludamus/links/db/django/models.py
+msgid "The https page that the frame opens."
+msgstr "Strona https, którą otwiera ramka."
+
+#: src/ludamus/links/db/django/models.py
+msgid ""
+"Other domains the tool moves the frame to, such as its login page. One per "
+"line. The domain of the address is always allowed."
+msgstr ""
+"Inne domeny, na które narzędzie przenosi ramkę, na przykład strona "
+"logowania. Po jednej w wierszu. Domena adresu jest zawsze dozwolona."
+
+#: src/ludamus/links/db/django/models.py
+msgid "An inactive tool is not found on any sphere."
+msgstr "Nieaktywnego narzędzia nie ma na żadnej sferze."
 
 #: src/ludamus/links/db/django/moderation_mail.py
 msgid "no action"
@@ -6437,7 +6465,7 @@ msgstr "Masz miejsce: zwolniło się miejsce w %(session)s"
 
 #: src/ludamus/links/db/django/notifications.py
 msgid "A confirmed spot opened up and you have been enrolled automatically."
-msgstr "Zwolniło się potwierdzone miejsce i zostałeś automatycznie zapisany."
+msgstr "Zwolniło się potwierdzone miejsce — jesteś teraz na liście."
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
@@ -6469,21 +6497,22 @@ msgstr ""
 
 #: src/ludamus/links/db/django/notifications.py
 msgid ""
-"Join the party to enroll in events together — you move up waiting lists as "
-"one group. You decide about every enrollment unless you say otherwise."
+"Join to enroll in sessions together. We ask before each signup unless you "
+"allow the leader to sign you up directly."
 msgstr ""
-"Dołącz do drużyny, aby zapisywać się na wydarzenia wspólnie — na listach "
-"oczekujących awansujecie jako jedna grupa. O każdym zapisie decydujesz Ty, "
-"chyba że postanowisz inaczej."
+"Dołącz, żeby zapisywać się razem na punkty programu. Pytamy przed każdym "
+"zapisem, chyba że pozwolisz liderowi zapisywać Cię bezpośrednio."
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
 msgid ""
-"You showed interest in %(listing)s. Accept the invitation to join the party, "
-"and you and the author see each other's contact."
+"You showed interest in %(listing)s. Accept to join the party and share "
+"contact. Session signups still need your OK unless you allow direct "
+"enrollment."
 msgstr ""
-"Chodzi o ogłoszenie %(listing)s. Przyjmij zaproszenie do drużyny, a Ty i "
-"autor zobaczycie swoje kontakty."
+"Zgłoszenie zainteresowania ogłoszeniem %(listing)s. Przyjmij zaproszenie do "
+"drużyny i udostępnij kontakt. Zapisy na punkty programu nadal wymagają "
+"Twojej zgody, chyba że pozwolisz na bezpośrednie zapisy."
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
@@ -6676,12 +6705,12 @@ msgstr ""
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
 msgid "A shadowbanned player joined %(session)s with you"
-msgstr "Cicho zbanowany gracz dołączył razem z tobą do %(session)s"
+msgstr "Osoba z cichym banem dołączyła razem z tobą do %(session)s"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
 msgid "A shadowbanned player joined %(event)s"
-msgstr "Cicho zbanowany gracz dołączył do %(event)s"
+msgstr "Osoba z cichym banem dołączyła do %(event)s"
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
@@ -6689,13 +6718,14 @@ msgid ""
 "Someone you shadowbanned signed up to %(session)s, where you are playing: "
 "%(players)s."
 msgstr ""
-"Ktoś, kogo cicho zbanowałeś, zapisał się na %(session)s, gdzie grasz: "
+"Ktoś z Twojej listy cichego banu zapisał się na %(session)s, gdzie grasz: "
 "%(players)s."
 
 #: src/ludamus/links/db/django/notifications.py
 #, python-format
 msgid "Someone you shadowbanned signed up to %(event)s: %(players)s."
-msgstr "Ktoś, kogo cicho zbanowałeś, zapisał się na %(event)s: %(players)s."
+msgstr ""
+"Ktoś z Twojej listy cichego banu zapisał się na %(event)s: %(players)s."
 
 #: src/ludamus/links/db/django/notifications.py
 msgid "They have not been notified. Review the event if you need to."
@@ -6959,7 +6989,7 @@ msgid ""
 "Players post a game night, send friends one link, and see who's coming and "
 "how many seats are left. It takes less time than setting up the board."
 msgstr ""
-"Gracze ogłaszają wieczór z grą, wysyłają znajomym jeden link i widzą, kto "
+"Osoby ogłaszają wieczór z grą, wysyłają znajomym jeden link i widzą, kto "
 "przyjdzie i ile zostało miejsc. Zajmuje to mniej czasu niż rozłożenie "
 "planszy."
 
@@ -7083,7 +7113,7 @@ msgstr ""
 
 #: src/ludamus/templates/about.html
 msgid "Players who invite others to a game night with an Encounter"
-msgstr "Gracze, którzy zapraszają innych na wieczór z grą przez Spotkanie"
+msgstr "Osoby, które zapraszają innych na wieczór z grą przez Spotkanie"
 
 #
 #: src/ludamus/templates/about.html
@@ -7710,7 +7740,7 @@ msgstr "Czekają (%(count)s)"
 
 #: src/ludamus/templates/board/index.html
 msgid "GMs, players and groups looking for each other."
-msgstr "MG, gracze i grupy szukają siebie nawzajem."
+msgstr "MG, osoby i grupy szukają siebie nawzajem."
 
 #: src/ludamus/templates/board/index.html src/ludamus/templates/board/mine.html
 msgid "My listings"
@@ -8505,7 +8535,7 @@ msgstr "Informacje publiczne"
 #: src/ludamus/templates/components/visibility-header.html
 #: src/ludamus/templates/landing/_aud_switch.html
 msgid "For organizers"
-msgstr "Dla organizatorów"
+msgstr "Dla organizacji"
 
 #: src/ludamus/templates/components/visibility-icon.html
 #: src/ludamus/templates/components/visibility-legend.html
@@ -8539,7 +8569,7 @@ msgstr "Zajmij moje miejsce"
 
 #: src/ludamus/templates/dashboard/_role.html
 msgid "You're signed up"
-msgstr "Jesteś zapisany/a"
+msgstr "Jesteś na liście"
 
 #: src/ludamus/templates/dashboard/_role.html
 #, python-format
@@ -8957,7 +8987,7 @@ msgstr "Kopiuj szczegóły"
 
 #: src/ludamus/templates/encounter/_rsvp_inline.html
 msgid "You're signed up!"
-msgstr "Jesteś zapisany/a!"
+msgstr "Jesteś na liście!"
 
 #: src/ludamus/templates/encounter/_rsvp_inline.html
 msgid "Save the date so you don't forget:"
@@ -9167,7 +9197,6 @@ msgstr[2] "%(counter)s zgłoszeń"
 msgstr[3] "%(counter)s zgłoszenia"
 
 #: src/ludamus/templates/event/_proposal_section.html
-#: src/ludamus/templates/event/parts/_session_info_view.html
 #, python-format
 msgid "%(counter)s waiting"
 msgid_plural "%(counter)s waiting"
@@ -9326,16 +9355,21 @@ msgid "Save this code to manage your enrollment later"
 msgstr "Zachowaj ten kod, aby później zarządzać swoim zapisem"
 
 #: src/ludamus/templates/event/anonymous_enroll.html
-#: src/ludamus/templates/event/event.html
-msgid "Host"
-msgstr "Prowadzący"
+msgctxt "session host"
+msgid "Leads"
+msgstr "Prowadzi"
 
 #: src/ludamus/templates/event/anonymous_enroll.html
-#: src/ludamus/templates/event/parts/session-modal.html
-#: src/ludamus/templates/landing/spotkanie.html
-#: src/ludamus/templates/landing/zapisy_grupowe.html
+#: src/ludamus/templates/event/parts/_session_roster.html
+msgctxt "session roster taking part"
 msgid "Participants"
-msgstr "Uczestnicy"
+msgstr "Udział biorą"
+
+#: src/ludamus/templates/event/anonymous_enroll.html
+#: src/ludamus/templates/event/parts/_session_roster.html
+msgctxt "session roster playing"
+msgid "Participants"
+msgstr "Grają"
 
 #: src/ludamus/templates/event/anonymous_enroll.html
 #: src/ludamus/templates/event/parts/session-modal.html
@@ -9348,7 +9382,7 @@ msgstr "Zapisz się na punkt programu"
 
 #: src/ludamus/templates/event/anonymous_enroll.html
 msgid "is already enrolled in this session."
-msgstr "jest już zapisany na ten punkt programu."
+msgstr "jest już na tym punkcie programu."
 
 #: src/ludamus/templates/event/anonymous_enroll.html
 msgid "Status: On waiting list"
@@ -9390,12 +9424,12 @@ msgstr "Zapisy"
 
 #: src/ludamus/templates/event/enroll_select.html
 msgid "Players you shadowbanned are already signed up here"
-msgstr "Gracze, których cicho zbanowałeś, są już tutaj zapisani"
+msgstr "Osoby z Twojej listy cichego banu są już tutaj na liście"
 
 #: src/ludamus/templates/event/enroll_select.html
 #, python-format
 msgid "shadowbanned on %(date)s"
-msgstr "cicho zbanowany %(date)s"
+msgstr "z cichym banem od %(date)s"
 
 #: src/ludamus/templates/event/enroll_select.html
 msgid "Gets a seat"
@@ -9414,7 +9448,8 @@ msgid "Who should be in this session?"
 msgstr "Kto ma być w tym punkcie programu?"
 
 #: src/ludamus/templates/event/enroll_select.html
-#: src/ludamus/templates/event/parts/_session_participants_panel.html
+#: src/ludamus/templates/event/parts/_roster_confirmed_row.html
+#: src/ludamus/templates/event/parts/_roster_waiting_row.html
 msgid "You"
 msgstr "Ty"
 
@@ -9513,23 +9548,19 @@ msgid_plural ""
 "                            "
 msgstr[0] ""
 "\n"
-"                                Jesteś zapisany na %(counter)s punkt "
-"programu!\n"
+"                                Jesteś na %(counter)s punkcie programu!\n"
 "                            "
 msgstr[1] ""
 "\n"
-"                                Jesteś zapisany na %(counter)s punkty "
-"programu!\n"
+"                                Jesteś na %(counter)s punktach programu!\n"
 "                            "
 msgstr[2] ""
 "\n"
-"                                Jesteś zapisany na %(counter)s punktów "
-"programu!\n"
+"                                Jesteś na %(counter)s punktach programu!\n"
 "                            "
 msgstr[3] ""
 "\n"
-"                                Jesteś zapisany na %(counter)s punktów "
-"programu!\n"
+"                                Jesteś na %(counter)s punktach programu!\n"
 "                            "
 
 #: src/ludamus/templates/event/event.html
@@ -9603,12 +9634,12 @@ msgid "Enrollment unavailable"
 msgstr "Zapisy niedostępne"
 
 #: src/ludamus/templates/event/event.html
-msgid "I am enrolled"
-msgstr "Jestem zapisany"
+msgid "Your enrollments"
+msgstr "Twoje zapisy"
 
 #: src/ludamus/templates/event/event.html
-msgid "I am waiting"
-msgstr "Oczekuję"
+msgid "Your waiting list"
+msgstr "Twoja lista oczekujących"
 
 #: src/ludamus/templates/event/event.html
 msgid "all rooms"
@@ -9668,6 +9699,10 @@ msgstr "Szukaj rodzajów atrakcji…"
 #: src/ludamus/templates/panel/timetable.html
 msgid "All"
 msgstr "Wszystkie"
+
+#: src/ludamus/templates/event/event.html
+msgid "Host"
+msgstr "Prowadzący"
 
 #: src/ludamus/templates/event/event.html
 msgid "Search hosts…"
@@ -9852,23 +9887,29 @@ msgstr "Edytuj integrację"
 msgid "Save"
 msgstr "Zapisz"
 
-#: src/ludamus/templates/event/parts/_session_participants_panel.html
-msgid "Enrolled"
-msgstr "Zapisany"
-
-#: src/ludamus/templates/event/parts/_session_participants_panel.html
-msgid "Waiting List"
-msgstr "Lista oczekujących"
-
-#: src/ludamus/templates/event/parts/_session_participants_panel.html
+#: src/ludamus/templates/event/parts/_roster_waiting_row.html
 msgid "Waiting list position"
 msgstr "Pozycja na liście oczekujących"
 
-#: src/ludamus/templates/event/parts/_session_participants_panel.html
+#: src/ludamus/templates/event/parts/_session_roster.html
+msgctxt "session roster taking part"
+msgid "Enrolled"
+msgstr "Udział biorą"
+
+#: src/ludamus/templates/event/parts/_session_roster.html
+msgctxt "session roster playing"
+msgid "Enrolled"
+msgstr "Grają"
+
+#: src/ludamus/templates/event/parts/_session_roster.html
+msgid "Waiting List"
+msgstr "Lista oczekujących"
+
+#: src/ludamus/templates/event/parts/_session_roster.html
 msgid "No one on the waiting list."
 msgstr "Nikt nie czeka na liście oczekujących."
 
-#: src/ludamus/templates/event/parts/_session_participants_panel.html
+#: src/ludamus/templates/event/parts/_session_roster.html
 msgid "No participants enrolled yet."
 msgstr "Brak zapisanych uczestników."
 
@@ -9894,12 +9935,8 @@ msgid "Could not open the editor. Please try again."
 msgstr "Nie udało się otworzyć edytora. Spróbuj ponownie."
 
 #: src/ludamus/templates/event/parts/session-modal.html
-msgid "Information"
-msgstr "Informacje"
-
-#: src/ludamus/templates/event/parts/session-modal.html
 msgid "You are enrolled in this session"
-msgstr "Jesteś zapisany na ten punkt programu"
+msgstr "Jesteś na tym punkcie programu"
 
 #: src/ludamus/templates/event/parts/session-modal.html
 msgid "You are on the waiting list"
@@ -10416,7 +10453,7 @@ msgstr "Wybierz widok strony"
 
 #: src/ludamus/templates/landing/_aud_switch.html
 msgid "For players"
-msgstr "Dla graczy"
+msgstr "Dla uczestniczących"
 
 #: src/ludamus/templates/landing/druk.html
 msgid "Ctrl+P and done"
@@ -11143,6 +11180,11 @@ msgid "I'm in!"
 msgstr "Będę"
 
 #: src/ludamus/templates/landing/spotkanie.html
+#: src/ludamus/templates/landing/zapisy_grupowe.html
+msgid "Participants"
+msgstr "Uczestnicy"
+
+#: src/ludamus/templates/landing/spotkanie.html
 msgid "Time left until the encounter"
 msgstr "Do spotkania zostało"
 
@@ -11716,8 +11758,8 @@ msgstr ""
 "Bany wydarzenia są dla poważnych przypadków — osób, których obecność na "
 "wydarzeniu jest niebezpieczna. Zbanowana osoba nie może zapisać się na żaden "
 "punkt programu: wydarzenie po prostu wydaje się dla niej pełne i nie jest "
-"informowana, że jest zbanowana. W przypadku łagodniejszego dyskomfortu "
-"gracze mogą zamiast tego cicho banować się nawzajem we własnych ustawieniach."
+"informowana, że jest zbanowana. W przypadku łagodniejszego dyskomfortu osoby "
+"mogą zamiast tego cicho banować się nawzajem we własnych ustawieniach."
 
 #: src/ludamus/templates/panel/bans.html
 msgid "Banned people"
@@ -11953,7 +11995,7 @@ msgstr "0 = bez minimum"
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "Maximum participants"
-msgstr "Maks. uczestników"
+msgstr "Liczba miejsc"
 
 #: src/ludamus/templates/panel/cfp-edit.html
 msgid "0 = no limit"
@@ -12593,8 +12635,8 @@ msgid ""
 "Cached name from the submission wizard. The canonical byline is the "
 "proposal's presenter name."
 msgstr ""
-"Nazwa zapisana przez kreator zgłoszeń. Kanonicznym podpisem jest nazwa "
-"prowadzącego w zgłoszeniu."
+"Nazwa zapisana przez kreator zgłoszeń. Kanonicznym podpisem jest nazwa osoby "
+"prowadzącej w zgłoszeniu."
 
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid ""
@@ -12631,7 +12673,7 @@ msgid ""
 "to change the byline."
 msgstr ""
 "Nazwa zapisana przez kreator zgłoszeń — aby zmienić podpis, edytuj nazwę "
-"prowadzącego w zgłoszeniu."
+"osoby prowadzącej w zgłoszeniu."
 
 #: src/ludamus/templates/panel/facilitator-merge.html
 msgid "Merge Facilitators"
@@ -15398,17 +15440,17 @@ msgid_plural ""
 "Its mark stops showing on the programme cards of %(counter)s presenters. "
 "Sessions are untouched."
 msgstr[0] ""
-"Jej znak przestanie się pokazywać na kartach programu %(counter)s "
-"prowadzącego. Punkty programu zostają nietknięte."
+"Jej znak przestanie się pokazywać na kartach programu %(counter)s osoby "
+"prowadzącej. Punkty programu zostają nietknięte."
 msgstr[1] ""
-"Jej znak przestanie się pokazywać na kartach programu %(counter)s "
+"Jej znak przestanie się pokazywać na kartach programu %(counter)s osób "
 "prowadzących. Punkty programu zostają nietknięte."
 msgstr[2] ""
-"Jej znak przestanie się pokazywać na kartach programu %(counter)s "
+"Jej znak przestanie się pokazywać na kartach programu %(counter)s osób "
 "prowadzących. Punkty programu zostają nietknięte."
 msgstr[3] ""
-"Jej znak przestanie się pokazywać na kartach programu %(counter)s "
-"prowadzącego. Punkty programu zostają nietknięte."
+"Jej znak przestanie się pokazywać na kartach programu %(counter)s osoby "
+"prowadzącej. Punkty programu zostają nietknięte."
 
 #: src/ludamus/templates/sphere/panel/guilds/edit.html
 msgid "Back to guilds"
@@ -15433,7 +15475,7 @@ msgstr ""
 
 #: src/ludamus/templates/sphere/panel/guilds/edit.html
 msgid "Add presenter"
-msgstr "Dodaj prowadzącego"
+msgstr "Dodaj osobę prowadzącą"
 
 #: src/ludamus/templates/sphere/panel/guilds/edit.html
 #, python-format
@@ -15868,13 +15910,17 @@ msgstr "Jego plik został wyczyszczony. E-maile, które zostały, są na liście
 msgid "Pick an email to read it."
 msgstr "Wybierz e-mail, żeby go przeczytać."
 
+#: src/ludamus/templates/tools/page.html
+msgid "Open in a new tab"
+msgstr "Otwórz w nowej karcie"
+
 #: src/ludamus/templates/user/_age_range_intro.html
 msgid ""
 "You can have your own account from age 13. Younger children join as a "
 "parent's or guardian's companions."
 msgstr ""
 "Własne konto możesz mieć od 13. roku życia. Młodsze dzieci dołączają jako "
-"towarzysze rodzica lub opiekuna."
+"osoby towarzyszące rodzica lub opiekuna."
 
 #: src/ludamus/templates/user/_age_range_intro.html
 msgid ""
@@ -15993,17 +16039,16 @@ msgstr "Wymagane logowanie"
 
 #: src/ludamus/templates/user/login_required.html
 msgid "You need to be logged in to access this page."
-msgstr "Musisz być zalogowany, aby uzyskać dostęp do tej strony."
+msgstr "Zaloguj się, aby uzyskać dostęp do tej strony."
 
 #: src/ludamus/templates/user/signup_age.html
-#: src/ludamus/templates/user/user/age_range.html
-msgid "Confirm age range"
-msgstr "Potwierdź przedział wiekowy"
+msgid "Create your account"
+msgstr "Załóż konto"
 
 #: src/ludamus/templates/user/signup_age.html
-#: src/ludamus/templates/user/user/age_range.html
-msgid "Confirm your age range"
-msgstr "Potwierdź swój przedział wiekowy"
+msgid "Choose the name others will see, then confirm your age range."
+msgstr ""
+"Wybierz nazwę, którą zobaczą inni, a potem potwierdź przedział wiekowy."
 
 #: src/ludamus/templates/user/signup_age.html
 #, python-format
@@ -16031,7 +16076,8 @@ msgid ""
 "guardian can add you as a companion and sign you up for sessions."
 msgstr ""
 "Aby mieć własne konto, musisz mieć co najmniej %(min_age)s lat. Rodzic lub "
-"opiekun może dodać Cię jako towarzysza i zapisać Cię na punkty programu."
+"opiekun może dodać Cię jako osobę towarzyszącą i zapisać Cię na punkty "
+"programu."
 
 #: src/ludamus/templates/user/signup_guardian.html
 msgid "Continue with a parent or guardian"
@@ -16092,6 +16138,7 @@ msgid "Send email"
 msgstr "Wyślij email"
 
 #: src/ludamus/templates/user/user/_party_create_modal.html
+#: src/ludamus/templates/user/user/parties.html
 msgid "Create party"
 msgstr "Utwórz drużynę"
 
@@ -16129,10 +16176,10 @@ msgstr[3] "%(parties)s drużyn"
 #, python-format
 msgid "%(companions)s companion"
 msgid_plural "%(companions)s companions"
-msgstr[0] "%(companions)s towarzysz"
-msgstr[1] "%(companions)s towarzyszy"
-msgstr[2] "%(companions)s towarzyszy"
-msgstr[3] "%(companions)s towarzyszy"
+msgstr[0] "%(companions)s osoba towarzysząca"
+msgstr[1] "%(companions)s osoby towarzyszące"
+msgstr[2] "%(companions)s osób towarzyszących"
+msgstr[3] "%(companions)s osób towarzyszących"
 
 #: src/ludamus/templates/user/user/_profile_sidebar.html
 #, python-format
@@ -16209,6 +16256,14 @@ msgstr "Przedział wiekowy: 13–15"
 #: src/ludamus/templates/user/user/_profile_sidebar.html
 msgid "Age range not confirmed"
 msgstr "Przedział wiekowy niepotwierdzony"
+
+#: src/ludamus/templates/user/user/age_range.html
+msgid "Confirm age range"
+msgstr "Potwierdź przedział wiekowy"
+
+#: src/ludamus/templates/user/user/age_range.html
+msgid "Confirm your age range"
+msgstr "Potwierdź swój przedział wiekowy"
 
 #: src/ludamus/templates/user/user/age_range.html
 msgid ""
@@ -16336,32 +16391,20 @@ msgid "Your parties"
 msgstr "Twoje drużyny"
 
 #: src/ludamus/templates/user/user/parties.html
-msgid "Sign up for sessions together, or keep a group you play with."
+msgid ""
+"Sign up for sessions together. New members approve each signup unless they "
+"allow otherwise."
 msgstr ""
-"Zapisujcie się razem na punkty programu albo po prostu trzymajcie się jako "
-"grupa do grania."
-
-#: src/ludamus/templates/user/user/parties.html
-msgid "Create play party"
-msgstr "Utwórz drużynę do grania"
-
-#: src/ludamus/templates/user/user/parties.html
-msgid "Create enrollment party"
-msgstr "Utwórz drużynę do zapisów"
-
-#: src/ludamus/templates/user/user/parties.html
-msgid "Sign up for sessions together — invite friends once it exists."
-msgstr ""
-"Zapisujcie się razem na punkty programu — znajomych zaprosisz, gdy drużyna "
-"już powstanie."
+"Zapisujcie się razem na punkty programu. Nowi członkowie zatwierdzają każdy "
+"zapis, chyba że pozwolą inaczej."
 
 #: src/ludamus/templates/user/user/parties.html
 msgid ""
-"A group to play with, without enrolling together — invite friends once it "
-"exists."
+"Invite friends once it exists. New members approve each session signup "
+"unless they allow direct signup."
 msgstr ""
-"Grupa do grania, bez wspólnych zapisów — znajomych zaprosisz, gdy już "
-"powstanie."
+"Znajomych zaprosisz, gdy drużyna już powstanie. Nowi członkowie zatwierdzają "
+"każdy zapis na punkt programu, chyba że pozwolą na bezpośrednie zapisy."
 
 #: src/ludamus/templates/user/user/parties.html
 msgid "Invitations"
@@ -16377,6 +16420,12 @@ msgstr "%(leader)s zaprasza Cię do swojej drużyny %(party)s"
 #, python-format
 msgid "%(leader)s invited you to their party"
 msgstr "%(leader)s zaprasza Cię do swojej drużyny"
+
+#: src/ludamus/templates/user/user/parties.html
+msgid "They ask before each session signup unless you allow direct signup."
+msgstr ""
+"Pytają przed każdym zapisem na punkt programu, chyba że pozwolisz na "
+"bezpośrednie zapisy."
 
 #: src/ludamus/templates/user/user/parties.html
 #: src/ludamus/templates/user/user/party_join.html
@@ -16403,10 +16452,6 @@ msgstr "lider: %(leader)s"
 #, python-format
 msgid "created %(created)s"
 msgstr "utworzona %(created)s"
-
-#: src/ludamus/templates/user/user/parties.html
-msgid "enrolls together"
-msgstr "zapisuje się razem"
 
 #: src/ludamus/templates/user/user/parties.html
 msgid "Invite"
@@ -16464,12 +16509,12 @@ msgid ""
 "Create a party and invite friends, or add a companion and sign them up "
 "yourself."
 msgstr ""
-"Utwórz drużynę i zaproś znajomych albo dodaj towarzysza, którego zapisujesz "
-"samodzielnie."
+"Utwórz drużynę i zaproś znajomych albo dodaj osobę towarzyszącą, którą "
+"zapisujesz samodzielnie."
 
 #: src/ludamus/templates/user/user/parties.html
 msgid "Your companions"
-msgstr "Twoi towarzysze"
+msgstr "Osoby towarzyszące"
 
 #: src/ludamus/templates/user/user/parties.html
 msgid ""
@@ -16482,12 +16527,12 @@ msgstr ""
 #: src/ludamus/templates/user/user/parties.html
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "Add companion"
-msgstr "Dodaj towarzysza"
+msgstr "Dodaj osobę towarzyszącą"
 
 #: src/ludamus/templates/user/user/parties.html
 #, python-format
 msgid "You can have at most %(max_companions)s companions."
-msgstr "Możesz mieć najwyżej %(max_companions)s towarzyszy."
+msgstr "Możesz mieć najwyżej %(max_companions)s osób towarzyszących."
 
 #: src/ludamus/templates/user/user/parties.html
 msgid ""
@@ -16533,17 +16578,17 @@ msgid ""
 "Delete companion %(name)s? This also removes their party memberships and "
 "enrollments."
 msgstr ""
-"Usunąć towarzysza %(name)s? Spowoduje to również usunięcie jego członkostw w "
-"drużynach i zapisów."
+"Usunąć osobę towarzyszącą %(name)s? Spowoduje to również usunięcie jej "
+"członkostw w drużynach i zapisów."
 
 #: src/ludamus/templates/user/user/parties.html
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "Delete companion"
-msgstr "Usuń towarzysza"
+msgstr "Usuń osobę towarzyszącą"
 
 #: src/ludamus/templates/user/user/parties.html
 msgid "No companions yet."
-msgstr "Nie masz jeszcze towarzyszy."
+msgstr "Nie masz jeszcze osób towarzyszących."
 
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "All parties"
@@ -16567,31 +16612,31 @@ msgstr "zaproszono"
 
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "companion"
-msgstr "towarzysz"
+msgstr "osoba towarzysząca"
 
 #: src/ludamus/templates/user/user/party_detail.html
-msgid "direct enrollment allowed"
-msgstr "możesz zapisywać bez pytania"
+msgid "direct signup allowed"
+msgstr "bezpośrednie zapisy dozwolone"
 
 #: src/ludamus/templates/user/user/party_detail.html
-msgid "asks for approval before enrolling"
-msgstr "wymaga zgody przed zapisem"
+msgid "must approve each signup"
+msgstr "musi zatwierdzić każdy zapis"
 
 #: src/ludamus/templates/user/user/party_detail.html
-msgid "Asks before enrolling you"
-msgstr "Pyta przed zapisaniem Cię"
+msgid "We ask before each signup"
+msgstr "Pytamy przed każdym zapisem"
 
 #: src/ludamus/templates/user/user/party_detail.html
-msgid "Enrolls you directly"
-msgstr "Zapisuje Cię bez pytania"
+msgid "Can sign you up without asking"
+msgstr "Może zapisywać Cię bez pytania"
 
 #: src/ludamus/templates/user/user/party_detail.html
-msgid "Allow direct enrollment"
+msgid "Allow direct signup"
 msgstr "Pozwól na bezpośrednie zapisy"
 
 #: src/ludamus/templates/user/user/party_detail.html
-msgid "Require my approval"
-msgstr "Wymagaj mojej zgody"
+msgid "Ask me before each signup"
+msgstr "Pytaj mnie przed każdym zapisem"
 
 #: src/ludamus/templates/user/user/party_detail.html
 #, python-format
@@ -16610,7 +16655,7 @@ msgstr "Usuń z drużyny"
 #: src/ludamus/templates/user/user/party_detail.html
 msgid "Add one of your companions to this party by their display name."
 msgstr ""
-"Dodaj jednego ze swoich towarzyszy do tej drużyny, podając jego nazwę "
+"Dodaj jedną z osób towarzyszących do tej drużyny, podając jej nazwę "
 "wyświetlaną."
 
 #: src/ludamus/templates/user/user/party_detail.html
@@ -16648,35 +16693,6 @@ msgstr ""
 "Nie macie jeszcze wspólnych punktów programu — wybierz punkt programu na "
 "wydarzeniu i zapisz się jako drużyna."
 
-#: src/ludamus/templates/user/user/party_detail.html
-msgid "Enrolling together"
-msgstr "Wspólne zapisy"
-
-#: src/ludamus/templates/user/user/party_detail.html
-msgid ""
-"This party is for playing. Turn this on to sign up for sessions together."
-msgstr ""
-"Ta drużyna służy do grania. Włącz tę opcję, aby zapisywać się razem na "
-"punkty programu."
-
-#: src/ludamus/templates/user/user/party_detail.html
-msgid "Turn on enrolling together"
-msgstr "Włącz wspólne zapisy"
-
-#: src/ludamus/templates/user/user/party_detail.html
-msgid "This party has enrolled in sessions, so this stays on."
-msgstr ""
-"Ta drużyna ma już zapisy na punkty programu, więc ta opcja pozostaje "
-"włączona."
-
-#: src/ludamus/templates/user/user/party_detail.html
-msgid "This party can sign up for sessions together."
-msgstr "Ta drużyna może zapisywać się razem na punkty programu."
-
-#: src/ludamus/templates/user/user/party_detail.html
-msgid "Turn off enrolling together"
-msgstr "Wyłącz wspólne zapisy"
-
 #: src/ludamus/templates/user/user/party_join.html
 #, python-format
 msgid "%(leader)s's party"
@@ -16688,15 +16704,12 @@ msgstr "Nie teraz"
 
 #: src/ludamus/templates/user/user/party_join.html
 msgid ""
-"A party enrolls in sessions together and moves up the waiting list together. "
-"You can leave anytime."
+"The leader can propose session signups for the group. We ask you before each "
+"one unless you allow direct signup. You can leave anytime."
 msgstr ""
-"Drużyna zapisuje się na punkty programu razem i razem przesuwa się w kolejce "
-"oczekujących. Możesz ją opuścić w dowolnym momencie."
-
-#: src/ludamus/templates/user/user/party_join.html
-msgid "A party is a group you play with. You can leave anytime."
-msgstr "Drużyna to grupa, z którą grasz. Możesz odejść w dowolnej chwili."
+"Lider może proponować zapisy na punkty programu dla całej grupy. Pytamy Cię "
+"przed każdym, chyba że pozwolisz na bezpośrednie zapisy. Możesz odejść w "
+"dowolnej chwili."
 
 #: src/ludamus/templates/user/user/privacy.html
 msgid ""
@@ -16772,11 +16785,11 @@ msgstr ""
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowbanned players"
-msgstr "Cicho zbanowani gracze"
+msgstr "Osoby z cichym banem"
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowban"
-msgstr "Cichy ban"
+msgstr "Zbanuj"
 
 #: src/ludamus/templates/user/user/safety.html
 msgid ""
@@ -16784,18 +16797,18 @@ msgid ""
 "join, and we never tell them. You get an email when one of them signs up at "
 "an event where you run a session, or into a session you play in."
 msgstr ""
-"Punkty programu, które prowadzisz, zawsze wyglądają dla cicho zbanowanych "
-"graczy na pełne, więc nigdy nie mogą dołączyć — i nigdy im o tym nie mówimy. "
-"Dostaniesz e-mail, gdy któryś z nich zapisze się na wydarzeniu, na którym "
+"Punkty programu, które prowadzisz, zawsze wyglądają dla osób z cichym banem "
+"na pełne, więc nigdy nie mogą dołączyć — i nigdy im o tym nie mówimy. "
+"Dostaniesz e-mail, gdy któraś z nich zapisze się na wydarzeniu, na którym "
 "coś prowadzisz, albo na punkt programu, w którym grasz."
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Players you have met"
-msgstr "Gracze, których spotkałeś"
+msgstr "Spotkane osoby"
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowbanned"
-msgstr "Cicho zbanowany"
+msgstr "Z cichym banem"
 
 #: src/ludamus/templates/user/user/safety.html
 #, python-format
@@ -16804,7 +16817,7 @@ msgstr "%(sphere)s › %(event)s › %(session)s"
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Remove shadowban"
-msgstr "Usuń cichy ban"
+msgstr "Cofnij ban"
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Sessions you run always look full to them, so they can never join."
@@ -16843,7 +16856,7 @@ msgstr ""
 
 #: src/ludamus/templates/user/user/safety.html
 msgid "Shadowban by username or email"
-msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
+msgstr "Zbanuj po nazwie użytkownika lub e-mailu"
 
 #: src/ludamus/templates/user/user/tickets.html
 msgid "Show a code, or its QR, at the entrance. Each one admits one person."
@@ -16860,6 +16873,158 @@ msgid ""
 msgstr ""
 "Bilety kupione na wydarzenia w tej sferze pojawią się tutaj, gotowe do "
 "pokazania przy wejściu."
+
+#, python-format
+#~ msgid ""
+#~ "Reorder or toggle %(name)s — arrow keys reorder; Enter or Space toggles "
+#~ "children"
+#~ msgstr ""
+#~ "Zmień kolejność albo zwiń lub rozwiń „%(name)s” — strzałki zmieniają "
+#~ "kolejność; Enter lub spacja przełącza elementy podrzędne"
+
+#, python-format
+#~ msgid "Reorder %(name)s — use the arrow keys"
+#~ msgstr "Zmień kolejność: %(name)s — użyj strzałek"
+
+#~ msgid "The leader can now enroll you directly."
+#~ msgstr "Od teraz lider może zapisywać Cię bezpośrednio."
+
+#~ msgid "Enrollments now wait for your approval."
+#~ msgstr "Od teraz zapisy czekają na Twoją zgodę."
+
+#~ msgid "This party can now enroll together."
+#~ msgstr "Ta drużyna może się teraz zapisywać razem."
+
+#~ msgid "This party no longer enrolls together."
+#~ msgstr "Ta drużyna nie zapisuje się już razem."
+
+#~ msgid "A party that has enrolled keeps enrolling together."
+#~ msgstr "Drużyna, która już się zapisała, nadal zapisuje się razem."
+
+#~ msgid ""
+#~ "Join the party to enroll in events together — you move up waiting lists "
+#~ "as one group. You decide about every enrollment unless you say otherwise."
+#~ msgstr ""
+#~ "Dołącz do drużyny, aby zapisywać się na wydarzenia wspólnie — na listach "
+#~ "oczekujących awansujecie jako jedna grupa. O każdym zapisie decydujesz "
+#~ "Ty, chyba że postanowisz inaczej."
+
+#, python-format
+#~ msgid ""
+#~ "You showed interest in %(listing)s. Accept the invitation to join the "
+#~ "party, and you and the author see each other's contact."
+#~ msgstr ""
+#~ "Chodzi o ogłoszenie %(listing)s. Przyjmij zaproszenie do drużyny, a Ty i "
+#~ "autor zobaczycie swoje kontakty."
+
+#~ msgid "Sign up for sessions together, or keep a group you play with."
+#~ msgstr ""
+#~ "Zapisujcie się razem na punkty programu albo po prostu trzymajcie się "
+#~ "jako grupa do grania."
+
+#~ msgid "Create play party"
+#~ msgstr "Utwórz drużynę do grania"
+
+#~ msgid "Create enrollment party"
+#~ msgstr "Utwórz drużynę do zapisów"
+
+#~ msgid "Sign up for sessions together — invite friends once it exists."
+#~ msgstr ""
+#~ "Zapisujcie się razem na punkty programu — znajomych zaprosisz, gdy "
+#~ "drużyna już powstanie."
+
+#~ msgid ""
+#~ "A group to play with, without enrolling together — invite friends once it "
+#~ "exists."
+#~ msgstr ""
+#~ "Grupa do grania, bez wspólnych zapisów — znajomych zaprosisz, gdy już "
+#~ "powstanie."
+
+#~ msgid "enrolls together"
+#~ msgstr "zapisuje się razem"
+
+#~ msgid "direct enrollment allowed"
+#~ msgstr "możesz zapisywać bez pytania"
+
+#~ msgid "asks for approval before enrolling"
+#~ msgstr "wymaga zgody przed zapisem"
+
+#~ msgid "Asks before enrolling you"
+#~ msgstr "Pyta przed zapisaniem Cię"
+
+#~ msgid "Enrolls you directly"
+#~ msgstr "Zapisuje Cię bez pytania"
+
+#~ msgid "Allow direct enrollment"
+#~ msgstr "Pozwól na bezpośrednie zapisy"
+
+#~ msgid "Require my approval"
+#~ msgstr "Wymagaj mojej zgody"
+
+#~ msgid "Enrolling together"
+#~ msgstr "Wspólne zapisy"
+
+#~ msgid ""
+#~ "This party is for playing. Turn this on to sign up for sessions together."
+#~ msgstr ""
+#~ "Ta drużyna służy do grania. Włącz tę opcję, aby zapisywać się razem na "
+#~ "punkty programu."
+
+#~ msgid "Turn on enrolling together"
+#~ msgstr "Włącz wspólne zapisy"
+
+#~ msgid "This party has enrolled in sessions, so this stays on."
+#~ msgstr ""
+#~ "Ta drużyna ma już zapisy na punkty programu, więc ta opcja pozostaje "
+#~ "włączona."
+
+#~ msgid "This party can sign up for sessions together."
+#~ msgstr "Ta drużyna może zapisywać się razem na punkty programu."
+
+#~ msgid "Turn off enrolling together"
+#~ msgstr "Wyłącz wspólne zapisy"
+
+#~ msgid ""
+#~ "A party enrolls in sessions together and moves up the waiting list "
+#~ "together. You can leave anytime."
+#~ msgstr ""
+#~ "Drużyna zapisuje się na punkty programu razem i razem przesuwa się w "
+#~ "kolejce oczekujących. Możesz ją opuścić w dowolnym momencie."
+
+#~ msgid "A party is a group you play with. You can leave anytime."
+#~ msgstr "Drużyna to grupa, z którą grasz. Możesz odejść w dowolnej chwili."
+
+#~ msgid "There is already a session scheduled at this space and time."
+#~ msgstr ""
+#~ "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
+
+#~ msgid "Enrolled"
+#~ msgstr "Zapisany"
+
+#~ msgid "Information"
+#~ msgstr "Informacje"
+
+#, python-format
+#~ msgid "Responses (%(waiting_count)s)"
+#~ msgstr "Zgłoszenia (%(waiting_count)s)"
+
+#~ msgid "Proposal Settings"
+#~ msgstr "Ustawienia zgłoszeń"
+
+#~ msgid "CFP Fields"
+#~ msgstr "Pola naboru"
+
+#~ msgid "Host Data Fields"
+#~ msgstr "Pola danych twórcy"
+
+#~ msgid "Time Slots"
+#~ msgstr "Przedziały czasowe"
+
+#~ msgid "Schedule Configuration"
+#~ msgstr "Konfiguracja harmonogramu"
+
+#~ msgid "What are Time Slots?"
+#~ msgstr "Czym są przedziały czasowe?"
 
 #~ msgid "Time slot overlaps with an existing slot."
 #~ msgstr "Przedział czasowy nakłada się na istniejący przedział."
@@ -16895,16 +17060,6 @@ msgstr ""
 #~ msgid "Time slot deleted successfully."
 #~ msgstr "Przedział czasowy został usunięty."
 
-#, python-format
-#~ msgid "Responses (%(waiting_count)s)"
-#~ msgstr "Zgłoszenia (%(waiting_count)s)"
-
-#~ msgid "Host Data Fields"
-#~ msgstr "Pola danych twórcy"
-
-#~ msgid "Time Slots"
-#~ msgstr "Przedziały czasowe"
-
 #~ msgid "New Time Slot"
 #~ msgstr "Nowy przedział czasowy"
 
@@ -16928,23 +17083,11 @@ msgstr ""
 #~ "pory dnia (rano, wieczorem i tak dalej) wynikające z dat wydarzenia, więc "
 #~ "nie trzeba nic więcej ustawiać."
 
-#~ msgid "CFP Fields"
-#~ msgstr "Pola naboru"
-
-#~ msgid "Proposal Settings"
-#~ msgstr "Ustawienia zgłoszeń"
-
 #~ msgid "Edit Time Slot"
 #~ msgstr "Edytuj przedział czasowy"
 
-#~ msgid "Schedule Configuration"
-#~ msgstr "Konfiguracja harmonogramu"
-
 #~ msgid "Are you sure you want to delete this time slot?"
 #~ msgstr "Czy na pewno chcesz usunąć ten przedział czasowy?"
-
-#~ msgid "What are Time Slots?"
-#~ msgstr "Czym są przedziały czasowe?"
 
 #~ msgid ""
 #~ "Time slots are the times proposers pick from when they say when they "
@@ -16975,30 +17118,36 @@ msgstr ""
 #~ "Nie ma jeszcze przedziałów czasowych. Dopóki ich nie dodasz, zgłaszający "
 #~ "wybierają pory dnia."
 
-#, python-format
 #~ msgid ""
-#~ "Reorder or toggle %(name)s — arrow keys reorder; Enter or Space toggles "
-#~ "children"
+#~ "Want your convention to run without technical worries? As a Technical "
+#~ "Partner, the Zagrajmy team sets everything up with you, brings your "
+#~ "programme in and is on hand during the event. We agree the terms, ticket "
+#~ "fee included, for each convention."
 #~ msgstr ""
-#~ "Zmień kolejność albo zwiń lub rozwiń „%(name)s” — strzałki zmieniają "
-#~ "kolejność; Enter lub spacja przełącza elementy podrzędne"
+#~ "Chcesz, żeby konwent działał bez technicznych zmartwień? Jako twój "
+#~ "partner techniczny zespół Zagrajmy wszystko z tobą przygotuje, przeniesie "
+#~ "twój program i będzie pod ręką w trakcie wydarzenia. Warunki, w tym "
+#~ "prowizję od biletów, ustalamy osobno dla każdego konwentu."
 
-#, python-format
-#~ msgid "Reorder %(name)s — use the arrow keys"
-#~ msgstr "Zmień kolejność: %(name)s — użyj strzałek"
-
-#~ msgid "Give the party a name."
-#~ msgstr "Nadaj drużynie nazwę."
+#~ msgid "Payments are not available here"
+#~ msgstr "Płatności nie są tu dostępne"
 
 #~ msgid ""
-#~ "A party signs up for sessions together and moves up a waiting list "
-#~ "together."
+#~ "This Zagrajmy installation has no Stripe account configured, so tickets "
+#~ "can be prepared but not sold."
 #~ msgstr ""
-#~ "Drużyna zapisuje się na punkty programu razem i razem przesuwa się w "
-#~ "kolejce oczekujących."
+#~ "Ta instalacja Zagrajmy nie ma skonfigurowanego konta Stripe, więc bilety "
+#~ "można przygotować, ale nie sprzedać."
 
-#~ msgid "Name your party — invite friends once it exists."
-#~ msgstr "Nazwij drużynę, a znajomych zaprosisz, gdy już powstanie."
+#~ msgid "Set up payouts"
+#~ msgstr "Skonfiguruj wypłaty"
+
+#~ msgid ""
+#~ "This Zagrajmy installation has no Stripe account configured, so tickets "
+#~ "can't be sold here yet."
+#~ msgstr ""
+#~ "Ta instalacja Zagrajmy nie ma skonfigurowanego konta Stripe, więc nie da "
+#~ "się tu jeszcze sprzedawać biletów."
 
 #~ msgid "Choose a time…"
 #~ msgstr "Wybierz godzinę…"
@@ -17053,29 +17202,8 @@ msgstr ""
 #~ msgid "Please select at least one time slot."
 #~ msgstr "Wybierz przynajmniej jeden przedział czasowy."
 
-#~ msgid "Public: listed and announced to followers from its publication time"
-#~ msgstr ""
-#~ "Publiczne: od czasu publikacji widoczne na listach i ogłaszane "
-#~ "obserwującym"
-
-#~ msgid ""
-#~ "Link only: anyone with the link can open it now; never listed or announced"
-#~ msgstr ""
-#~ "Tylko przez link: każdy z linkiem może je otworzyć już teraz; nie pojawia "
-#~ "się na listach ani w powiadomieniach"
-
-#~ msgid "Publication time"
-#~ msgstr "Czas publikacji"
-
-#~ msgid ""
-#~ "For a public event: when it appears in event lists and followers are "
-#~ "notified. Leave empty to keep it hidden."
-#~ msgstr ""
-#~ "Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
-#~ "dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
-
-#~ msgid "Create Encounter"
-#~ msgstr "Utwórz spotkanie"
+#~ msgid "Give the party a name."
+#~ msgstr "Nadaj drużynie nazwę."
 
 #~ msgid "Preferred Time Slots"
 #~ msgstr "Preferowane przedziały czasowe"
@@ -17165,6 +17293,40 @@ msgstr ""
 #~ msgid "All scheduled sessions are inside their preferred slots."
 #~ msgstr ""
 #~ "Wszystkie zaplanowane punkty programu są w preferowanych przedziałach."
+
+#~ msgid ""
+#~ "A party signs up for sessions together and moves up a waiting list "
+#~ "together."
+#~ msgstr ""
+#~ "Drużyna zapisuje się na punkty programu razem i razem przesuwa się w "
+#~ "kolejce oczekujących."
+
+#~ msgid "Name your party — invite friends once it exists."
+#~ msgstr "Nazwij drużynę, a znajomych zaprosisz, gdy już powstanie."
+
+#~ msgid "Public: listed and announced to followers from its publication time"
+#~ msgstr ""
+#~ "Publiczne: od czasu publikacji widoczne na listach i ogłaszane "
+#~ "obserwującym"
+
+#~ msgid ""
+#~ "Link only: anyone with the link can open it now; never listed or announced"
+#~ msgstr ""
+#~ "Tylko przez link: każdy z linkiem może je otworzyć już teraz; nie pojawia "
+#~ "się na listach ani w powiadomieniach"
+
+#~ msgid "Publication time"
+#~ msgstr "Czas publikacji"
+
+#~ msgid ""
+#~ "For a public event: when it appears in event lists and followers are "
+#~ "notified. Leave empty to keep it hidden."
+#~ msgstr ""
+#~ "Dla wydarzenia publicznego: kiedy pojawi się na listach i obserwujący "
+#~ "dostaną powiadomienie. Zostaw puste, aby pozostało ukryte."
+
+#~ msgid "Create Encounter"
+#~ msgstr "Utwórz spotkanie"
 
 #~ msgid "Common room"
 #~ msgstr "Pokój wspólny"
@@ -17347,6 +17509,72 @@ msgstr ""
 #~ msgstr "Wybierz jeszcze raz, kogo szukasz."
 
 #~ msgid ""
+#~ "Create a free account, or log in, to keep the tickets with your sign-ups "
+#~ "and stop anyone else using this link."
+#~ msgstr ""
+#~ "Załóż darmowe konto albo zaloguj się, żeby trzymać bilety razem ze swoimi "
+#~ "zapisami i żeby nikt inny nie skorzystał z tego linku."
+
+#~ msgid ""
+#~ "Too many checkouts from your connection. Wait a few minutes, or sign in "
+#~ "to buy now."
+#~ msgstr ""
+#~ "Z twojego połączenia rozpoczęto zbyt wiele płatności. Poczekaj kilka "
+#~ "minut albo zaloguj się, żeby kupić od razu."
+
+#~ msgid "Add an email address to your profile first: tickets go there."
+#~ msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają bilety."
+
+#~ msgid ""
+#~ "Thank you! Stripe is confirming the payment; the plan switches over "
+#~ "within a minute."
+#~ msgstr ""
+#~ "Dziękujemy! Stripe potwierdza płatność; plan zmieni się w ciągu minuty."
+
+#~ msgid "Add an email address to your profile first: invoices go there."
+#~ msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają faktury."
+
+#~ msgid "Log in to buy tickets"
+#~ msgstr "Zaloguj się, by kupić bilety"
+
+#~ msgctxt "plan"
+#~ msgid "Yearly"
+#~ msgstr "Roczny"
+
+#~ msgctxt "plan"
+#~ msgid "Pay per ticket"
+#~ msgstr "Opłata od biletu"
+
+#~ msgid ""
+#~ "Your sphere is on the yearly plan: the programme, sign-ups and the panel "
+#~ "for a flat yearly fee, with the Zagrajmy team helping you set up."
+#~ msgstr ""
+#~ "Twoja sfera ma plan roczny: program, zapisy i panel za stałą roczną "
+#~ "opłatą, z pomocą zespołu Zagrajmy przy konfiguracji."
+
+#, python-format
+#~ msgid "Paid until %(date)s."
+#~ msgstr "Opłacony do %(date)s."
+
+#~ msgid "Stripe is confirming the first payment."
+#~ msgstr "Stripe potwierdza pierwszą płatność."
+
+#~ msgid ""
+#~ "Selling tickets somewhere else? The yearly plan is for conventions that "
+#~ "run their programme on Zagrajmy but sell entry through their own shop. It "
+#~ "comes with onboarding help from the Zagrajmy team."
+#~ msgstr ""
+#~ "Sprzedajesz bilety gdzie indziej? Plan roczny jest dla konwentów, które "
+#~ "prowadzą program na Zagrajmy, a wejściówki sprzedają we własnym sklepie. "
+#~ "W cenie jest pomoc zespołu Zagrajmy przy starcie."
+
+#~ msgid "Switch to the yearly plan"
+#~ msgstr "Przejdź na plan roczny"
+
+#~ msgid "Ask about the yearly plan"
+#~ msgstr "Zapytaj o plan roczny"
+
+#~ msgid ""
 #~ "No account was created. A parent or guardian can sign up and add you as a "
 #~ "companion to sign you up for sessions."
 #~ msgstr ""
@@ -17358,9 +17586,6 @@ msgstr ""
 
 #~ msgid "Cookies help us see what to fix."
 #~ msgstr "Ciasteczka pomagają nam zobaczyć, co poprawić."
-
-#~ msgid "Create account"
-#~ msgstr "Załóż konto"
 
 #~ msgid "How old are you?"
 #~ msgstr "Ile masz lat?"
@@ -17678,9 +17903,6 @@ msgstr ""
 #~ msgid "Place the session inside one of the event's time slots."
 #~ msgstr "Umieść punkt programu w jednym z przedziałów czasowych wydarzenia."
 
-#~ msgid "total"
-#~ msgstr "łącznie"
-
 #~ msgid ""
 #~ "Friends who enroll together wait together and move up together, and "
 #~ "nobody skips past them. RSVP tools that count seats one by one split such "
@@ -17890,9 +18112,6 @@ msgstr ""
 
 #~ msgid "Upcoming events"
 #~ msgstr "Nadchodzące wydarzenia"
-
-#~ msgid "No events available"
-#~ msgstr "Brak dostępnych wydarzeń"
 
 #~ msgid "There are currently no events scheduled. Please check back later!"
 #~ msgstr "Obecnie nie ma zaplanowanych wydarzeń. Sprawdź ponownie później!"
@@ -18236,9 +18455,6 @@ msgstr ""
 #~ msgid "Flexible"
 #~ msgstr "Elastyczny"
 
-#~ msgid "Awaiting review"
-#~ msgstr "Czeka na akceptację"
-
 #~ msgid "Takes enrollment"
 #~ msgstr "Z zapisami"
 
@@ -18494,6 +18710,10 @@ msgstr ""
 
 #~ msgid "Release"
 #~ msgstr "Zwolnij"
+
+#, python-format
+#~ msgid "Release %(name)s"
+#~ msgstr "Zwolnij twórcę %(name)s"
 
 #, python-format
 #~ msgid ""
@@ -18829,6 +19049,15 @@ msgstr ""
 #~ msgid "Room fits %(capacity)s people, session requires %(limit)s"
 #~ msgstr "Sala mieści %(capacity)s os., wymagane %(limit)s"
 
+#~ msgid "total"
+#~ msgstr "łącznie"
+
+#~ msgid "No events available"
+#~ msgstr "Brak dostępnych wydarzeń"
+
+#~ msgid "Awaiting review"
+#~ msgstr "Czeka na akceptację"
+
 #~ msgid "Group name"
 #~ msgstr "Nazwa grupy"
 
@@ -18961,6 +19190,16 @@ msgstr ""
 #~ "Każde wydarzenie dostaje czat dla wszystkich uczestników, każdy punkt "
 #~ "programu pokój dla graczy i prowadzących, a zespół sfery własny pokój."
 
+#~ msgid "Nothing to moderate right now."
+#~ msgstr "Na razie nie ma czego moderować."
+
+#~ msgid "Select a language:"
+#~ msgstr "Wybierz język:"
+
+#, python-format
+#~ msgid "Delete %(event)s?"
+#~ msgstr "Usunąć %(event)s?"
+
 #~ msgid "Displayed on the first page of the proposal form."
 #~ msgstr "Wyświetlane na pierwszej stronie formularza zgłoszenia."
 
@@ -18973,10 +19212,6 @@ msgstr ""
 #~ msgstr[1] "Graczy"
 #~ msgstr[2] "Graczy"
 #~ msgstr[3] "Graczy"
-
-#, python-format
-#~ msgid "Release %(name)s"
-#~ msgstr "Zwolnij twórcę %(name)s"
 
 #, python-format
 #~ msgid ""
@@ -19014,112 +19249,49 @@ msgstr ""
 #~ msgid "Group looking for a GM"
 #~ msgstr "Grupa szuka MG"
 
-#~ msgid "Nothing to moderate right now."
-#~ msgstr "Na razie nie ma czego moderować."
-
-#~ msgid "Select a language:"
-#~ msgstr "Wybierz język:"
-
-#~ msgid ""
-#~ "Want your convention to run without technical worries? As a Technical "
-#~ "Partner, the Zagrajmy team sets everything up with you, brings your "
-#~ "programme in and is on hand during the event. We agree the terms, ticket "
-#~ "fee included, for each convention."
-#~ msgstr ""
-#~ "Chcesz, żeby konwent działał bez technicznych zmartwień? Jako twój "
-#~ "partner techniczny zespół Zagrajmy wszystko z tobą przygotuje, przeniesie "
-#~ "twój program i będzie pod ręką w trakcie wydarzenia. Warunki, w tym "
-#~ "prowizję od biletów, ustalamy osobno dla każdego konwentu."
-
-#~ msgid "Payments are not available here"
-#~ msgstr "Płatności nie są tu dostępne"
-
-#~ msgid ""
-#~ "This Zagrajmy installation has no Stripe account configured, so tickets "
-#~ "can be prepared but not sold."
-#~ msgstr ""
-#~ "Ta instalacja Zagrajmy nie ma skonfigurowanego konta Stripe, więc bilety "
-#~ "można przygotować, ale nie sprzedać."
-
-#~ msgid "Set up payouts"
-#~ msgstr "Skonfiguruj wypłaty"
-
-#~ msgid ""
-#~ "This Zagrajmy installation has no Stripe account configured, so tickets "
-#~ "can't be sold here yet."
-#~ msgstr ""
-#~ "Ta instalacja Zagrajmy nie ma skonfigurowanego konta Stripe, więc nie da "
-#~ "się tu jeszcze sprzedawać biletów."
-
-#~ msgid ""
-#~ "Create a free account, or log in, to keep the tickets with your sign-ups "
-#~ "and stop anyone else using this link."
-#~ msgstr ""
-#~ "Załóż darmowe konto albo zaloguj się, żeby trzymać bilety razem ze swoimi "
-#~ "zapisami i żeby nikt inny nie skorzystał z tego linku."
-
-#~ msgid ""
-#~ "Too many checkouts from your connection. Wait a few minutes, or sign in "
-#~ "to buy now."
-#~ msgstr ""
-#~ "Z twojego połączenia rozpoczęto zbyt wiele płatności. Poczekaj kilka "
-#~ "minut albo zaloguj się, żeby kupić od razu."
-
-#~ msgid "Add an email address to your profile first: tickets go there."
-#~ msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają bilety."
-
-#~ msgid ""
-#~ "Thank you! Stripe is confirming the payment; the plan switches over "
-#~ "within a minute."
-#~ msgstr ""
-#~ "Dziękujemy! Stripe potwierdza płatność; plan zmieni się w ciągu minuty."
-
-#~ msgid "Add an email address to your profile first: invoices go there."
-#~ msgstr "Najpierw dodaj adres e-mail do profilu: na niego trafiają faktury."
-
-#~ msgid "Log in to buy tickets"
-#~ msgstr "Zaloguj się, by kupić bilety"
-
-#~ msgctxt "plan"
-#~ msgid "Yearly"
-#~ msgstr "Roczny"
-
-#~ msgctxt "plan"
-#~ msgid "Pay per ticket"
-#~ msgstr "Opłata od biletu"
-
-#~ msgid ""
-#~ "Your sphere is on the yearly plan: the programme, sign-ups and the panel "
-#~ "for a flat yearly fee, with the Zagrajmy team helping you set up."
-#~ msgstr ""
-#~ "Twoja sfera ma plan roczny: program, zapisy i panel za stałą roczną "
-#~ "opłatą, z pomocą zespołu Zagrajmy przy konfiguracji."
-
-#, python-format
-#~ msgid "Paid until %(date)s."
-#~ msgstr "Opłacony do %(date)s."
-
-#~ msgid "Stripe is confirming the first payment."
-#~ msgstr "Stripe potwierdza pierwszą płatność."
-
-#~ msgid ""
-#~ "Selling tickets somewhere else? The yearly plan is for conventions that "
-#~ "run their programme on Zagrajmy but sell entry through their own shop. It "
-#~ "comes with onboarding help from the Zagrajmy team."
-#~ msgstr ""
-#~ "Sprzedajesz bilety gdzie indziej? Plan roczny jest dla konwentów, które "
-#~ "prowadzą program na Zagrajmy, a wejściówki sprzedają we własnym sklepie. "
-#~ "W cenie jest pomoc zespołu Zagrajmy przy starcie."
-
-#~ msgid "Switch to the yearly plan"
-#~ msgstr "Przejdź na plan roczny"
-
-#~ msgid "Ask about the yearly plan"
-#~ msgstr "Zapytaj o plan roczny"
-
-#, python-format
-#~ msgid "Delete %(event)s?"
-#~ msgstr "Usunąć %(event)s?"
-
 #~ msgid "Unnamed party"
 #~ msgstr "Drużyna bez nazwy"
+
+#~ msgid "Create account"
+#~ msgstr "Załóż konto"
+
+#~ msgid "I am enrolled"
+#~ msgstr "Jestem zapisany"
+
+#~ msgid "I am waiting"
+#~ msgstr "Oczekuję"
+
+#~ msgid ""
+#~ "Join the party to play together. This does not let anyone enroll you in "
+#~ "sessions."
+#~ msgstr ""
+#~ "Dołącz do drużyny, żeby grać razem. To nie pozwala nikomu zapisywać Cię "
+#~ "na punkty programu."
+
+#~ msgid "A play group — joining does not let anyone enroll you in sessions."
+#~ msgstr ""
+#~ "Grupa do grania — dołączenie nie pozwala nikomu zapisywać Cię na punkty "
+#~ "programu."
+
+#~ msgid ""
+#~ "Off: members stay a play group. Turn on so the party can sign up for "
+#~ "sessions together — each person still approves unless they allow direct "
+#~ "signup."
+#~ msgstr ""
+#~ "Wyłączone: członkowie zostają grupą do grania. Włącz, żeby drużyna mogła "
+#~ "zapisywać się razem na punkty programu — każda osoba nadal zatwierdza "
+#~ "zapis, chyba że pozwoli na bezpośrednie zapisy."
+
+#~ msgid ""
+#~ "On: the party can sign up together. Members approve each signup unless "
+#~ "they allow direct signup."
+#~ msgstr ""
+#~ "Włączone: drużyna może zapisywać się razem. Członkowie zatwierdzają każdy "
+#~ "zapis, chyba że pozwolą na bezpośrednie zapisy."
+
+#~ msgid ""
+#~ "A play group: joining does not let anyone enroll you in sessions. You can "
+#~ "leave anytime."
+#~ msgstr ""
+#~ "Grupa do grania: dołączenie nie pozwala nikomu zapisywać Cię na punkty "
+#~ "programu. Możesz odejść w dowolnej chwili."

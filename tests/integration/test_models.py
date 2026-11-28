@@ -8,6 +8,7 @@ from django.utils.timezone import localtime
 
 from ludamus.links.db.django.models import (
     DiscountRule,
+    ExternalTool,
     Guild,
     GuildMembership,
     Notification,
@@ -225,3 +226,49 @@ class TestTagValidation:
 
         with pytest.raises(ValidationError, match="cannot change its category"):
             ttrpg.full_clean()
+
+
+class TestExternalToolValidation:
+    @staticmethod
+    def _tool(**overrides) -> ExternalTool:
+        fields = {
+            "name": "Table Manager",
+            "slug": "table-manager",
+            "url": "https://tables.example.org/start",
+            "allowed_domains": "login.example.org\ncdn.example.org",
+        } | overrides
+        return ExternalTool(**fields)
+
+    def test_https_address_with_plain_domains_is_accepted(self):
+        tool = self._tool()
+
+        tool.full_clean()
+
+        assert str(tool) == "Table Manager"
+
+    def test_domain_names_are_accepted_in_any_letter_case(self):
+        tool = self._tool(
+            url="https://Tables.Example.org/start",
+            allowed_domains="Login.Example.org\nCDN.Example.org",
+        )
+
+        tool.full_clean()
+
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        (
+            ("url", "http://tables.example.org/"),
+            ("url", "https://[::1]/"),
+            ("url", "https://[::1/"),
+            ("url", "https://user@tables.example.org/"),
+            ("allowed_domains", "cdn.example.org; script-src *"),
+            ("allowed_domains", "https://cdn.example.org"),
+        ),
+    )
+    def test_value_unfit_for_the_frame_policy_is_refused(self, field, value):
+        tool = self._tool(**{field: value})
+
+        with pytest.raises(ValidationError) as refusal:
+            tool.full_clean()
+
+        assert list(refusal.value.error_dict) == [field]

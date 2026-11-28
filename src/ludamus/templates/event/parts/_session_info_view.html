@@ -1,23 +1,33 @@
 {% extends "event/parts/_session_info.html" %}
 {% load i18n tessera cfp_tags markdown_tags schedule_tags session_info_tags %}
 {% block host_section %}
-    {% if data.session.facilitator_name %}{{ block.super }}{% endif %}
+    {# Same guard shape as the card: a public host label, or anyone enrolled. #}
+    {% if data.presenter.full_name or data.takes_enrollment or data.session_participations %}{{ block.super }}{% endif %}
 {% endblock host_section %}
 {% block host %}
     {# The whole row is guarded above, paired with the card's own guard: both #}
     {# rows appear or neither does, or the card-to-modal morph is left with #}
-    {# unmatched groups. #}
-    <span class="shrink-0 relative" data-morph="avatar">
-        {% include "components/avatar.html" with user=data.presenter size="size-9" danger_ring=data.presenter_is_shadowbanned %}
-        {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-bg-secondary" %}
-    </span>
-    <div class="flex flex-1 items-center gap-x-3 gap-y-0.5 flex-wrap min-w-0">
-        <div class="font-medium text-foreground" data-morph="host" data-ph-mask>{{ data.presenter.full_name }}</div>
-        {% if data.presenter.pk and data.presenter.discord_username %}
-            <span class="text-foreground-muted/70 select-none" aria-hidden="true">·</span>
-            {% include "user/user/parts/discord_username.html" with discord_username=data.presenter.discord_username %}
-        {% endif %}
-    </div>
+    {# unmatched groups. The roster stack sits in this same wrap row. #}
+    {% if data.presenter.full_name %}
+        <div class="flex items-center gap-3 min-w-0">
+            <span class="shrink-0 relative" data-morph="avatar">
+                {% include "components/avatar.html" with user=data.presenter size="size-9" danger_ring=data.presenter_is_shadowbanned %}
+                {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-bg-secondary" %}
+            </span>
+            <div class="flex items-center gap-x-3 gap-y-0.5 flex-wrap min-w-0">
+                <div class="font-medium text-foreground"
+                     data-morph="host"
+                     data-ph-mask>{{ data.presenter.full_name }}</div>
+                {% if data.presenter.pk and data.presenter.discord_username %}
+                    <span class="text-foreground-muted/70 select-none" aria-hidden="true">·</span>
+                    {% include "user/user/parts/discord_username.html" with discord_username=data.presenter.discord_username %}
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+    {% if data.takes_enrollment or data.session_participations %}
+        {% include "event/parts/_session_roster.html" %}
+    {% endif %}
 {% endblock host %}
 {% block description_section %}
     {% if data.session.description %}{{ block.super }}{% endif %}
@@ -66,19 +76,6 @@
             {% end_session_fact %}
         {% endif %}
     {% endwith %}
-    {% if data.takes_enrollment %}
-        {# One fact, as the others are: the state rides on the number's colour. #}
-        {% session_fact icon="users" %}
-            <span class="sr-only">{% translate "Capacity" %}:</span>
-            <span class="font-medium tabular-nums {% if data.is_full %}text-coral-700 dark:text-coral-400{% else %}text-teal-700 dark:text-teal-400{% endif %}">{{ data.enrolled_count }}/{{ data.effective_participants_limit }}</span>
-            {% if data.waiting_count > 0 %}
-                <span class="text-foreground-muted/70" aria-hidden="true">·</span>
-                <span class="text-warning-text">
-                    {% blocktranslate count counter=data.waiting_count %}{{ counter }} waiting{% plural %}{{ counter }} waiting{% endblocktranslate %}
-                </span>
-            {% endif %}
-        {% end_session_fact %}
-    {% endif %}
     {% if data.session.min_age > 0 %}
         <span class="tabular-nums {% if data.session.min_age >= 18 %}font-medium text-coral-700 dark:text-coral-400{% endif %}"
               title="{% translate "Minimum age" %}: {{ data.session.min_age }} {% translate "years" %}"><span class="sr-only">{% translate "Minimum age" %}:</span>{{ data.session.min_age }}+</span>

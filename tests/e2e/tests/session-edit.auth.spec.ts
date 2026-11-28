@@ -16,6 +16,9 @@ test.describe("Editing a scheduled session from its modal", () => {
     await page.getByRole("link", { name: "Open details for Card Refresh Demo" }).press("Enter");
     const dialog = page.getByRole("dialog", { name: "Card Refresh Demo" });
     await dialog.getByRole("button", { name: "Edit session" }).click();
+    // The form's autofocus lands on Title a frame after the swap; typing
+    // before it does would end up at the start of the title.
+    await expect(dialog.getByLabel("Title")).toBeFocused();
 
     try {
       await dialog.getByLabel("Description").fill(edited);
@@ -46,6 +49,7 @@ test.describe("Editing a scheduled session from its modal", () => {
       await page.goto("/event/facilitator-edit-demo/");
       await page.getByRole("link", { name: "Open details for Card Refresh Demo" }).press("Enter");
       await dialog.getByRole("button", { name: "Edit session" }).click();
+      await expect(dialog.getByLabel("Title")).toBeFocused();
       await dialog.getByLabel("Description").fill(SEEDED_DESCRIPTION);
       await dialog.getByRole("button", { name: "Save changes" }).click();
       await expect(dialog).toBeHidden();

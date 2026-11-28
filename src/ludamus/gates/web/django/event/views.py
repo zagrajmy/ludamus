@@ -26,11 +26,7 @@ from ludamus.pacts.event import EventPublicationInvalidError
 from ludamus.pacts.fields import SessionFieldValueData
 from ludamus.pacts.ids import SessionId
 from ludamus.pacts.images import stored_file
-from ludamus.pacts.sessions import (
-    SessionEditNotAllowedError,
-    SessionStatus,
-    SpaceTimeConflictError,
-)
+from ludamus.pacts.sessions import SessionEditNotAllowedError, SessionStatus
 
 from .forms import create_proposal_acceptance_form
 
@@ -287,11 +283,6 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
                 user_slug=request.context.current_user_slug,
                 sphere_id=request.context.current_sphere_id,
             )
-        except SpaceTimeConflictError:
-            form.add_error(
-                None, _("There is already a session scheduled at this space and time.")
-            )
-            return self._render(request, context, form)
         except EventPublicationInvalidError:
             form.add_error(
                 "start_time",
