@@ -33,6 +33,7 @@ overrides:
 
 patchedDependencies:
   eslint-plugin-better-tailwindcss@4.0.2: aa6e5ee38bc9dfd940f3ced5f98fc8ad35d4ab5a80e33837e424d72246e80dec
+  typegpu@0.12.10: fbf85bc0e8ea27a0530694d82109d52f75129c7e119b8e0082ac7e1d66e2f06f
 
 importers:
 
@@ -113,6 +114,9 @@ importers:
       slugify:
         specifier: 1.6.9
         version: 1.6.9
+      typegpu:
+        specifier: 0.12.10
+        version: 0.12.10(patch_hash=fbf85bc0e8ea27a0530694d82109d52f75129c7e119b8e0082ac7e1d66e2f06f)
       yace:
         specifier: 1.1.1
         version: 1.1.1
@@ -141,6 +145,9 @@ importers:
       '@types/react-dom':
         specifier: 19.2.3
         version: 19.2.3(@types/react@19.2.8)
+      '@webgpu/types':
+        specifier: 0.1.74
+        version: 0.1.74
       lil-gui:
         specifier: 0.21.0
         version: 0.21.0
@@ -1389,7 +1396,6 @@ packages:
     peerDependenciesMeta:
       '@cfworker/json-schema':
         optional: true
-      zod: {}
 
   '@modelcontextprotocol/server@2.3.1':
     resolution: {integrity: sha512-e59MfWuSssj6DoQ96JCTqdW1AXT5/XtnTl0WWd6MU1Ka434fFUGGosCLJbGNySDhHGvxQWoRWK137FXYFkYNWw==}
@@ -2572,6 +2578,9 @@ packages:
 
   '@vitest/utils@4.1.9':
     resolution: {integrity: sha512-A51o8ymO5PpqlWNnBP9ZHPXDIpuMtTLlGSjN7la4US+LJzoUMyhwjA5QXlm39JexgwHKW4Xjs8Z2d3dLCXOeuA==}
+
+  '@webgpu/types@0.1.74':
+    resolution: {integrity: sha512-lgiI4hbuLcI9unnm2cL/tvCaQU45dp0xcLWJh5uB/9MBGvIA4F8XIk7nSiBeg+K4xWGYwgZKn80LmERI5CxoTA==}
 
   accepts@2.0.0:
     resolution: {integrity: sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng==}
@@ -4272,6 +4281,10 @@ packages:
   tinybench@2.9.0:
     resolution: {integrity: sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==}
 
+  tinyest@0.3.4:
+    resolution: {integrity: sha512-81EcMHTCQ2IPweOGk9SpMgjbenR9ZJRsAE84btEv0DhvVKwhe7qBy28hWgatoXa9ppWzmtpHiJ+e86SiaAtY6w==}
+    engines: {node: '>=12.20.0'}
+
   tinyexec@1.3.1:
     resolution: {integrity: sha512-GCvB3aoys96IuDFBMcTB46JOR6mdMtAToqwiW8JlWhsoh1mhHi/xn9ss/Dg7N555GiJyEt2qzoG/NHCwM6h1EA==}
     engines: {node: '>=18'}
@@ -4313,6 +4326,9 @@ packages:
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
 
+  tsover-runtime@0.0.7:
+    resolution: {integrity: sha512-FHHwMJzZbnP23+fU1PxXljy7j0RRRosL2r1/CRUNTqfW+l7m35JsUkM615x/cAzw4GqRdXPIl3axKMj9qzpZtQ==}
+
   tsscmp@1.0.6:
     resolution: {integrity: sha512-LxhtAkPDTkVCMQjt2h6eBVY28KCjikZqZfMcC15YBeNjkgUpdCfBu5HoiOTDu86v6smE8yOjyEktJ8hlbANHQA==}
     engines: {node: '>=0.6.x'}
@@ -4324,6 +4340,14 @@ packages:
   type-is@2.1.0:
     resolution: {integrity: sha512-faYHw0anBbc/kWF3zFTEnxSFOAGUX9GFbOBthvDdLsIlEoWOFOtS0zgCiQYwIskL9iGXZL3kAXD8OoZ4GmMATA==}
     engines: {node: '>= 18'}
+
+  typed-binary@4.3.5:
+    resolution: {integrity: sha512-irziT9zxcyZs8TawuZBab1kQTACM3Q6wGWDh/a5IB2iWbueu+jbkN5ofoSvp28Em1w4ZEa7y44Jx7pHmgBGZdw==}
+
+  typegpu@0.12.10:
+    resolution: {integrity: sha512-uZDsn/HKSS81X3RARkXGC3EkTQba7HPBPpTsOR4a/yVeJxdDEsj2K7oAvbTXuRsKW2IFsKdstrIRff1mIqoDxA==}
+    engines: {node: '>=12.20.0'}
+    hasBin: true
 
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
@@ -4494,7 +4518,6 @@ packages:
         optional: true
       jsdom:
         optional: true
-      vite: {}
 
   web-vitals@5.3.0:
     resolution: {integrity: sha512-q6LWsLatGYZp5VGBIOvbTj6JBV2nOmC8KvWztXBmwJcfFAzhwKwbOxhUH306XY3CcaZDUlSmSuNPBsCn0bFu+g==}
@@ -5404,7 +5427,7 @@ snapshots:
 
   '@hasparus/oxlint-config@0.3.1(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(oxlint-tsgolint@7.0.2005)(oxlint@1.70.0(oxlint-tsgolint@7.0.2005))(supports-color@7.2.0)(tailwindcss@4.1.16)(typescript@5.9.3)':
     dependencies:
-      eslint-plugin-better-tailwindcss: 4.0.2(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(oxlint@1.70.0(oxlint-tsgolint@7.0.2005))(tailwindcss@4.1.16)(typescript@5.9.3)
+      eslint-plugin-better-tailwindcss: 4.0.2(patch_hash=aa6e5ee38bc9dfd940f3ced5f98fc8ad35d4ab5a80e33837e424d72246e80dec)(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(oxlint@1.70.0(oxlint-tsgolint@7.0.2005))(tailwindcss@4.1.16)(typescript@5.9.3)
       eslint-plugin-perfectionist: 5.4.0(eslint@10.8.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)
       eslint-plugin-sonarjs: 3.0.6(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))
       oxlint: 1.70.0(oxlint-tsgolint@7.0.2005)
@@ -6091,16 +6114,6 @@ snapshots:
       '@babel/runtime': 7.29.13
       vite: 8.1.6(@types/node@24.10.1)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)
 
-  '@rolldown/plugin-babel@0.2.4(@babel/core@8.1.0)(@babel/runtime@7.29.13)(rolldown@1.2.13)(vite@8.1.6(@types/node@24.10.1)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0))':
-    dependencies:
-      '@babel/core': 8.1.0
-      picomatch: 4.0.7
-      rolldown: 1.2.13
-    optionalDependencies:
-      '@babel/runtime': 7.29.13
-      vite: 8.1.6(@types/node@24.10.1)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0)
-    optional: true
-
   '@rolldown/pluginutils@1.0.1': {}
 
   '@shadcn/react@0.2.0(@types/react@19.2.8)(react@19.2.8)':
@@ -6492,6 +6505,8 @@ snapshots:
       convert-source-map: 2.0.0
       tinyrainbow: 3.2.0
 
+  '@webgpu/types@0.1.74': {}
+
   accepts@2.0.0:
     dependencies:
       mime-types: 3.0.2
@@ -6790,6 +6805,7 @@ snapshots:
       import-fresh: 3.3.1
       js-yaml: 4.3.2
       parse-json: 5.2.0
+    optionalDependencies:
       typescript: 5.9.3
 
   cron-schedule@6.0.0: {}
@@ -6958,13 +6974,12 @@ snapshots:
 
   escape-string-regexp@4.0.0: {}
 
-  eslint-plugin-better-tailwindcss@4.0.2(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(oxlint@1.70.0(oxlint-tsgolint@7.0.2005))(tailwindcss@4.1.16)(typescript@5.9.3):
+  eslint-plugin-better-tailwindcss@4.0.2(patch_hash=aa6e5ee38bc9dfd940f3ced5f98fc8ad35d4ab5a80e33837e424d72246e80dec)(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(oxlint@1.70.0(oxlint-tsgolint@7.0.2005))(tailwindcss@4.1.16)(typescript@5.9.3):
     dependencies:
       '@eslint/css-tree': 3.6.9
       '@valibot/to-json-schema': 1.7.1(valibot@1.4.2(typescript@5.9.3))
       enhanced-resolve: 5.24.5
       jiti: 2.7.0
-      oxlint: 1.70.0(oxlint-tsgolint@7.0.2005)
       synckit: 0.11.13
       tailwind-csstree: 0.1.5
       tailwindcss: 4.1.16
@@ -6972,6 +6987,7 @@ snapshots:
       valibot: 1.4.2(typescript@5.9.3)
     optionalDependencies:
       eslint: 9.39.5(jiti@2.7.0)(supports-color@7.2.0)
+      oxlint: 1.70.0(oxlint-tsgolint@7.0.2005)
     transitivePeerDependencies:
       - '@eslint/css'
       - typescript
@@ -7045,11 +7061,12 @@ snapshots:
       ignore: 5.3.2
       imurmurhash: 0.1.4
       is-glob: 4.0.3
-      jiti: 2.7.0
       json-stable-stringify-without-jsonify: 1.0.1
       minimatch: 10.2.6
       natural-compare: 1.4.0
       optionator: 0.9.4
+    optionalDependencies:
+      jiti: 2.7.0
     transitivePeerDependencies:
       - supports-color
 
@@ -7084,12 +7101,13 @@ snapshots:
       ignore: 5.3.2
       imurmurhash: 0.1.4
       is-glob: 4.0.3
-      jiti: 2.7.0
       json-stable-stringify-without-jsonify: 1.0.1
       lodash.merge: 4.6.2
       minimatch: 3.1.5
       natural-compare: 1.4.0
       optionator: 0.9.4
+    optionalDependencies:
+      jiti: 2.7.0
     transitivePeerDependencies:
       - supports-color
 
@@ -7259,7 +7277,7 @@ snapshots:
   flru@1.0.2: {}
 
   follow-redirects@1.16.2(debug@4.4.3(supports-color@7.2.0)):
-    dependencies:
+    optionalDependencies:
       debug: 4.4.3(supports-color@7.2.0)
 
   foreground-child@4.0.3:
@@ -8233,6 +8251,8 @@ snapshots:
 
   tinybench@2.9.0: {}
 
+  tinyest@0.3.4: {}
+
   tinyexec@1.3.1: {}
 
   tinyglobby@0.2.17:
@@ -8269,6 +8289,8 @@ snapshots:
 
   tslib@2.8.1: {}
 
+  tsover-runtime@0.0.7: {}
+
   tsscmp@1.0.6: {}
 
   type-check@0.4.0:
@@ -8280,6 +8302,14 @@ snapshots:
       content-type: 2.0.0
       media-typer: 1.1.1
       mime-types: 3.0.2
+
+  typed-binary@4.3.5: {}
+
+  typegpu@0.12.10(patch_hash=fbf85bc0e8ea27a0530694d82109d52f75129c7e119b8e0082ac7e1d66e2f06f):
+    dependencies:
+      tinyest: 0.3.4
+      tsover-runtime: 0.0.7
+      typed-binary: 4.3.5
 
   typescript@5.9.3: {}
 
@@ -8347,7 +8377,7 @@ snapshots:
   util-deprecate@1.0.2: {}
 
   valibot@1.4.2(typescript@5.9.3):
-    dependencies:
+    optionalDependencies:
       typescript: 5.9.3
 
   varlock@1.12.0: {}
@@ -8363,13 +8393,13 @@ snapshots:
 
   vite@8.1.6(@types/node@24.10.1)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0):
     dependencies:
-      '@types/node': 24.10.1
       lightningcss: 1.32.0
       picomatch: 4.0.5
       postcss: 8.5.26
       rolldown: 1.1.5
       tinyglobby: 0.2.17
     optionalDependencies:
+      '@types/node': 24.10.1
       esbuild: 0.28.1
       fsevents: 2.3.3
       jiti: 2.7.0
@@ -8377,13 +8407,13 @@ snapshots:
 
   vite@8.1.6(@types/node@24.10.1)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.1):
     dependencies:
-      '@types/node': 24.10.1
       lightningcss: 1.32.0
       picomatch: 4.0.5
       postcss: 8.5.26
       rolldown: 1.1.5
       tinyglobby: 0.2.17
     optionalDependencies:
+      '@types/node': 24.10.1
       esbuild: 0.28.1
       fsevents: 2.3.3
       jiti: 2.7.0
@@ -8392,13 +8422,13 @@ snapshots:
 
   vite@8.1.6(@types/node@24.10.1)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.0):
     dependencies:
-      '@types/node': 24.10.1
       lightningcss: 1.32.0
       picomatch: 4.0.5
       postcss: 8.5.26
       rolldown: 1.1.5
       tinyglobby: 0.2.17
     optionalDependencies:
+      '@types/node': 24.10.1
       esbuild: 0.28.2
       fsevents: 2.3.3
       jiti: 2.7.0

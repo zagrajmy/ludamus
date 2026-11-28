@@ -1268,6 +1268,7 @@ msgstr "Zarządzaj miejscami zapisanymi dla innych…"
 #: src/ludamus/templates/board/_create_actions.html
 #: src/ludamus/templates/board/_edit_actions.html
 #: src/ludamus/templates/components/confirm-dialog.html
+#: src/ludamus/templates/components/cover-designer.html
 #: src/ludamus/templates/event/_map_card.html
 #: src/ludamus/templates/event/event.html src/ludamus/templates/event/maps.html
 #: src/ludamus/templates/event/panel/integrations/create.html
@@ -2429,6 +2430,7 @@ msgstr "Potwierdzenie"
 
 #: src/ludamus/gates/web/django/event/panel/views/google_docs_import.py
 #: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/components/cover-designer.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-field-edit.html
@@ -2622,6 +2624,7 @@ msgid "Icon"
 msgstr "Ikona"
 
 #: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
+#: src/ludamus/templates/components/cover-designer.html
 msgid "Background"
 msgstr "Tło"
 
@@ -3657,6 +3660,7 @@ msgid "Enter how long the session lasts."
 msgstr "Podaj, ile trwa punkt programu."
 
 #: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/components/cover-designer.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-fields.html
 msgid "Custom"
@@ -5569,6 +5573,102 @@ msgstr "Skopiowano!"
 #: src/ludamus/gates/web/django/templatetags/tessera/copy.py
 msgid "Copy to clipboard"
 msgstr "Skopiuj do schowka"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgctxt "cover pattern"
+msgid "Dice"
+msgstr "Kości"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgctxt "cover pattern"
+msgid "Hex map"
+msgstr "Mapa heksowa"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgctxt "cover pattern"
+msgid "Trail map"
+msgstr "Mapa szlaku"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgctxt "cover pattern"
+msgid "Paths"
+msgstr "Ścieżki"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgctxt "cover pattern"
+msgid "Cards"
+msgstr "Karty"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgctxt "cover colors"
+msgid "Hall"
+msgstr "Sala"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgctxt "cover colors"
+msgid "Coral"
+msgstr "Koral"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgctxt "cover colors"
+msgid "Sea"
+msgstr "Morze"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgctxt "cover colors"
+msgid "Night"
+msgstr "Noc"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgctxt "cover colors"
+msgid "Mint"
+msgstr "Mięta"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgctxt "cover colors"
+msgid "Peach"
+msgstr "Brzoskwinia"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgctxt "cover colors"
+msgid "Paper"
+msgstr "Papier"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgid "Top left"
+msgstr "Lewy górny róg"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgid "Top center"
+msgstr "Góra, środek"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgid "Top right"
+msgstr "Prawy górny róg"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgid "Middle left"
+msgstr "Środek, lewa strona"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgid "Center"
+msgstr "Środek"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgid "Middle right"
+msgstr "Środek, prawa strona"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgid "Bottom left"
+msgstr "Lewy dolny róg"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgid "Bottom center"
+msgstr "Dół, środek"
+
+#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
+msgid "Bottom right"
+msgstr "Prawy dolny róg"
 
 #: src/ludamus/gates/web/django/templatetags/tessera/dialog_close_button.py
 #: src/ludamus/templates/components/bottom-sheet.html
@@ -8248,6 +8348,219 @@ msgid ""
 msgstr ""
 "Odpowiadamy z konkretnym planem dla Twojego wydarzenia, a samo zapytanie do "
 "niczego Cię nie zobowiązuje."
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Design a cover"
+msgstr "Zaprojektuj okładkę"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid ""
+"This browser cannot draw covers. Open the page in a recent Chrome, Edge or "
+"Safari, or upload a picture instead."
+msgstr ""
+"Ta przeglądarka nie potrafi rysować okładek. Otwórz stronę w aktualnym "
+"Chrome, Edge lub Safari albo wgraj obraz."
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Drawing stopped. Close this window and open it again."
+msgstr "Rysowanie zostało przerwane. Zamknij to okno i otwórz je ponownie."
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Saving the image…"
+msgstr "Zapisywanie obrazu…"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "The image could not be saved. Try again, or upload a picture instead."
+msgstr "Nie udało się zapisać obrazu. Spróbuj ponownie albo wgraj obraz."
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Empty text"
+msgstr "Pusty tekst"
+
+#: src/ludamus/templates/components/cover-designer.html
+#, python-brace-format
+msgid "Remove “{name}”"
+msgstr "Usuń „{name}”"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Your text"
+msgstr "Twój tekst"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Click the preview where the text should go."
+msgstr "Kliknij podgląd tam, gdzie ma stanąć tekst."
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Drag a text to move it."
+msgstr "Przeciągnij tekst, żeby go przesunąć."
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "The dashed box is the part every card and banner keeps."
+msgstr "Przerywana ramka to część, którą widać na każdej karcie i banerze."
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Warm"
+msgstr "Ciepły"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Coral"
+msgstr "Koralowy"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Teal"
+msgstr "Morski"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Large"
+msgstr "Duże"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Medium"
+msgstr "Średnie"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Small"
+msgstr "Małe"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Tool"
+msgstr "Narzędzie"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgctxt "cover tool"
+msgid "Select"
+msgstr "Zaznaczanie"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Select and move texts (V)"
+msgstr "Zaznaczaj i przesuwaj teksty (V)"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Text tool: click the preview to add text (T)"
+msgstr "Narzędzie Tekst: kliknij podgląd, żeby dodać tekst (T)"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Crop guide"
+msgstr "Linia kadrowania"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Cover preview"
+msgstr "Podgląd okładki"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Pattern"
+msgstr "Wzór"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Colors"
+msgstr "Kolory"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Pick"
+msgstr "Wybierz"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Accent"
+msgstr "Akcent"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Layout"
+msgstr "Układ"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Size"
+msgstr "Rozmiar"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Angle"
+msgstr "Kąt"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "New layout"
+msgstr "Nowy układ"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Texts"
+msgstr "Teksty"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Add text"
+msgstr "Dodaj tekst"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid ""
+"No text on the cover. Add one here, or pick the Text tool and click the "
+"preview."
+msgstr ""
+"Na okładce nie ma tekstu. Dodaj go tutaj albo wybierz narzędzie Tekst i "
+"kliknij podgląd."
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "A cover holds up to 6 texts."
+msgstr "Okładka mieści do 6 tekstów."
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Position"
+msgstr "Położenie"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Alignment"
+msgstr "Wyrównanie"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Align left"
+msgstr "Do lewej"
+
+#
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Align center"
+msgstr "Do środka"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Align right"
+msgstr "Do prawej"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Text size"
+msgstr "Rozmiar tekstu"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Text color"
+msgstr "Kolor tekstu"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Auto"
+msgstr "Auto"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Dark"
+msgstr "Ciemny"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Light"
+msgstr "Jasny"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Background behind text"
+msgstr "Tło pod tekstem"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid ""
+"Cards crop the top and bottom, so some of the text will be cut in places."
+msgstr ""
+"Karty przycinają górę i dół, więc część tekstu miejscami zostanie ucięta."
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Remove text"
+msgstr "Usuń tekst"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Reroll"
+msgstr "Losuj"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Use cover"
+msgstr "Użyj okładki"
 
 #: src/ludamus/templates/components/create_button.html
 msgid "Organize"
@@ -16805,6 +17118,18 @@ msgstr ""
 "Bilety kupione na wydarzenia w tej sferze pojawią się tutaj, gotowe do "
 "pokazania przy wejściu."
 
+#~ msgid "Text on cover"
+#~ msgstr "Tekst na okładce"
+
+#
+#
+#~ msgid "No text"
+#~ msgstr "Bez tekstu"
+
+#~ msgctxt "cover pattern"
+#~ msgid "Tables"
+#~ msgstr "Stoły"
+
 #~ msgid "The leader can now enroll you directly."
 #~ msgstr "Od teraz lider może zapisywać Cię bezpośrednio."
 
@@ -17948,9 +18273,6 @@ msgstr ""
 #~ msgid "Sunday, 4:00 PM"
 #~ msgstr "Niedziela, 16:00"
 
-#~ msgid "Community center"
-#~ msgstr "Dom kultury"
-
 #~ msgid "Call of Cthulhu Night"
 #~ msgstr "Wieczór z Cthulhu"
 
@@ -18791,9 +19113,6 @@ msgstr ""
 #~ msgid "Pick venues of this event."
 #~ msgstr "Wybierz lokalizacje tego wydarzenia."
 
-#~ msgid "New map"
-#~ msgstr "Nowa mapa"
-
 #~ msgid "What are maps?"
 #~ msgstr "Czym są mapy?"
 
@@ -18820,9 +19139,6 @@ msgstr ""
 #~ msgstr ""
 #~ "Zwiń lub rozwiń zawartość %(name)s — przeciągnij lub użyj strzałek, aby "
 #~ "zmienić kolejność"
-
-#~ msgid "Export preview"
-#~ msgstr "Podgląd eksportu"
 
 #~ msgid ""
 #~ "Icon and background combinations in the programme. Updates as you edit; "

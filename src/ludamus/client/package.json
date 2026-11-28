@@ -23,6 +23,7 @@
     "@types/node": "24.10.1",
     "@types/react": "19.2.8",
     "@types/react-dom": "19.2.3",
+    "@webgpu/types": "0.1.74",
     "lil-gui": "0.21.0",
     "oxfmt": "0.56.0",
     "oxlint": "1.70.0",
@@ -44,6 +45,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "slugify": "1.6.9",
+    "typegpu": "0.12.10",
     "yace": "1.1.1"
   }
 }

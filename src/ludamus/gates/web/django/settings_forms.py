@@ -63,7 +63,7 @@ class EventSettingsForm(forms.Form):
             raise ValidationError(gettext("An address can have at most two lines."))
         return "\n".join(kept)
 
-    cover_image = cover_image_field(crop="top-and-bottom")
+    cover_image = cover_image_field(crop="top-and-bottom", designer=True)
     logo = logo_field()
     start_time = forms.DateTimeField(
         label=_("Start time"),

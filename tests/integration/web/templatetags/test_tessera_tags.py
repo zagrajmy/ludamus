@@ -798,6 +798,21 @@ class TestSwitcher:
         assert "Light" in html
         assert "Dark" in html
 
+    def test_labelled_segment_shows_its_label(self) -> None:
+        html = Template(
+            "{% load tessera %}"
+            '{% tessera_switcher name="tool" selected="select" %}'
+            '{% tessera_segment "select" icon="cursor-arrow-rays" labelled=True %}'
+            "Select{% end_tessera_segment %}"
+            '{% tessera_segment "text" labelled=True %}Text{% end_tessera_segment %}'
+            "{% end_tessera_switcher %}"
+        ).render(Context())
+
+        assert '<span class="sr-only">' not in html
+        assert re.search(r"<span>\s*Select\s*</span>", html)
+        assert re.search(r"<span>\s*Text\s*</span>", html)
+        assert html.count("<svg") == 1
+
     def test_segment_missing_value_raises(self) -> None:
         with pytest.raises(TemplateSyntaxError, match="requires at least a value"):
             Template(

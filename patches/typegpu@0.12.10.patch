@@ -1,0 +1,24 @@
+diff --git a/data/compiledIO.js b/data/compiledIO.js
+index 074f9ae..568aec9 100644
+--- a/data/compiledIO.js
++++ b/data/compiledIO.js
+@@ -6,16 +6,9 @@ import { sizeOf } from "./sizeOf.js";
+ import { strideOf } from "./schemaMemoryLayout.js";
+ import { formatToWGSLType, isPackedData } from "./vertexFormatData.js";
+ import * as wgsl from "./wgslTypes.js";
+-export const EVAL_ALLOWED_IN_ENV = (() => {
+-    try {
+-        // oxlint-disable-next-line typescript-eslint/no-implied-eval typescript-eslint/no-new
+-        new Function('return true');
+-        return true;
+-    }
+-    catch {
+-        return false;
+-    }
+-})();
++// NOTE: ludamus serves a CSP without 'unsafe-eval'; probing with new Function
++// files a CSP violation report on every load, so the answer is fixed instead.
++export const EVAL_ALLOWED_IN_ENV = false;
+ const compiledWriters = new WeakMap();
+ let didWarnAboutEvalFallback = false;
+ const typeToPrimitive = {

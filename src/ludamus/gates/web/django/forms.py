@@ -77,19 +77,22 @@ STORAGE_LIMIT_VALIDATOR = MaxValueValidator(
 
 
 class DropzoneFileInput(forms.ClearableFileInput):
-    # `fit` and `crop` are read by the tessera dropzone renderer, never written
-    # to the input: they say how the preview frames the file, which is the
-    # renderer's business and not the browser's.
+    # `fit`, `crop` and `designer` are read by the tessera dropzone renderer,
+    # never written to the input: they say how the preview frames the file and
+    # whether the cover designer is offered beside it, which is the renderer's
+    # business and not the browser's.
     def __init__(
         self,
         *,
         attrs: dict[str, str] | None = None,
         fit: Literal["cover", "contain"] = "cover",
         crop: CoverCrop | None = None,
+        designer: bool = False,
     ) -> None:
         super().__init__(attrs)
         self.fit = fit
         self.crop = crop
+        self.designer = designer
 
 
 class MarkdownTextarea(forms.Textarea):
@@ -110,7 +113,7 @@ class MarkdownTextarea(forms.Textarea):
         self.published = published
 
 
-def cover_image_field(*, crop: CoverCrop) -> forms.ImageField:
+def cover_image_field(*, crop: CoverCrop, designer: bool = False) -> forms.ImageField:
     # Shared definition so every cover/header upload field stays identical
     # (label, limits, accepted types) without copy-pasting the declaration.
     # `crop` picks which surfaces this upload lands on, and with it both the
@@ -128,12 +131,14 @@ def cover_image_field(*, crop: CoverCrop) -> forms.ImageField:
         label=_("Cover image"),
         required=False,
         help_text=help_text,
-        widget=DropzoneFileInput(attrs={"accept": IMAGE_ACCEPT}, crop=crop),
+        widget=DropzoneFileInput(
+            attrs={"accept": IMAGE_ACCEPT}, crop=crop, designer=designer
+        ),
     )
 
 
 def session_cover_image_field() -> forms.ImageField:
-    field = cover_image_field(crop="top-and-bottom")
+    field = cover_image_field(crop="top-and-bottom", designer=True)
     field.help_text = SESSION_COVER_IMAGE_HELP_TEXT
     return field
 

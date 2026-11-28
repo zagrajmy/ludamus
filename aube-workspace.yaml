@@ -10,3 +10,4 @@ packages:
   - "./workers/parley"
 patchedDependencies:
   eslint-plugin-better-tailwindcss@4.0.2: patches/eslint-plugin-better-tailwindcss@4.0.2.patch
+  typegpu@0.12.10: patches/typegpu@0.12.10.patch
