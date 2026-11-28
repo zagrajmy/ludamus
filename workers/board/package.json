@@ -8,6 +8,7 @@
     "dev": "vite",
     "dev:worker": "mkdir -p dist && varlock run -- wrangler dev --port 8789",
     "serve": "varlock run -- wrangler dev --port 8788",
+    "serve:e2e": "varlock run -- wrangler dev --port 8790",
     "plan:prod": "BOARD_ENV=production varlock run -- alchemy plan --stage prod",
     "deploy:prod": "BOARD_ENV=production varlock run -- alchemy deploy --stage prod",
     "plan:staging": "BOARD_ENV=production varlock run -- alchemy plan --stage staging",

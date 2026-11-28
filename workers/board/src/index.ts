@@ -8,7 +8,12 @@ export { BoardRoom } from "./board-room";
 // NOTE: the pass travels in the request itself, never in a cookie. The
 // board app is served from this origin, so the rooms API needs no CORS:
 // another origin's page can neither read an answer nor send a pass it has.
-const REFUSAL_STATUS: Record<Refusal, number> = { full: 429, "link-reset": 403, "too-fast": 429 };
+const REFUSAL_STATUS: Record<Refusal, number> = {
+  full: 429,
+  gone: 404,
+  "link-reset": 403,
+  "too-fast": 429,
+};
 
 function answer(result: Refusal | object): Response {
   return typeof result === "string"

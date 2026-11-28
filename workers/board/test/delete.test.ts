@@ -58,6 +58,18 @@ describe("deleting a board", () => {
     expect((await open("again", await pass({ board: "again" }))).response.status).toBe(101);
   });
 
+  it("refuses every pass signed before the deletion", async () => {
+    const early = await pass({ board: "late", issuedAt: now() - 10 });
+    await roll("late", early, [6]);
+
+    await destroy("late", await deletion({ board: "late" }));
+
+    expect((await roll("late", early, [6])).status).toBe(404);
+    expect((await call("/rooms/late/rolls", early)).status).toBe(404);
+    const refused = await open("late", early);
+    expect(await refused.closure).toEqual({ code: 4099, reason: "NOT_FOUND" });
+  });
+
   it("is the same the second time", async () => {
     const token = await deletion({ board: "twice" });
     expect((await destroy("twice", token)).status).toBe(204);

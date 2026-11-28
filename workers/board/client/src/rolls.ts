@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import type { PassKeeper, Roll } from "./bootstrap";
 
@@ -12,6 +12,7 @@ export type Rolls = {
   arrived: Roll | null;
   log: Roll[];
   receive: (message: unknown) => void;
+  refresh: () => Promise<void>;
   roll: (pool: number[]) => Promise<RollRefusal | null>;
   settle: () => void;
 };
@@ -46,22 +47,17 @@ export function useRolls(keeper: PassKeeper): Rolls {
     [keeper],
   );
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const response = await request("/rolls");
-        if (cancelled) return;
-        if (response.status === 403) return keeper.end("link-reset");
-        if (!response.ok) throw new Error(`status ${response.status}`);
-        add((await response.json()) as Roll[], false);
-      } catch (error) {
-        console.error("board: roll log did not load", error);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  // NOTE: the room broadcasts a roll only to the sockets open at that
+  // moment, so the log is fetched again after every (re)connect.
+  const refresh = useCallback(async () => {
+    try {
+      const response = await request("/rolls");
+      if (response.status === 403) return keeper.end("link-reset");
+      if (!response.ok) throw new Error(`status ${response.status}`);
+      add((await response.json()) as Roll[], false);
+    } catch (error) {
+      console.error("board: roll log did not load", error);
+    }
   }, [add, keeper, request]);
 
   const roll = useCallback(
@@ -97,7 +93,7 @@ export function useRolls(keeper: PassKeeper): Rolls {
   const settle = useCallback(() => setArrived(null), []);
 
   return useMemo(
-    () => ({ arrived, log, receive, roll, settle }),
-    [arrived, log, receive, roll, settle],
+    () => ({ arrived, log, receive, refresh, roll, settle }),
+    [arrived, log, receive, refresh, roll, settle],
   );
 }

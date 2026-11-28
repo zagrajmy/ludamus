@@ -51,7 +51,7 @@ function Board({ copy, door, fallbackExit, first, language, licenseKey }: Mount)
         document.title = answer.bootstrap.title;
         // NOTE: an ending only ever moves forward; a late renewal answer
         // must not bring a reset board back.
-        const keeper = new PassKeeper(door, answer.bootstrap, (ending) =>
+        const keeper = new PassKeeper(door, answer, (ending) =>
           setStage((current) =>
             current.kind === "ended" ? current : { ending, exit, kind: "ended" },
           ),

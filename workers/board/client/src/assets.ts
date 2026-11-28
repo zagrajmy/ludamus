@@ -1,5 +1,6 @@
 import {
   AssetRecordType,
+  defaultHandleExternalTldrawContent,
   type Editor,
   getHashForString,
   type TLAssetStore,
@@ -25,6 +26,15 @@ export function guardExternalContent(
 ): void {
   editor.registerExternalContentHandler("files", () => {
     toasts.addToast({ severity: "info", title: comingSoon });
+  });
+  // NOTE: shapes copied from another board arrive as tldraw content, and
+  // tldraw inserts their images before it asks the store to upload them.
+  editor.registerExternalContentHandler("tldraw", async ({ content, point }) => {
+    if (content.assets.some(({ type }) => type === "image" || type === "video")) {
+      toasts.addToast({ severity: "info", title: comingSoon });
+      return;
+    }
+    await defaultHandleExternalTldrawContent(editor, { content, point });
   });
   // NOTE: tldraw's own link handler fetches the pasted page to read its
   // preview, and the board's Content-Security-Policy refuses any host but

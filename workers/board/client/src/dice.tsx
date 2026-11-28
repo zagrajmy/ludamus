@@ -98,7 +98,8 @@ export function DiceSheet() {
     const answer = await rolls.roll(dice);
     setBusy(false);
     setRefusal(answer);
-    if (answer === null) setPool([]);
+    // NOTE: dice added while the roll was in flight stay for the next one.
+    if (answer === null) setPool((current) => (current === dice ? [] : current));
   };
 
   return (

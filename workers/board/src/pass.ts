@@ -12,6 +12,8 @@ export type PassEnv = {
 // board's link is at this version.
 export type Pass = {
   board: string;
+  // Seconds since the epoch, as signed.
+  issuedAt: number;
   link: number;
   name: string;
   owner: boolean;
@@ -26,7 +28,7 @@ export async function verifyPass(token: string, env: PassEnv): Promise<Pass> {
     issuer: env.JWT_ISSUER,
     requiredClaims: ["exp", "iat", "sub"],
   });
-  const { board, link, name, owner, sub } = payload;
+  const { board, iat, link, name, owner, sub } = payload;
   if (
     typeof sub !== "string" ||
     typeof board !== "string" ||
@@ -39,7 +41,7 @@ export async function verifyPass(token: string, env: PassEnv): Promise<Pass> {
   ) {
     throw new Error("Invalid pass");
   }
-  return { board, link: link as number, name, owner, sub };
+  return { board, issuedAt: iat as number, link: link as number, name, owner, sub };
 }
 
 export const DELETION_AUDIENCE = "board-deletion";

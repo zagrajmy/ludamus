@@ -5,15 +5,15 @@ import { assertNoCspViolations, installCspViolationCollector } from "./helpers/c
 import { expect, test } from "./helpers/fixtures";
 
 // The board, end to end against the board app on its own origin: the
-// Worker serves the built client and the rooms on :8788 (playwright.config.ts
+// Worker serves the built client and the rooms on :8790 (playwright.config.ts
 // builds and starts it; .env.e2e points BOARD_HOST at it), and the client asks
 // Django on :8000 for passes across origins. Nothing here is faked: Django
 // signs the passes, the Worker verifies them, runs the tldraw sync room and
 // draws every die.
 
 const GUEST = "Ania";
-const BOARD_APP = "http://localhost:8788";
-const ON_BOARD_APP = /^http:\/\/localhost:8788\/b\/(\w+)$/u;
+const BOARD_APP = "http://localhost:8790";
+const ON_BOARD_APP = /^http:\/\/localhost:8790\/b\/(\w+)$/u;
 const PHONE = devices["Pixel 7"];
 
 // The board's own controls sit in tldraw's bottom bar; the sheets they open
@@ -61,7 +61,7 @@ async function expectOwnPolicy(page: Page): Promise<void> {
   const response = await page.request.get(page.url());
   const policy = response.headers()["content-security-policy"] ?? "";
   expect(policy).toContain("default-src 'none'");
-  expect(policy).toContain("connect-src 'self' ws://localhost:8788 http://localhost:8000");
+  expect(policy).toContain("connect-src 'self' ws://localhost:8790 http://localhost:8000");
 }
 
 const shoot = async (page: Page, name: string, facts: object) =>

@@ -83,6 +83,11 @@ export function BoardCanvas({
   const { refusal, store } = useBoardStore({ color, keeper, rolls });
   const usable = store.status === "synced-remote";
   useEffect(() => (usable ? warmUpDice() : undefined), [usable]);
+  const online = usable && store.connectionStatus === "online";
+  const { refresh } = rolls;
+  useEffect(() => {
+    if (online) void refresh();
+  }, [online, refresh]);
   // tldraw keeps trying a Worker it cannot reach behind a bare spinner; after
   // a while the person is told why nothing shows.
   const [stalled, setStalled] = useState(false);

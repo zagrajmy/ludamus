@@ -1,6 +1,6 @@
 import type { Editor, TLShapeId } from "tldraw";
 
-import { createContext, useContext } from "react";
+import { createContext, type Dispatch, type SetStateAction, useContext } from "react";
 
 import type { Person } from "./bootstrap";
 import type { Copy } from "./copy";
@@ -27,7 +27,7 @@ export type BoardUi = {
   pool: number[];
   rolls: Rolls;
   setNaming: (id: TLShapeId | null) => void;
-  setPool: (pool: number[]) => void;
+  setPool: Dispatch<SetStateAction<number[]>>;
 };
 
 export const BoardUiContext = createContext<BoardUi | null>(null);

@@ -22,7 +22,8 @@ export type Roll = {
 };
 
 export type Answer =
-  | { bootstrap: Bootstrap; kind: "ready" }
+  // issuedAt: when the pass was asked for, so its age counts from issue.
+  | { bootstrap: Bootstrap; issuedAt: number; kind: "ready" }
   | { kind: "failed" | "gone" | "throttled" }
   | { kind: "name-invalid" | "name-required" };
 
@@ -33,6 +34,7 @@ export type Door = { bootstrapUrl: string };
 // host and the app share as one site. Django answers only this origin, and
 // the JSON content type makes the browser ask it first (a CORS preflight).
 export async function knock(door: Door, name?: string): Promise<Answer> {
+  const issuedAt = Date.now();
   let response: Response;
   try {
     response = await fetch(door.bootstrapUrl, {
@@ -59,7 +61,7 @@ export async function knock(door: Door, name?: string): Promise<Answer> {
     console.error("board: bootstrap refused", response.status);
     return { kind: "failed" };
   }
-  return { bootstrap: body as Bootstrap, kind: "ready" };
+  return { bootstrap: body as Bootstrap, issuedAt, kind: "ready" };
 }
 
 // NOTE: a pass lives five minutes. One older than this is fetched again
@@ -72,15 +74,16 @@ export type Ending = "gone" | "link-reset";
 // (re)connect, and each roll request carries one.
 export class PassKeeper {
   private latest: Bootstrap;
-  private issuedAt = Date.now();
+  private issuedAt: number;
   private pending: Promise<Bootstrap> | null = null;
 
   constructor(
     private readonly door: Door,
-    first: Bootstrap,
+    first: { bootstrap: Bootstrap; issuedAt: number },
     private readonly onEnding: (ending: Ending) => void,
   ) {
-    this.latest = first;
+    this.latest = first.bootstrap;
+    this.issuedAt = first.issuedAt;
   }
 
   get bootstrap(): Bootstrap {
@@ -113,7 +116,7 @@ export class PassKeeper {
       .then((answer) => {
         if (answer.kind === "ready") {
           this.latest = answer.bootstrap;
-          this.issuedAt = Date.now();
+          this.issuedAt = answer.issuedAt;
           return answer.bootstrap;
         }
         // NOTE: a person Django no longer lets in (board deleted, or a guest

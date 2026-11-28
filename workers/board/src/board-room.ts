@@ -14,12 +14,13 @@ import { MAX_PEOPLE, MIN_ROLL_INTERVAL_MS, ROLL_LOG_LENGTH } from "./limits";
 
 export type Env = PassEnv & { BoardRoom: DurableObjectNamespace<BoardRoom> };
 
-export type Refusal = "link-reset" | "full" | "too-fast";
+export type Refusal = "gone" | "link-reset" | "full" | "too-fast";
 
 // NOTE: the tldraw client reads close code 4099 as final and hands the
 // reason to useSync as a TLRemoteSyncError, instead of retrying.
-const SOCKET_REFUSAL: Record<"full" | "link-reset", string> = {
+const SOCKET_REFUSAL: Record<"full" | "gone" | "link-reset", string> = {
   full: TLSyncErrorCloseEventReason.ROOM_FULL,
+  gone: TLSyncErrorCloseEventReason.NOT_FOUND,
   "link-reset": TLSyncErrorCloseEventReason.FORBIDDEN,
 };
 
@@ -52,6 +53,9 @@ export class BoardRoom extends DurableObject<Env> {
       "CREATE TABLE IF NOT EXISTS board (id INTEGER PRIMARY KEY CHECK (id = 1), link INTEGER NOT NULL)",
     );
     sql.exec(
+      "CREATE TABLE IF NOT EXISTS deletion (id INTEGER PRIMARY KEY CHECK (id = 1), at INTEGER NOT NULL)",
+    );
+    sql.exec(
       "CREATE TABLE IF NOT EXISTS rolls (id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, sub TEXT NOT NULL, name TEXT NOT NULL, dice TEXT NOT NULL)",
     );
     this.room = new TLSocketRoom<never, Person>({
@@ -67,9 +71,19 @@ export class BoardRoom extends DurableObject<Env> {
     return row === undefined ? 0 : (row.link as number);
   }
 
+  // Seconds since the epoch when the board was last deleted, or 0.
+  private deletedAt(): number {
+    const [row] = this.ctx.storage.sql.exec("SELECT at FROM deletion").toArray();
+    return row === undefined ? 0 : (row.at as number);
+  }
+
   // A reset link carries a higher version. The first pass that shows it
   // moves the board on and puts out everyone who came in by the old link.
-  private admit(pass: Pass): "link-reset" | null {
+  // NOTE: a pass signed in the same second as the deletion still opens the
+  // room; passes carry whole seconds, and a board id Django hands out again
+  // must open for passes signed right after.
+  private admit(pass: Pass): "gone" | "link-reset" | null {
+    if (pass.issuedAt < this.deletedAt()) return "gone";
     const current = this.link();
     if (pass.link < current) return "link-reset";
     if (pass.link > current) {
@@ -170,6 +184,10 @@ export class BoardRoom extends DurableObject<Env> {
     this.room.close();
     await this.ctx.storage.deleteAll();
     this.open();
+    this.ctx.storage.sql.exec(
+      "INSERT INTO deletion (id, at) VALUES (1, ?)",
+      Math.floor(Date.now() / 1000),
+    );
     log("board.deleted", { board });
   }
 }

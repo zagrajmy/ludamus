@@ -232,11 +232,14 @@ export default defineConfig({
       // with the committed dev key open its rooms.
       // NOTE: board ids restart with each fresh e2e database, so the rooms
       // start from empty storage too, or a board opens on an old run's drawing.
-      command: `rm -rf ${BOARD_E2E_STATE} && aube run build && exec aube run serve -- --persist-to ${BOARD_E2E_STATE}`,
+      command: `rm -rf ${BOARD_E2E_STATE} && aube run build && exec aube run serve:e2e -- --persist-to ${BOARD_E2E_STATE}`,
       // A room without a pass answers 403, which counts as up.
-      url: "http://localhost:8788/rooms/e2e/rolls",
+      url: "http://localhost:8790/rooms/e2e/rolls",
       env: { ...webServerEnv, WRANGLER_SEND_METRICS: "false" },
-      reuseExistingServer: !isCI,
+      // NOTE: its own port, never reused: `mise run start` keeps the Vite
+      // dev server on 8788 (and its Worker on 8789), which answers this probe too but serves the page
+      // without the Worker's Content-Security-Policy.
+      reuseExistingServer: false,
       timeout: 120 * 1000,
       cwd: path.join(repoRoot, "workers", "board"),
       gracefulShutdown: { signal: "SIGTERM", timeout: 5000 },
