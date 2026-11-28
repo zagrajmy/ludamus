@@ -125,12 +125,20 @@ run = 'pytest -n auto -o testpaths=tests/unit {{ arg(name="pytest_args", var=tru
 env = { _.file = '.env.test' }
 
 ["test:unit:cov"]
-description = "Run unit tests, which must cover mills and themselves in full"
-run = { task = "test:unit", args = [
-    "--cov=tests.unit",
-    "--cov={{env.PACKAGE}}.mills",
-    "--cov-fail-under=100",
-] }
+description = "Run unit tests, which must cover mills, specs and themselves in full"
+# NOTE: `MILLS_COVERAGE_OMIT` (mise.toml) lists the mills whose rules live in
+# specs (docs/TESTING_STRATEGY.md): the integration suite owns what is left of
+# them. Not in `[tool.coverage.run] omit`, which would hide them from the
+# combined report as well.
+run = [
+    { task = "test:unit", args = [
+        "--cov=tests.unit",
+        "--cov={{env.PACKAGE}}.mills",
+        "--cov={{env.PACKAGE}}.specs",
+        "--cov-report=",
+    ] },
+    "coverage report --fail-under=100 --omit='{{env.MILLS_COVERAGE_OMIT}}'",
+]
 # Its own data file: devcheck runs this next to the combined test:py:cov, and a
 # shared `.coverage` would leave the mills-only run deciding what the
 # `coverage xml` after it — and so diff-cover — reads.
@@ -140,7 +148,7 @@ env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.mills
 description = "Show test coverage of unit tests for lines changed since main"
 run = [
     { task = "test:unit:cov" },
-    "coverage xml",
+    "coverage xml --omit='{{env.MILLS_COVERAGE_OMIT}}'",
     "diff-cover coverage.xml --compare-branch=main",
 ]
 env = { _.file = '.env.test', COVERAGE_FILE = "{{ config_root }}/.coverage.mills" }

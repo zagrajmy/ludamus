@@ -52,10 +52,31 @@ when Pylint's `R0801` flags the duplication.
 ## Unit tests
 
 Cover: the isolated systems that meet the bar above, with one test per failure
-mode written down before the code. `tests/unit` covers `ludamus.mills` and
-itself in full, and `mise run test:unit:cov` fails under 100% — it runs in CI,
-`devcheck` and `pr-fix`, because the combined report cannot show this: a mills
-line covered only by an e2e test reads the same there.
+mode written down before the code. `tests/unit` covers `ludamus.mills`,
+`ludamus.specs` and itself in full, and `mise run test:unit:cov` fails under
+100% — it runs in CI, `devcheck` and `pr-fix`, because the combined report
+cannot show this: a line covered only by an e2e test reads the same there.
+
+### A mill whose rules live in specs
+
+Some services only read state, ask a pure function in `specs` what to do, and
+write the answer: `EventDeletionService.approve` reads the vote, calls
+`decide_approval`, and writes what the returned decision names. Such a mill
+splits its tests the same way:
+
+- The decision gets Hypothesis properties in
+  `tests/unit/specs/test_*_properties.py`, one rule per property
+  ([VERIFICATION.md](VERIFICATION.md)).
+- The service gets integration tests through its view, at least one per kind
+  of decision the function can return.
+- The service gets no unit test. With the rule gone, a test on a fake
+  repository can only assert which methods were called.
+
+The two gates that expect a unit test for every mill each carry a list of
+these mills: `MILLS_COVERAGE_OMIT` in `mise.toml`, which the `test:unit:cov`
+and `test:unit:cov:diff` tasks (`python_tasks.toml`) both read, and
+`do_not_mutate` under `[tool.mutmut]` (`pyproject.toml`). Add the mill's path
+to both when you move its rules.
 
 Rules:
 

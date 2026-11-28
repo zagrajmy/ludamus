@@ -42,6 +42,14 @@ def _target(
     )
 
 
+def _approval_dto(approval: EventDeletionApproval) -> EventDeletionApprovalDTO:
+    return EventDeletionApprovalDTO(
+        user_id=approval.user_id,
+        user_name=approval.user.full_name,
+        approved_at=approval.creation_time,
+    )
+
+
 class EventDeletionRepository(EventDeletionRepositoryProtocol):
     @staticmethod
     def read_event(*, sphere_id: SphereId, event_id: EventId) -> EventDeletionTargetDTO:
@@ -73,21 +81,14 @@ class EventDeletionRepository(EventDeletionRepositoryProtocol):
             .select_related("user")
             .order_by("creation_time", "pk")
         )
-        return [
-            EventDeletionApprovalDTO(
-                user_id=approval.user_id,
-                user_name=approval.user.full_name,
-                approved_at=approval.creation_time,
-            )
-            for approval in approvals
-        ]
+        return [_approval_dto(approval) for approval in approvals]
 
     @staticmethod
-    def add_approval(*, event_id: EventId, user_id: UserId) -> bool:
-        _approval, created = EventDeletionApproval.objects.get_or_create(
+    def add_approval(*, event_id: EventId, user_id: UserId) -> EventDeletionApprovalDTO:
+        approval, _created = EventDeletionApproval.objects.get_or_create(
             event_id=event_id, user_id=user_id
         )
-        return created
+        return _approval_dto(approval)
 
     @staticmethod
     def remove_approval(*, event_id: EventId, user_id: UserId) -> None:
