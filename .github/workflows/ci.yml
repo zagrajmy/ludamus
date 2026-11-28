@@ -117,8 +117,8 @@ jobs:
           include-hidden-files: true
           retention-days: 7
 
-  # The mills ratchet: tests/unit must cover ludamus.mills and itself in
-  # full, which the combined report cannot show — an e2e-only mills branch
+  # The mills ratchet: tests/unit must cover ludamus.mills, ludamus.specs and
+  # itself in full, which the combined report cannot show — an e2e-only branch
   # reads the same there.
   test-mills:
     runs-on: ubuntu-latest
