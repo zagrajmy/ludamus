@@ -144,6 +144,17 @@ const chip = (color: string): HTMLElement => {
   return element;
 };
 
+/** The test modal.ts uses to tell a backdrop click from one on the dialog. */
+const outsideBox = (element: Element, event: MouseEvent): boolean => {
+  const box = element.getBoundingClientRect();
+  return (
+    event.clientX < box.left ||
+    event.clientX > box.right ||
+    event.clientY < box.top ||
+    event.clientY > box.bottom
+  );
+};
+
 const sizeKey = (density: number): string => {
   if (density < 4) return "sizeLarge";
   return density < 6.5 ? "sizeMedium" : "sizeSmall";
@@ -178,10 +189,11 @@ class Designer {
         closeModal(dialog.id, { updateUrl: false });
       });
     }
-    // Escape fires `cancel`; a backdrop click lands on the dialog element itself.
+    // Escape fires `cancel`; a backdrop click lands on the dialog element itself,
+    // outside its box, which is when modal.ts closes it (its border is inside).
     dialog.addEventListener("cancel", () => this.dismiss());
     dialog.addEventListener("click", (event) => {
-      if (event.target === dialog) this.dismiss();
+      if (event.target === dialog && outsideBox(dialog, event)) this.dismiss();
     });
     new ResizeObserver(() => this.render()).observe(this.stage);
   }
