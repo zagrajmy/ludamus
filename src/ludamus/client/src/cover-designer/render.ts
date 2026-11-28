@@ -6,7 +6,7 @@ import tgpu, { d } from "typegpu";
 
 import { hexToRgb, type Palette, type PatternId, PATTERNS } from "./palettes";
 import { buildShader, Params } from "./shader";
-import { type CoverText, drawCoverText, hasWords } from "./text";
+import { type CoverText, drawCoverTexts, hasWords } from "./text";
 
 export interface PatternSettings {
   amount: number;
@@ -109,22 +109,23 @@ const fileFrom = (blob: Blob | null): File => {
   return new File([blob], `cover.${extension}`, { type: blob.type });
 };
 
-/** Renders the cover at full size, pattern and words, as an image file. */
+/** Renders the cover at full size, pattern and every text, as an image file. */
 export const renderCoverFile = async (
   renderer: Renderer,
   settings: PatternSettings,
-  text: CoverText,
+  texts: readonly CoverText[],
 ): Promise<File> => {
-  if (hasWords(text)) await document.fonts.load(WORDS_FONT, text.value);
+  const words = texts.filter(hasWords).map((text) => text.value);
+  if (words.length > 0) await document.fonts.load(WORDS_FONT, words.join(" "));
   const pattern = fullSizeCanvas();
-  const words = fullSizeCanvas();
+  const lettering = fullSizeCanvas();
   const out = fullSizeCanvas();
   const ctx = context2d(out);
   renderer.draw(pattern, settings);
   // NOTE: drawImage reads a WebGPU canvas only in the task that drew it, before
   // the browser presents the frame.
   ctx.drawImage(pattern, 0, 0);
-  drawCoverText(context2d(words), text, settings.palette);
-  ctx.drawImage(words, 0, 0);
+  drawCoverTexts(context2d(lettering), texts, settings.palette);
+  ctx.drawImage(lettering, 0, 0);
   return fileFrom(await toBlob(out));
 };

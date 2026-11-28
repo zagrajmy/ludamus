@@ -17,7 +17,7 @@ test.describe("Cover designer on the session proposal", () => {
     await page.getByRole("button", { name: "Design a cover" }).click();
     const dialog = page.getByRole("dialog", { name: "Design a cover" });
     await expect(dialog).toBeVisible();
-    await dialog.getByRole("radio", { name: "Add text" }).check();
+    await dialog.getByRole("button", { name: "Add text" }).click();
     await expect(dialog.getByRole("textbox", { name: "Text", exact: true })).toHaveValue("");
 
     await dialog.getByRole("button", { name: "Close" }).click();

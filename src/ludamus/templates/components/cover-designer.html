@@ -28,6 +28,12 @@
             data-message-lost="{% translate "Drawing stopped. Close this window and open it again." %}"
             data-message-saving="{% translate "Saving the image…" %}"
             data-message-save-failed="{% translate "The image could not be saved. Try again, or upload a picture instead." %}"
+            data-label-empty="{% translate "Empty text" %}"
+            data-label-remove="{% translate "Remove “{name}”" %}"
+            data-text-placeholder="{% translate "Your text" %}"
+            data-hint-place="{% translate "Click the preview where the text should go." %}"
+            data-hint-drag="{% translate "Drag a text to move it." %}"
+            data-hint-guide="{% translate "The dashed box is the part every card and banner keeps." %}"
             data-ramp-warm="{% translate "Warm" %}"
             data-ramp-coral="{% translate "Coral" %}"
             data-ramp-teal="{% translate "Teal" %}"
@@ -40,26 +46,44 @@
             {% tessera_dialog_close_button "cover-designer-"|add:id %}
         </div>
         <div class="grid min-h-0 flex-1 overflow-y-auto sm:grid-cols-[minmax(0,1fr)_19rem] sm:overflow-hidden">
-            <div class="grid content-start gap-2 bg-bg-tertiary p-4 sm:overflow-y-auto sm:p-5 max-sm:sticky max-sm:top-0 max-sm:z-10 max-sm:border-b max-sm:border-border">
-                <div class="relative aspect-video overflow-hidden rounded-xl bg-bg-secondary">
-                    <canvas data-cover-designer-stage
-                            role="img"
-                            aria-label="{% translate "Cover preview" %}"
-                            class="absolute inset-0 size-full"></canvas>
-                    <canvas data-cover-designer-words
-                            aria-hidden="true"
-                            class="pointer-events-none absolute inset-0 size-full"></canvas>
-                    <p data-cover-designer-error
-                       role="alert"
-                       hidden
-                       class="absolute inset-0 grid place-items-center bg-bg-tertiary p-6 text-center text-sm text-foreground text-pretty">
-                    </p>
-                </div>
-                <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-foreground-muted">
+            <div class="grid content-start gap-3 bg-bg-tertiary p-4 sm:overflow-y-auto sm:p-5 max-sm:sticky max-sm:top-0 max-sm:z-10 max-sm:border-b max-sm:border-border">
+                <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                    {% translate "Tool" as tool_label %}
+                    {% translate "Select" context "cover tool" as select_label %}
+                    {% translate "Text" as text_label %}
+                    {% translate "Select and move texts (V)" as select_title %}
+                    {% translate "Text tool: click the preview to add text (T)" as text_title %}
+                    {% tessera_switcher name=id|add:"-tool" selected="select" aria_label=tool_label %}
+                        {% tessera_segment "select" icon="cursor-arrow-rays" labelled=True title=select_title %}
+                            {{ select_label }}
+                        {% end_tessera_segment %}
+                        {% tessera_segment "text" icon="chat-bubble-bottom-center-text" labelled=True title=text_title %}
+                            {{ text_label }}
+                        {% end_tessera_segment %}
+                    {% end_tessera_switcher %}
                     {% translate "Crop guide" as crop_guide_label %}
                     {% include "components/checkbox-field.html" with label=crop_guide_label checked=True hook_class="cover-designer-guide" only %}
-                    <span>{% translate "The dashed box is the part every card and banner keeps." %}</span>
                 </div>
+                <div class="relative aspect-video overflow-hidden rounded-xl bg-bg-secondary shadow-sm ring-1 ring-black/5">
+                    <canvas data-cover-designer-stage
+                            aria-hidden="true"
+                            class="absolute inset-0 size-full"></canvas>
+                    <canvas data-cover-designer-words
+                            role="img"
+                            aria-label="{% translate "Cover preview" %}"
+                            data-tool="select"
+                            class="absolute inset-0 size-full touch-none select-none data-[hover=true]:cursor-move data-[tool=text]:cursor-crosshair"></canvas>
+                </div>
+                <p data-cover-designer-hint
+                   role="status"
+                   class="min-h-4 text-xs text-foreground-muted text-pretty"></p>
+                <p data-cover-designer-error
+                   role="alert"
+                   hidden
+                   class="flex items-start gap-2 text-sm text-foreground text-pretty">
+                    {% icon "exclamation-triangle" variant="mini" class="mt-px size-5 text-warning" %}
+                    <span data-cover-designer-error-text></span>
+                </p>
             </div>
             <div class="grid content-start gap-5 p-4 sm:overflow-y-auto sm:border-l sm:border-border sm:p-5">
                 <fieldset class="grid min-w-0 gap-2">
@@ -171,21 +195,33 @@
                         {% tessera_button new_layout button_type="button" variant="secondary" full_width_mobile=False data_cover_designer_action="new-layout" %}
                     </div>
                 </fieldset>
-                <fieldset class="grid min-w-0 gap-3">
-                    <legend class="mb-2 text-sm font-semibold text-foreground">{% translate "Text on cover" %}</legend>
-                    <div class="flex flex-wrap gap-x-5 gap-y-2">
-                        {% radio name=id|add:"-text" value="none" %}
-                            {% translate "No text" %}
-                        {% end_radio %}
-                        {% radio name=id|add:"-text" value="show" %}
-                            {% translate "Add text" %}
-                        {% end_radio %}
+                <section class="grid min-w-0 gap-3"
+                         aria-labelledby="cover-designer-{{ id }}-texts">
+                    <div class="flex items-center justify-between gap-3">
+                        <h3 id="cover-designer-{{ id }}-texts"
+                            class="text-sm font-semibold text-foreground">{% translate "Texts" %}</h3>
+                        {% translate "Add text" as add_text %}
+                        {% tessera_button add_text button_type="button" variant="secondary" size="sm" icon="plus" full_width_mobile=False data_cover_designer_action="add-text" %}
                     </div>
-                    <div data-cover-designer-text hidden class="grid gap-3">
+                    <p data-cover-designer-texts-empty
+                       class="text-sm text-foreground-muted text-pretty">
+                        {% translate "No text on the cover. Add one here, or pick the Text tool and click the preview." %}
+                    </p>
+                    <ul data-cover-designer-texts
+                        aria-labelledby="cover-designer-{{ id }}-texts"
+                        class="grid gap-0.5 empty:hidden">
+                    </ul>
+                    <p data-cover-designer-texts-full
+                       hidden
+                       class="text-xs text-foreground-muted">{% translate "A cover holds up to 6 texts." %}</p>
+                    {% translate "Your text" as text_placeholder %}
+                    <div data-cover-designer-text
+                         hidden
+                         class="grid gap-3 rounded-xl border border-border p-3">
                         <div class="grid gap-1">
                             <label for="cover-designer-{{ id }}-words"
                                    class="text-sm text-foreground">{% translate "Text" %}</label>
-                            {% include "components/text-field.html" with name=id|add:"-words" id="cover-designer-"|add:id|add:"-words" maxlength=80 only %}
+                            {% include "components/text-field.html" with name=id|add:"-words" id="cover-designer-"|add:id|add:"-words" maxlength=80 placeholder=text_placeholder only %}
                         </div>
                         <div class="flex items-center gap-4">
                             <div role="radiogroup"
@@ -280,13 +316,23 @@
                         </div>
                         {% translate "Background behind text" as plate_label %}
                         {% include "components/checkbox-field.html" with name=id|add:"-plate" label=plate_label checked=True only %}
-                        <p data-cover-designer-crop-note
-                           hidden
-                           class="text-xs text-foreground-muted">
-                            {% translate "Cards crop the top and bottom, so this text will be cut in some places." %}
-                        </p>
                     </div>
-                </fieldset>
+                    <p data-cover-designer-crop-note
+                       hidden
+                       class="text-xs text-foreground-muted text-pretty">
+                        {% translate "Cards crop the top and bottom, so some of the text will be cut in places." %}
+                    </p>
+                    <template data-cover-designer-text-row>
+                        <li class="flex items-center gap-1">
+                            <button type="button"
+                                    data-cover-designer-action="select-text"
+                                    class="min-w-0 flex-1 cursor-pointer truncate rounded-lg px-3 py-1.5 text-left text-sm text-foreground transition-colors duration-150 hover:bg-bg-tertiary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary aria-[current=true]:bg-primary-light aria-[current=true]:font-medium aria-[current=true]:text-primary data-empty:italic data-empty:text-foreground-muted">
+                            </button>
+                            {% translate "Remove text" as remove_text %}
+                            {% tessera_icon_button icon="trash" label=remove_text size="sm" data_cover_designer_action="remove-text" %}
+                        </li>
+                    </template>
+                </section>
             </div>
         </div>
         <div class="modal-footer flex flex-wrap items-center gap-2 border-t border-border px-5 pt-3">

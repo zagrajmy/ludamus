@@ -8345,6 +8345,31 @@ msgid "The image could not be saved. Try again, or upload a picture instead."
 msgstr "Nie udało się zapisać obrazu. Spróbuj ponownie albo wgraj obraz."
 
 #: src/ludamus/templates/components/cover-designer.html
+msgid "Empty text"
+msgstr "Pusty tekst"
+
+#: src/ludamus/templates/components/cover-designer.html
+#, python-brace-format
+msgid "Remove “{name}”"
+msgstr "Usuń „{name}”"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Your text"
+msgstr "Twój tekst"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Click the preview where the text should go."
+msgstr "Kliknij podgląd tam, gdzie ma stanąć tekst."
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Drag a text to move it."
+msgstr "Przeciągnij tekst, żeby go przesunąć."
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "The dashed box is the part every card and banner keeps."
+msgstr "Przerywana ramka to część, którą widać na każdej karcie i banerze."
+
+#: src/ludamus/templates/components/cover-designer.html
 msgid "Warm"
 msgstr "Ciepły"
 
@@ -8369,16 +8394,29 @@ msgid "Small"
 msgstr "Małe"
 
 #: src/ludamus/templates/components/cover-designer.html
-msgid "Cover preview"
-msgstr "Podgląd okładki"
+msgid "Tool"
+msgstr "Narzędzie"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgctxt "cover tool"
+msgid "Select"
+msgstr "Zaznaczanie"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Select and move texts (V)"
+msgstr "Zaznaczaj i przesuwaj teksty (V)"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Text tool: click the preview to add text (T)"
+msgstr "Narzędzie Tekst: kliknij podgląd, żeby dodać tekst (T)"
 
 #: src/ludamus/templates/components/cover-designer.html
 msgid "Crop guide"
 msgstr "Linia kadrowania"
 
 #: src/ludamus/templates/components/cover-designer.html
-msgid "The dashed box is the part every card and banner keeps."
-msgstr "Przerywana ramka to część, którą widać na każdej karcie i banerze."
+msgid "Cover preview"
+msgstr "Podgląd okładki"
 
 #: src/ludamus/templates/components/cover-designer.html
 msgid "Pattern"
@@ -8413,18 +8451,24 @@ msgid "New layout"
 msgstr "Nowy układ"
 
 #: src/ludamus/templates/components/cover-designer.html
-msgid "Text on cover"
-msgstr "Tekst na okładce"
-
-#
-#
-#: src/ludamus/templates/components/cover-designer.html
-msgid "No text"
-msgstr "Bez tekstu"
+msgid "Texts"
+msgstr "Teksty"
 
 #: src/ludamus/templates/components/cover-designer.html
 msgid "Add text"
 msgstr "Dodaj tekst"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid ""
+"No text on the cover. Add one here, or pick the Text tool and click the "
+"preview."
+msgstr ""
+"Na okładce nie ma tekstu. Dodaj go tutaj albo wybierz narzędzie Tekst i "
+"kliknij podgląd."
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "A cover holds up to 6 texts."
+msgstr "Okładka mieści do 6 tekstów."
 
 #: src/ludamus/templates/components/cover-designer.html
 msgid "Position"
@@ -8472,10 +8516,14 @@ msgid "Background behind text"
 msgstr "Tło pod tekstem"
 
 #: src/ludamus/templates/components/cover-designer.html
-msgid "Cards crop the top and bottom, so this text will be cut in some places."
+msgid ""
+"Cards crop the top and bottom, so some of the text will be cut in places."
 msgstr ""
-"Karty przycinają górę i dół, więc ten tekst w niektórych miejscach zostanie "
-"ucięty."
+"Karty przycinają górę i dół, więc część tekstu miejscami zostanie ucięta."
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Remove text"
+msgstr "Usuń tekst"
 
 #: src/ludamus/templates/components/cover-designer.html
 msgid "Reroll"
@@ -17036,6 +17084,14 @@ msgid ""
 msgstr ""
 "Bilety kupione na wydarzenia w tej sferze pojawią się tutaj, gotowe do "
 "pokazania przy wejściu."
+
+#~ msgid "Text on cover"
+#~ msgstr "Tekst na okładce"
+
+#
+#
+#~ msgid "No text"
+#~ msgstr "Bez tekstu"
 
 #~ msgctxt "cover pattern"
 #~ msgid "Tables"

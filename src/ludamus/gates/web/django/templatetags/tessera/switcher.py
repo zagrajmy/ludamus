@@ -26,13 +26,17 @@ if TYPE_CHECKING:
     from django.template.base import FilterExpression, Parser, Token
 
 _FIELDSET_CLASS = "inline-flex items-center gap-0.5 rounded-lg p-0.5 bg-bg-tertiary"
-_SEGMENT_CLASS = (
-    "flex items-center justify-center w-8 h-8 rounded-md cursor-pointer"
+_SEGMENT_LOOK = (
+    "flex items-center justify-center h-8 rounded-md cursor-pointer"
     " text-foreground-muted transition-colors peer-hover:text-foreground"
     " peer-checked:bg-bg-secondary peer-checked:text-foreground"
     " peer-checked:shadow-sm peer-focus-visible:outline-2"
     " peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary"
 )
+_SEGMENT_CLASS = f"{_SEGMENT_LOOK} w-8"
+# A labelled segment shows its words beside the icon, for choices an icon
+# alone would leave ambiguous.
+_LABELLED_SEGMENT_CLASS = f"{_SEGMENT_LOOK} gap-1.5 px-2.5 text-sm font-medium"
 
 _NAME_KEY = "_switcher_name"
 _SELECTED_KEY = "_switcher_selected"
@@ -113,6 +117,7 @@ class SegmentNode(template.Node):
         checked = context.get(_SELECTED_KEY) == value
         seg_icon = resolved.get("icon")
         title = resolved.get("title")
+        labelled = bool(resolved.get("labelled"))
         label = self.nodelist.render(context)
 
         icon_html = (
@@ -120,12 +125,16 @@ class SegmentNode(template.Node):
         )
         title_attr = format_html(' title="{}"', title) if title else ""
         checked_attr = SafeString(" checked") if checked else ""
+        if labelled:
+            face = format_html("{}<span>{}</span>", icon_html, label)
+        else:
+            face = format_html('<span class="sr-only">{}</span>{}', label, icon_html)
 
         return format_html(
             '<label class="relative"{}>'
             '<input type="radio" name="{}" value="{}" id="{}-{}"'
             ' class="sr-only peer"{}>'
-            '<span class="{}"><span class="sr-only">{}</span>{}</span>'
+            '<span class="{}">{}</span>'
             "</label>",
             title_attr,
             name,
@@ -133,15 +142,18 @@ class SegmentNode(template.Node):
             name,
             value,
             checked_attr,
-            _SEGMENT_CLASS,
-            label,
-            icon_html,
+            _LABELLED_SEGMENT_CLASS if labelled else _SEGMENT_CLASS,
+            face,
         )
 
 
 @register.tag("tessera_segment")
 def tessera_segment(parser: Parser, token: Token) -> SegmentNode:
     """Parse a ``{% tessera_segment "value" %}...{% end_tessera_segment %}`` block.
+
+    ``icon`` names the segment's heroicon and ``title`` its tooltip. Without
+    ``labelled=True`` the label is for screen readers only, so the icon must
+    carry the meaning; with it, the label shows beside the icon.
 
     Returns:
         A SegmentNode rendering one radio segment of a switcher.
