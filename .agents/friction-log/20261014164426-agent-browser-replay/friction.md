@@ -1,6 +1,7 @@
 ---
 title: 'agent-browser replay of seeded Playwright auth state redirects to login'
 severity: 'minor'
+issue: 'zagrajmy/ludamus#1522'
 ---
 
 ## Expected Behavior

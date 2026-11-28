@@ -1,6 +1,7 @@
 ---
 title: '`mise run test:py` buries an assertion failure under hundreds of DEBUG log lines'
 severity: 'minor'
+issue: 'zagrajmy/ludamus#1486'
 ---
 
 ## Expected Behavior
