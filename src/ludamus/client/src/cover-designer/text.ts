@@ -121,7 +121,8 @@ const measurePlate = (ctx: CanvasRenderingContext2D, text: CoverText, words: str
   ctx.font = `700 ${fontSize}px Outfit, system-ui, sans-serif`;
   // Bigger words get a wider block, so they wrap into fewer, longer lines.
   const share = Math.min(0.92, PLATE.maxWidth + 0.3 * (text.size - 1));
-  const maxWidth = width * share - 2 * padX;
+  // The share caps at 92% of the width, but only the room between the margins is there to fill.
+  const maxWidth = Math.min(width * share, width - 2 * margin) - 2 * padX;
   const lines = clampLines(ctx, breakLines(ctx, words, maxWidth), maxWidth);
   const plateWidth = Math.max(...lines.map((line) => ctx.measureText(line).width)) + 2 * padX;
   const plateHeight = lines.length * lineHeight + 2 * padY - (lineHeight - fontSize) * 0.6;
