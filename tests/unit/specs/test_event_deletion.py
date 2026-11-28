@@ -2,7 +2,12 @@ import pytest
 
 from ludamus.pacts.event_deletion import EventDeletionStep
 from ludamus.pacts.ids import UserId
-from ludamus.specs.event_deletion import Ballot, approvals_needed, next_step
+from ludamus.specs.event_deletion import (
+    Ballot,
+    approvals_needed,
+    decide_approval,
+    next_step,
+)
 
 
 @pytest.mark.parametrize(
@@ -37,7 +42,7 @@ def test_next_step_names_what_the_viewers_approval_would_do(
 ):
     ballot = Ballot(
         managers=frozenset(UserId(user_id) for user_id in managers),
-        approvers=tuple(UserId(user_id) for user_id in approvers),
+        approvers=frozenset(UserId(user_id) for user_id in approvers),
     )
 
-    assert next_step(ballot, UserId(viewer_id)) == step
+    assert next_step(decide_approval(ballot, UserId(viewer_id))) == step

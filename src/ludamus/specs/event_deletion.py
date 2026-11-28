@@ -34,7 +34,7 @@ class Ballot:
 
     managers: frozenset[UserId]
     # Everyone with a stored approval, former managers included.
-    approvers: tuple[UserId, ...]
+    approvers: frozenset[UserId]
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,7 +44,14 @@ class Refused:
 
 @dataclass(frozen=True, slots=True)
 class Recorded:
-    """The approval counts and more are missing."""
+    """A new approval counts and more are missing."""
+
+    missing: int
+
+
+@dataclass(frozen=True, slots=True)
+class AlreadyApproved:
+    """This manager's approval is already counted: nothing changes."""
 
     missing: int
 
@@ -63,8 +70,12 @@ class Deleted:
 
     approvers: frozenset[UserId]
 
+    @property
+    def missing(self) -> int:
+        return 0
 
-type ApprovalDecision = Refused | Recorded | Requested | Deleted
+
+type ApprovalDecision = Refused | AlreadyApproved | Recorded | Requested | Deleted
 
 
 def decide_approval(ballot: Ballot, user_id: UserId) -> ApprovalDecision:
@@ -81,16 +92,15 @@ def decide_approval(ballot: Ballot, user_id: UserId) -> ApprovalDecision:
     # any manager's approval, even a repeated one, then completes it.
     if (missing := approvals_needed(len(ballot.managers)) - len(approving)) <= 0:
         return Deleted(approvers=approving)
-    # A repeated first approval finds its own approval stored and asks no one:
-    # the others were asked when it was new.
+    if user_id in before:
+        return AlreadyApproved(missing=missing)
     if not before:
         return Requested(missing=missing, recipients=ballot.managers - {user_id})
     return Recorded(missing=missing)
 
 
-def next_step(ballot: Ballot, viewer_id: UserId) -> EventDeletionStep:
+def next_step(decision: ApprovalDecision) -> EventDeletionStep:
     """Name what pressing the button would do, from the decision it leads to."""
-    decision = decide_approval(ballot, viewer_id)
     match decision:
         case Refused():
             return EventDeletionStep.WATCH
@@ -99,8 +109,8 @@ def next_step(ballot: Ballot, viewer_id: UserId) -> EventDeletionStep:
         case Requested():
             return EventDeletionStep.REQUEST
         case Recorded():
-            if viewer_id in ballot.approvers:
-                return EventDeletionStep.WITHDRAW
             return EventDeletionStep.APPROVE
+        case AlreadyApproved():
+            return EventDeletionStep.WITHDRAW
         case _:
             assert_never(decision)

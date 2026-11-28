@@ -12,6 +12,7 @@ from ludamus.pacts.event_deletion import (
 )
 from ludamus.pacts.ids import UserId
 from ludamus.specs.event_deletion import (
+    AlreadyApproved,
     Ballot,
     Deleted,
     Recorded,
@@ -38,7 +39,9 @@ logger = logging.getLogger(__name__)
 def _ballot(
     managers: frozenset[UserId], stored: list[EventDeletionApprovalDTO]
 ) -> Ballot:
-    return Ballot(managers=managers, approvers=tuple(UserId(a.user_id) for a in stored))
+    return Ballot(
+        managers=managers, approvers=frozenset(UserId(a.user_id) for a in stored)
+    )
 
 
 class EventDeletionService(EventDeletionServiceProtocol):
@@ -65,15 +68,15 @@ class EventDeletionService(EventDeletionServiceProtocol):
         self._repository.read_event(sphere_id=sphere_id, event_id=event_id)
         managers = self._repository.manager_ids(sphere_id)
         stored = self._repository.list_approvals(event_id)
-        approvals = [a for a in stored if a.user_id in managers]
-        needed = approvals_needed(len(managers))
-        missing = max(needed - len(approvals), 0)
+        decision = decide_approval(_ballot(managers, stored), viewer_id)
         return EventDeletionBallotDTO(
             manager_count=len(managers),
-            approvals_needed=needed,
-            approvals=approvals,
-            next_step=next_step(_ballot(managers, stored), viewer_id),
-            missing_after_viewer=max(missing - 1, 0),
+            approvals_needed=approvals_needed(len(managers)),
+            approvals=[a for a in stored if a.user_id in managers],
+            next_step=next_step(decision),
+            missing_after_viewer=(
+                0 if isinstance(decision, Refused) else decision.missing
+            ),
         )
 
     def approve(
@@ -89,20 +92,18 @@ class EventDeletionService(EventDeletionServiceProtocol):
             )
             if isinstance(decision, Refused):
                 raise NotSphereManagerError
-            self._repository.add_approval(event_id=event_id, user_id=user_id)
+            approval = self._repository.add_approval(event_id=event_id, user_id=user_id)
             match decision:
-                case Recorded(missing=missing):
+                case AlreadyApproved() | Recorded():
                     pass
                 case Requested(missing=missing, recipients=recipients):
                     self._ask(
                         event=event,
-                        event_id=event_id,
-                        requester_id=user_id,
+                        requester_name=approval.user_name,
                         recipients=recipients,
                         approvals_missing=missing,
                     )
                 case Deleted(approvers=approvers):
-                    missing = 0
                     self._repository.soft_delete_event(
                         event_id=event_id, at=datetime.now(tz=UTC)
                     )
@@ -119,9 +120,9 @@ class EventDeletionService(EventDeletionServiceProtocol):
                 event_id,
                 sphere_id,
                 user_id,
-                missing,
+                decision.missing,
             )
-            return missing
+            return decision.missing
 
     def withdraw(
         self, *, sphere_id: SphereId, event_id: EventId, user_id: UserId
@@ -142,17 +143,10 @@ class EventDeletionService(EventDeletionServiceProtocol):
         self,
         *,
         event: EventDeletionTargetDTO,
-        event_id: EventId,
-        requester_id: UserId,
+        requester_name: str,
         recipients: frozenset[UserId],
         approvals_missing: int,
     ) -> None:
-        # The name exists only on the approval the write just stored.
-        requester_name = next(
-            approval.user_name
-            for approval in self._repository.list_approvals(event_id)
-            if approval.user_id == requester_id
-        )
         for manager_id in sorted(recipients):
             self._notifier.notify_event_deletion_requested(
                 EventDeletionRequestedNotification(

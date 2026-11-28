@@ -73,7 +73,8 @@ splits its tests the same way:
   repository can only assert which methods were called.
 
 The two gates that expect a unit test for every mill each carry a list of
-these mills: `--omit` in the `test:unit:cov` task (`python_tasks.toml`) and
+these mills: `MILLS_COVERAGE_OMIT` in `mise.toml`, which the `test:unit:cov`
+and `test:unit:cov:diff` tasks (`python_tasks.toml`) both read, and
 `do_not_mutate` under `[tool.mutmut]` (`pyproject.toml`). Add the mill's path
 to both when you move its rules.
 
