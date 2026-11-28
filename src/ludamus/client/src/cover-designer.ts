@@ -168,6 +168,8 @@ class Designer {
   private frame = 0;
   /** Counts opens and dismissals; a save made under an older count is dropped. */
   private opened = 0;
+  /** Counts saves; only the latest one may touch the button and the status line. */
+  private saves = 0;
 
   private readonly actions: Record<string, (button: HTMLButtonElement) => void> = {
     "new-layout": () => this.change({ seed: newSeed() }),
@@ -438,22 +440,39 @@ class Designer {
     const settings = settingsOf(this.design);
     const text = structuredClone(this.design.text);
     const { opened } = this;
+    this.saves += 1;
+    const save = this.saves;
     button.disabled = true;
     this.status(this.text("messageSaving"));
+    const file = await this.attempt(save, () => renderCoverFile(renderer, settings, text));
+    if (file && this.stillWanted(opened, renderer)) this.fill(input, file);
+    this.settle(save, button, renderer);
+  }
+
+  /** Runs one save; on failure says so, unless a later save has taken over. */
+  private async attempt(save: number, render: () => Promise<File>): Promise<File | null> {
     try {
-      const file = await renderCoverFile(renderer, settings, text);
-      if (this.stillOpen(opened)) this.fill(input, file);
+      return await render();
     } catch (error) {
       console.error("cover designer: saving the image failed", error);
-      this.status(this.text("messageSaveFailed"));
-    } finally {
-      button.disabled = !renderer.alive();
+      if (save === this.saves) this.status(this.text("messageSaveFailed"));
+      return null;
     }
   }
 
-  /** Whether the dialog a save started in is the one still open; Cancel drops the save. */
-  private stillOpen(opened: number): boolean {
-    return this.dialog.open && opened === this.opened;
+  /**
+   * Whether a finished save still belongs in the input: its dialog is the one
+   * open (Cancel drops it), and the GPU survived.
+   */
+  private stillWanted(opened: number, renderer: Renderer): boolean {
+    // NOTE: a lost GPU device draws nothing and raises no error, so a save
+    // made across the loss would hold the words alone.
+    return this.dialog.open && opened === this.opened && renderer.alive();
+  }
+
+  /** Hands the button back once the latest save is done; an older one leaves it be. */
+  private settle(save: number, button: HTMLButtonElement, renderer: Renderer): void {
+    if (save === this.saves) button.disabled = !renderer.alive();
   }
 
   /** Puts the rendered cover into the file input; dropzone.ts previews it on `change`. */
