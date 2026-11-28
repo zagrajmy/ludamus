@@ -401,6 +401,10 @@ DJANGO_SETTINGS_MODULE = "ludamus.edges.settings"
 # the integration suite could have killed, so mutating `src` wholesale reports
 # noise instead of gaps.
 source_paths = ["src/ludamus/mills", "src/ludamus/specs"]
+# NOTE: mills whose rules live in specs (docs/TESTING_STRATEGY.md). The rules
+# are mutated there; what is left reads and writes, and only the integration
+# suite, which mutmut does not run, can kill a mutant in that.
+do_not_mutate = ["src/ludamus/mills/event_deletion.py"]
 pytest_add_cli_args_test_selection = ["tests/unit"]
 # NOTE: mutmut runs the suite from a copy of the tree, so everything the unit
 # suite imports or loads has to be copied beside the mutants. Out: the mutated

@@ -175,7 +175,7 @@ class TestSettingsCard:
                 approvals_needed=2,
                 approvals=[_approval_dto(approval)],
                 next_step=EventDeletionStep.WITHDRAW,
-                missing_after_viewer=0,
+                missing_after_viewer=1,
             ),
         )
 
@@ -275,6 +275,26 @@ class TestApproveDeletion:
         )
         assert not _is_deleted(event)
         # Only the first approval asks the others; later ones add no noise.
+        assert not Notification.objects.exists()
+
+    def test_approving_again_adds_no_approval_and_notifies_no_one(
+        self, panel_client, event, sphere, active_user
+    ):
+        _add_managers(sphere, 1)
+        EventDeletionApproval.objects.create(event=event, user=active_user)
+
+        response = panel_client.post(_approve_url(event), {"event_name": event.name})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, ONE_MORE_NEEDED)],
+            url=_ballot_url(event),
+        )
+        assert not _is_deleted(event)
+        assert list(
+            EventDeletionApproval.objects.values_list("event_id", "user_id")
+        ) == [(event.pk, active_user.pk)]
         assert not Notification.objects.exists()
 
     def test_a_former_managers_approval_does_not_count(
