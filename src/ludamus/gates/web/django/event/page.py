@@ -10,11 +10,10 @@ from typing import TYPE_CHECKING, Any
 from django.http import Http404
 from django.urls import reverse
 from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_control
-from django.views.decorators.vary import vary_on_cookie as vary_cookie
 from django.views.generic.base import TemplateView
 
 from ludamus.gates.web.django.access import has_panel_access, panel_access
+from ludamus.gates.web.django.cache import EVENT_PAGE_CACHE_SECONDS, audience_cache
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.event.event_presentation import (
     ParticipationInfo,
@@ -60,7 +59,7 @@ if TYPE_CHECKING:
 COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
-@method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
+@method_decorator(audience_cache(max_age=EVENT_PAGE_CACHE_SECONDS), name="get")
 class EventPageView(TemplateView):
     template_name = "event/event.html"
     request: RootRequest

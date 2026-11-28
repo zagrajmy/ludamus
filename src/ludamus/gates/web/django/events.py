@@ -8,11 +8,10 @@ from operator import itemgetter
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_control
-from django.views.decorators.vary import vary_on_cookie as vary_cookie
 from django.views.generic.base import TemplateView
 
 from ludamus.gates.web.django.access import has_panel_access
+from ludamus.gates.web.django.cache import EVENT_PAGE_CACHE_SECONDS, audience_cache
 from ludamus.gates.web.django.create_options import create_options
 from ludamus.gates.web.django.event.event_presentation import EventInfo, split_events
 from ludamus.pacts.encounter import PAST_FEED_LIMIT
@@ -55,7 +54,7 @@ def _merge(
     return [item for _, item in dated]
 
 
-@method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
+@method_decorator(audience_cache(max_age=EVENT_PAGE_CACHE_SECONDS), name="get")
 class EventsPageView(TemplateView):
     request: RootRequest
     template_name = "index.html"
