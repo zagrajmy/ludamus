@@ -34,7 +34,7 @@ test.describe("Cover designer on the event settings", () => {
 
     const dialog = page.getByRole("dialog", { name: "Design a cover" });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole("radio", { name: "Tables" })).toBeChecked();
+    await expect(dialog.getByRole("radio", { name: "Dice" })).toBeChecked();
     await expect(dialog.getByRole("radio", { name: "Hall" })).toBeChecked();
     await expect(dialog.getByRole("radio", { name: "No text" })).toBeChecked();
     await expect(dialog.getByRole("alert")).toHaveText(
@@ -53,9 +53,21 @@ test.describe("Cover designer on the event settings", () => {
     await dialog.getByRole("radio", { name: "Align right" }).check();
     await expect(cropNote).toBeHidden();
 
+    const plate = dialog.getByRole("checkbox", { name: "Background behind text" });
+    await expect(plate).toBeChecked();
+    await plate.uncheck();
+    await expect(dialog.getByRole("radio", { name: "Auto" })).toBeChecked();
+    await dialog.getByRole("radio", { name: "Light" }).check();
+    const textSize = dialog.getByRole("slider", { name: "Text size" });
+    await textSize.fill("1.8");
+    await expect(dialog.getByText("180%")).toBeVisible();
+
     const facts = {
       align: await dialog.getByRole("radio", { name: "Align right" }).isChecked(),
+      color: await dialog.getByRole("radio", { name: "Light" }).isChecked(),
+      plate: await plate.isChecked(),
       position: await dialog.getByRole("radio", { name: "Middle right" }).isChecked(),
+      size: await textSize.inputValue(),
       words: await words.inputValue(),
     };
     await attachArtifacts(test.info(), { name: "cover-designer-text", region: dialog, facts });

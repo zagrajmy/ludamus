@@ -89,64 +89,6 @@ export const buildShader = (P: TgpuUniform<typeof Params>) => {
 
   const base = { cover, fbm, hash21, hash22, lum, onColor, P, relief, rot2, sdBox, sdSq };
 
-  // Tables: a convention hall floor plan. Blocks of the mark's four-seat table, or
-  // two banquet tables, each on a floor zone with aisles between. Seats fill from
-  // one chair on, as sign-ups do: taken seats solid accent, free seats outlined.
-  // A full table turns accent2.
-  const patTables = tgpu.fn([d.vec2f, d.f32], d.vec3f)`(p: vec2f, aa: f32) -> vec3f {
-    let s = vec2f(P.seed * 0.0137, P.seed * 0.0291);
-    let period = vec2f(3.6, 2.6);
-    let blk = floor(p / period);
-    let lp = p - blk * period - vec2f(0.3);
-    var col = P.ground.rgb;
-    let zone = sdBox(lp - vec2f(1.5, 1.0), vec2f(1.62, 1.12), 0.22);
-    col = mix(col, mix(P.ground.rgb, P.shape2.rgb, 0.6), cover(zone, aa));
-    let kind = hash21(blk + s);
-    var td = 1e3;
-    var dTaken = 1e3;
-    var dFree = 1e3;
-    var full = false;
-    let chair = vec2f(0.097, 0.066);
-    if (kind < 0.64) {
-      let cid = clamp(floor(lp), vec2f(0.0), vec2f(2.0, 1.0));
-      let c = lp - cid - 0.5;
-      let tid = blk * 8.0 + cid;
-      let t = 0.2;
-      td = sdSq(c, vec2f(t), 5.0);
-      let fill = P.amount * 4.0 + (hash21(tid + s + vec2f(3.1, 1.7)) - 0.5) * 2.6;
-      let count = i32(clamp(round(fill), 0.0, 4.0));
-      let start = i32(floor(hash21(tid + s + vec2f(9.2, 4.4)) * 4.0));
-      full = count == 4;
-      for (var i = 0; i < 4; i++) {
-        let lc = rot2(f32(i) * 1.5707963) * c;
-        let sd = sdSq(lc - vec2f(0.0, t * 1.516), chair, 4.0);
-        if (((i - start + 4) % 4) < count) { dTaken = min(dTaken, sd); } else { dFree = min(dFree, sd); }
-      }
-    } else if (kind < 0.92) {
-      let row = clamp(floor(lp.y), 0.0, 1.0);
-      let c = vec2f(lp.x - 1.5, lp.y - row - 0.5);
-      td = sdBox(c, vec2f(1.32, 0.15), 0.11);
-      let n = 7.0;
-      let pitch = 2.5 / n;
-      let k = clamp(floor((c.x + 1.25) / pitch), 0.0, n - 1.0);
-      let up = c.y > 0.0;
-      let side = select(-1.0, 1.0, up);
-      let sd = sdSq(vec2f(c.x - (-1.25 + (k + 0.5) * pitch), c.y - side * 0.248), chair, 4.0);
-      let tid = blk * 8.0 + vec2f(row, select(5.0, 6.0, up));
-      let count = round(clamp(P.amount * n + (hash21(tid + s + vec2f(2.3, 8.1)) - 0.5) * 3.0, 0.0, n));
-      let fromLeft = hash21(tid + s + vec2f(7.7, 0.9)) < 0.5;
-      let order = select(n - 1.0 - k, k, fromLeft);
-      if (order < count) { dTaken = sd; } else { dFree = sd; }
-      let other = round(clamp(P.amount * n + (hash21(blk * 8.0 + vec2f(row, select(6.0, 5.0, up)) + s + vec2f(2.3, 8.1)) - 0.5) * 3.0, 0.0, n));
-      full = count >= n && other >= n;
-    }
-    let rw = 0.019;
-    col = mix(col, P.shape.rgb, cover(abs(dFree + rw) - rw, aa));
-    col = mix(col, P.accent.rgb, cover(dTaken, aa));
-    col = mix(col, select(P.shape.rgb, P.accent2.rgb, full), cover(td, aa));
-    return col;
-  }`.$uses(base);
-
   // Dice: the mark's hover form. Squircle d6 seen from above, with a soft shadow.
   const patDice = tgpu.fn([d.vec2f, d.f32], d.vec3f)`(p: vec2f, aa: f32) -> vec3f {
     var col = P.ground.rgb;
@@ -352,16 +294,15 @@ export const buildShader = (P: TgpuUniform<typeof Params>) => {
     let p = rot2(P.angle) * q * P.density + off;
     var col = P.ground.rgb;
     switch P.pattern {
-      case 0u: { col = patTables(p, aa); }
-      case 1u: { col = patDice(p, aa); }
-      case 2u: { col = patHexes(p, aa); }
-      case 3u: { col = patTrail(p, q, aa, aaq); }
-      case 4u: { col = patPaths(p, aa); }
-      case 5u: { col = patCards(p, aa); }
+      case 0u: { col = patDice(p, aa); }
+      case 1u: { col = patHexes(p, aa); }
+      case 2u: { col = patTrail(p, q, aa, aaq); }
+      case 3u: { col = patPaths(p, aa); }
+      case 4u: { col = patCards(p, aa); }
       default: { }
     }
     return vec4f(col, 1.0);
-  }`.$uses({ P, patCards, patDice, patHexes, patPaths, patTables, patTrail, rot2 });
+  }`.$uses({ P, patCards, patDice, patHexes, patPaths, patTrail, rot2 });
 
   return { fragment, vertex };
 };

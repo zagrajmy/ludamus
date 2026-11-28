@@ -245,6 +245,68 @@
                                 </label>
                             </div>
                         </div>
+                        <div class="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-0.5">
+                            <label for="cover-designer-{{ id }}-text-size"
+                                   class="text-sm text-foreground">{% translate "Text size" %}</label>
+                            <output data-cover-designer-out="text-size"
+                                    for="cover-designer-{{ id }}-text-size"
+                                    class="text-xs tabular-nums text-foreground-muted"></output>
+                            <input type="range"
+                                   id="cover-designer-{{ id }}-text-size"
+                                   data-cover-designer-control="text-size"
+                                   min="0.6"
+                                   max="2.4"
+                                   step="0.05"
+                                   class="col-span-2 w-full accent-primary">
+                        </div>
+                        <div role="radiogroup"
+                             aria-labelledby="cover-designer-{{ id }}-color"
+                             class="grid gap-1.5">
+                            <p id="cover-designer-{{ id }}-color" class="text-sm text-foreground">
+                                {% translate "Text color" %}
+                            </p>
+                            <div class="flex items-center gap-2">
+                                <label class="relative inline-flex h-8 cursor-pointer select-none items-center rounded-lg bg-bg-tertiary px-3 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-border has-checked:bg-primary-light has-checked:text-primary has-focus-visible:ring-2 has-focus-visible:ring-primary/50 has-focus-visible:ring-offset-2">
+                                    <input type="radio"
+                                           name="{{ id }}-color"
+                                           value="auto"
+                                           class="absolute inset-0 cursor-pointer opacity-0">
+                                    {% translate "Auto" %}
+                                </label>
+                                {% translate "Dark" as color_ink %}
+                                {% translate "Light" as color_light %}
+                                {% translate "Accent" as color_accent %}
+                                <label title="{{ color_ink }}"
+                                       data-cover-designer-text-swatch="ink"
+                                       class="relative size-8 cursor-pointer rounded-full ring-1 ring-black/15 has-checked:ring-2 has-checked:ring-primary has-checked:ring-offset-2 has-checked:ring-offset-bg-secondary has-focus-visible:outline-2 has-focus-visible:outline-primary">
+                                    <input type="radio"
+                                           name="{{ id }}-color"
+                                           value="ink"
+                                           aria-label="{{ color_ink }}"
+                                           class="absolute inset-0 cursor-pointer opacity-0">
+                                </label>
+                                <label title="{{ color_light }}"
+                                       data-cover-designer-text-swatch="light"
+                                       class="relative size-8 cursor-pointer rounded-full ring-1 ring-black/15 has-checked:ring-2 has-checked:ring-primary has-checked:ring-offset-2 has-checked:ring-offset-bg-secondary has-focus-visible:outline-2 has-focus-visible:outline-primary">
+                                    <input type="radio"
+                                           name="{{ id }}-color"
+                                           value="light"
+                                           aria-label="{{ color_light }}"
+                                           class="absolute inset-0 cursor-pointer opacity-0">
+                                </label>
+                                <label title="{{ color_accent }}"
+                                       data-cover-designer-text-swatch="accent"
+                                       class="relative size-8 cursor-pointer rounded-full ring-1 ring-black/15 has-checked:ring-2 has-checked:ring-primary has-checked:ring-offset-2 has-checked:ring-offset-bg-secondary has-focus-visible:outline-2 has-focus-visible:outline-primary">
+                                    <input type="radio"
+                                           name="{{ id }}-color"
+                                           value="accent"
+                                           aria-label="{{ color_accent }}"
+                                           class="absolute inset-0 cursor-pointer opacity-0">
+                                </label>
+                            </div>
+                        </div>
+                        {% translate "Background behind text" as plate_label %}
+                        {% include "components/checkbox-field.html" with name=id|add:"-plate" label=plate_label checked=True only %}
                         <p data-cover-designer-crop-note
                            hidden
                            class="text-xs text-foreground-muted">

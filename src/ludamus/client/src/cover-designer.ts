@@ -30,6 +30,7 @@ import {
   drawCoverText,
   drawCropGuide,
   outsideCropBand,
+  type TextColor,
 } from "./cover-designer/text";
 
 interface Design {
@@ -51,9 +52,17 @@ const STARTER: Design = {
   custom: { accent: RAMPS.coral[500], ground: RAMPS.warm[150] },
   density: 4.6,
   palette: "hall",
-  pattern: "tables",
+  pattern: "dice",
   seed: 1,
-  text: { align: "left", anchor: "middle-left", show: false, value: "" },
+  text: {
+    align: "left",
+    anchor: "middle-left",
+    color: "auto",
+    plate: true,
+    show: false,
+    size: 1,
+    value: "",
+  },
 };
 
 const paletteOf = (design: Design): Palette =>
@@ -219,12 +228,15 @@ class Designer {
       amount: () => (design.amount = Number(value)),
       anchor: () => (design.text.anchor = value as Anchor),
       angle: () => (design.angle = Number(value)),
+      color: () => (design.text.color = value as TextColor),
       density: () => (design.density = Number(value)),
       ground: () =>
         Object.assign(design, { custom: { ...design.custom, ground: value }, palette: "custom" }),
       palette: () => (design.palette = value),
       pattern: () => (design.pattern = value as PatternId),
+      plate: () => (design.text.plate = target.checked),
       text: () => (design.text.show = value === "show"),
+      "text-size": () => (design.text.size = Number(value)),
       words: () => (design.text.value = value),
     };
     updates[field]?.();
@@ -257,6 +269,7 @@ class Designer {
       accent: custom.accent,
       align: text.align,
       anchor: text.anchor,
+      color: text.color,
       ground: custom.ground,
       palette,
       pattern,
@@ -271,10 +284,11 @@ class Designer {
   }
 
   private syncSliders(): void {
-    const { amount, angle, density, seed } = this.design;
+    const { amount, angle, density, seed, text } = this.design;
     this.setControl("density", density, this.dialog.dataset[sizeKey(density)] ?? "");
     this.setControl("amount", amount, `${Math.round(amount * 100)}%`);
     this.setControl("angle", angle, `${angle}°`);
+    this.setControl("text-size", text.size, `${Math.round(text.size * 100)}%`);
     this.part<HTMLElement>('[data-cover-designer-out="seed"]')!.textContent = `#${seed}`;
   }
 
@@ -294,6 +308,14 @@ class Designer {
   private syncWords(): void {
     const words = this.part<HTMLInputElement>(`[name="${this.inputId}-words"]`)!;
     if (words.value !== this.design.text.value) words.value = this.design.text.value;
+    this.part<HTMLInputElement>(`[name="${this.inputId}-plate"]`)!.checked = this.design.text.plate;
+    const palette = paletteOf(this.design);
+    for (const swatch of this.dialog.querySelectorAll<HTMLElement>(
+      "[data-cover-designer-text-swatch]",
+    )) {
+      swatch.style.backgroundColor =
+        palette[swatch.dataset.coverDesignerTextSwatch as keyof Palette];
+    }
   }
 
   private render(): void {

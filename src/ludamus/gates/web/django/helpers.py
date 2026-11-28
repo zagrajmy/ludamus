@@ -63,13 +63,13 @@ def get_client_ip(request: HttpRequest) -> str:
 
 # Rendered by the cover designer's shader (src/ludamus/client/src/cover-designer/).
 PLACEHOLDER_COVER_IMAGES = (
-    "placeholder-images/01.webp",  # tables, hall
+    "placeholder-images/01.webp",  # trail map, hall
     "placeholder-images/02.webp",  # dice, coral
     "placeholder-images/03.webp",  # hex map, sea
     "placeholder-images/04.webp",  # trail map, peach
     "placeholder-images/05.webp",  # paths, mint
     "placeholder-images/06.webp",  # cards, night
-    "placeholder-images/07.webp",  # tables, sea
+    "placeholder-images/07.webp",  # paths, sea
     "placeholder-images/08.webp",  # dice, paper
     "placeholder-images/09.webp",  # paths, coral
     "placeholder-images/10.webp",  # hex map, night

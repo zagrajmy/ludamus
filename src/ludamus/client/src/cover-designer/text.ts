@@ -1,31 +1,42 @@
 /**
- * The optional words on a cover: a plate set in Outfit, placed on a 3×3 grid
- * and aligned inside itself. One function draws the preview and the saved
- * image, so what people see is what they get.
+ * The optional words on a cover, set in Outfit, placed on a 3×3 grid and
+ * aligned inside their block, on a plate or straight on the pattern. One
+ * function draws the preview and the saved image, so what people see is what
+ * they get.
  */
 import { isDark, type Palette } from "./palettes";
 
 export type Anchor = `${"bottom" | "middle" | "top"}-${"center" | "left" | "right"}`;
 export type Align = "center" | "left" | "right";
+/** A palette role, or "auto": whichever of ink and light reads on what is behind. */
+export type TextColor = "accent" | "auto" | "ink" | "light";
 
 export interface CoverText {
   align: Align;
   anchor: Anchor;
+  color: TextColor;
+  plate: boolean;
   show: boolean;
+  /** 1 is the size the plate was drawn for; the slider runs either side of it. */
+  size: number;
   value: string;
 }
 
 const MAX_LINES = 3;
 
-/** The plate's measures, as fractions of the cover's width. */
+/**
+ * Measures at size 1: the font and the edge margin as fractions of the cover's
+ * width, the padding and corner as fractions of the font, so a bigger text
+ * gets a bigger plate.
+ */
 const PLATE = {
   font: 0.042,
   line: 1.16,
   margin: 0.045,
   maxWidth: 0.56,
-  padX: 0.022,
-  padY: 0.017,
-  radius: 0.02,
+  padX: 0.52,
+  padY: 0.4,
+  radius: 0.48,
 };
 
 /** Where a side of the anchor puts the plate along one axis. */
@@ -84,13 +95,15 @@ const alignedX = (align: Align, plate: Plate): number =>
 /** Sets the font on `ctx` and lays the plate out for `text`. */
 const measurePlate = (ctx: CanvasRenderingContext2D, text: CoverText): Plate => {
   const { height: room, width } = ctx.canvas;
-  const fontSize = width * PLATE.font;
+  const fontSize = width * PLATE.font * text.size;
   const lineHeight = fontSize * PLATE.line;
-  const padX = width * PLATE.padX;
-  const padY = width * PLATE.padY;
+  const padX = fontSize * PLATE.padX;
+  const padY = fontSize * PLATE.padY;
   const margin = width * PLATE.margin;
   ctx.font = `700 ${fontSize}px Outfit, system-ui, sans-serif`;
-  const maxWidth = width * PLATE.maxWidth - 2 * padX;
+  // Bigger words get a wider block, so they wrap into fewer, longer lines.
+  const share = Math.min(0.92, PLATE.maxWidth + 0.3 * (text.size - 1));
+  const maxWidth = width * share - 2 * padX;
   const lines = clampLines(ctx, breakLines(ctx, text.value, maxWidth), maxWidth);
   const plateWidth = Math.max(...lines.map((line) => ctx.measureText(line).width)) + 2 * padX;
   const plateHeight = lines.length * lineHeight + 2 * padY - (lineHeight - fontSize) * 0.6;
@@ -108,20 +121,32 @@ const measurePlate = (ctx: CanvasRenderingContext2D, text: CoverText): Plate => 
   };
 };
 
+/** On a plate, auto picks the opposite of the ground; on the pattern, the ground's own contrast. */
+const autoColor = (text: CoverText, palette: Palette): string =>
+  isDark(palette.ground) === text.plate ? palette.ink : palette.light;
+
+const wordColor = (text: CoverText, palette: Palette): string =>
+  text.color === "auto" ? autoColor(text, palette) : palette[text.color];
+
 const paintPlate = (
   ctx: CanvasRenderingContext2D,
   plate: Plate,
-  align: Align,
+  words: string,
   palette: Palette,
 ): void => {
-  const [plateColor, wordColor] = isDark(palette.ground)
-    ? [palette.light, palette.ink]
-    : [palette.ink, palette.light];
-  ctx.fillStyle = plateColor;
+  ctx.fillStyle = isDark(words) ? palette.light : palette.ink;
   ctx.beginPath();
-  ctx.roundRect(plate.x, plate.y, plate.width, plate.height, ctx.canvas.width * PLATE.radius);
+  ctx.roundRect(plate.x, plate.y, plate.width, plate.height, plate.fontSize * PLATE.radius);
   ctx.fill();
-  ctx.fillStyle = wordColor;
+};
+
+const paintWords = (
+  ctx: CanvasRenderingContext2D,
+  plate: Plate,
+  align: Align,
+  color: string,
+): void => {
+  ctx.fillStyle = color;
   ctx.textAlign = align;
   ctx.textBaseline = "alphabetic";
   const x = alignedX(align, plate);
@@ -141,7 +166,10 @@ export const drawCoverText = (
 ): void => {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   if (!hasWords(text)) return;
-  paintPlate(ctx, measurePlate(ctx, text), text.align, palette);
+  const plate = measurePlate(ctx, text);
+  const color = wordColor(text, palette);
+  if (text.plate) paintPlate(ctx, plate, color, palette);
+  paintWords(ctx, plate, text.align, color);
 };
 
 /**

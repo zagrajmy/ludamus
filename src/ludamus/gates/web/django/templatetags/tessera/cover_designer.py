@@ -12,7 +12,6 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.translation import pgettext_lazy
 
 COVER_PATTERNS = (
-    ("tables", pgettext_lazy("cover pattern", "Tables")),
     ("dice", pgettext_lazy("cover pattern", "Dice")),
     ("hexes", pgettext_lazy("cover pattern", "Hex map")),
     ("trail", pgettext_lazy("cover pattern", "Trail map")),

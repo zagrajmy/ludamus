@@ -127,9 +127,11 @@ export const PALETTES: Record<string, Palette> = {
   },
 };
 
-/** `scale`: how many cells one unit of the Size slider means for this pattern. */
+/**
+ * In the shader's order: the index is the pattern number it switches on.
+ * `scale`: how many cells one unit of the Size slider means for this pattern.
+ */
 export const PATTERNS = [
-  { id: "tables", scale: 1 },
   { id: "dice", scale: 0.82 },
   { id: "hexes", scale: 1.25 },
   { id: "trail", scale: 0.9 },

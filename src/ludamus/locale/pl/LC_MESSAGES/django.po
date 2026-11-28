@@ -5576,11 +5576,6 @@ msgstr "Skopiuj do schowka"
 
 #: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
 msgctxt "cover pattern"
-msgid "Tables"
-msgstr "Stoły"
-
-#: src/ludamus/gates/web/django/templatetags/tessera/cover_designer.py
-msgctxt "cover pattern"
 msgid "Dice"
 msgstr "Kości"
 
@@ -8451,6 +8446,30 @@ msgstr "Do środka"
 #: src/ludamus/templates/components/cover-designer.html
 msgid "Align right"
 msgstr "Do prawej"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Text size"
+msgstr "Rozmiar tekstu"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Text color"
+msgstr "Kolor tekstu"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Auto"
+msgstr "Auto"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Dark"
+msgstr "Ciemny"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Light"
+msgstr "Jasny"
+
+#: src/ludamus/templates/components/cover-designer.html
+msgid "Background behind text"
+msgstr "Tło pod tekstem"
 
 #: src/ludamus/templates/components/cover-designer.html
 msgid "Cards crop the top and bottom, so this text will be cut in some places."
@@ -17017,6 +17036,10 @@ msgid ""
 msgstr ""
 "Bilety kupione na wydarzenia w tej sferze pojawią się tutaj, gotowe do "
 "pokazania przy wejściu."
+
+#~ msgctxt "cover pattern"
+#~ msgid "Tables"
+#~ msgstr "Stoły"
 
 #~ msgid "The leader can now enroll you directly."
 #~ msgstr "Od teraz lider może zapisywać Cię bezpośrednio."
