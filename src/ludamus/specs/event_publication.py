@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
 
 from ludamus.pacts.event import EventVisibility, PublicationChoice
 
@@ -38,3 +38,5 @@ def resolve_publication(
                 EventVisibility.PUBLIC,
                 kept if event.is_published else min(now, start_time),
             )
+        case _:
+            assert_never(intent.choice)

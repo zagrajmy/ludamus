@@ -52,10 +52,10 @@ when Pylint's `R0801` flags the duplication.
 ## Unit tests
 
 Cover: the isolated systems that meet the bar above, with one test per failure
-mode written down before the code. `tests/unit` covers `ludamus.mills` and
-itself in full, and `mise run test:unit:cov` fails under 100% — it runs in CI,
-`devcheck` and `pr-fix`, because the combined report cannot show this: a mills
-line covered only by an e2e test reads the same there.
+mode written down before the code. `tests/unit` covers `ludamus.mills`,
+`ludamus.specs` and itself in full, and `mise run test:unit:cov` fails under
+100% — it runs in CI, `devcheck` and `pr-fix`, because the combined report
+cannot show this: a line covered only by an e2e test reads the same there.
 
 ### A mill whose rules live in specs
 
