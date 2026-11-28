@@ -5,12 +5,13 @@ from typing import TYPE_CHECKING
 
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.http import Http404
+from django.views.decorators.csp import csp_override
 
 from ludamus.gates.web.django.access import panel_access
 from ludamus.pacts.errors import NotFoundError
 
 if TYPE_CHECKING:
-    from django.http import HttpRequest
+    from django.http import HttpRequest, HttpResponse
 
     from ludamus.gates.web.django.entities import RootRequest
     from ludamus.pacts.event import EventDTO
@@ -28,6 +29,14 @@ def read_public_event(request: RootRequest, slug: str) -> EventDTO:
     if not event.is_open and not panel_access(request).granted:
         raise Http404
     return event
+
+
+def respond_with_policy(
+    request: HttpRequest, response: HttpResponse, policy: dict[str, list[str]]
+) -> HttpResponse:
+    # NOTE: the site middleware overwrites a header set on the response, so a
+    # per-response policy has to go through csp_override.
+    return csp_override(policy)(lambda _request: response)(request)
 
 
 def account_email(request: HttpRequest) -> str:

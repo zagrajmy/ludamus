@@ -8,6 +8,7 @@ from ludamus.pacts.user import (
     AgeBand,
     UserData,
     UserType,
+    looks_like_email,
 )
 
 # Not an AgeBand: nobody under the minimum age holds an account, so this answer
@@ -33,7 +34,33 @@ class AgeRangeForm(forms.Form):
 
 
 class SignupAgeForm(AgeRangeForm):
+    name = forms.CharField(
+        label=_("Display name"),
+        max_length=255,
+        required=False,
+        help_text=_(
+            "How others see you on sessions and your profile. "
+            "A nickname is fine — not an email address."
+        ),
+    )
     confirmation_token = forms.CharField(widget=forms.HiddenInput())
+    field_order = ("name", "age_band", "confirmation_token")
+
+    def clean(self) -> None:
+        super().clean()
+        cleaned = self.cleaned_data
+        # Under the minimum age the account is never activated, so a display
+        # name is not collected. Eligible ages must pick one before we create
+        # the account — otherwise Auth0's email-as-name leaks into public UI.
+        if cleaned.get("age_band") is None:
+            cleaned["name"] = ""
+            return
+        if not (name := str(cleaned.get("name") or "").strip()):
+            self.add_error("name", _("Enter a display name."))
+        elif looks_like_email(name):
+            self.add_error("name", _("Enter a display name, not an email address."))
+        else:
+            cleaned["name"] = name
 
 
 class BaseUserForm(forms.Form):
@@ -44,6 +71,14 @@ class BaseUserForm(forms.Form):
             "and does not need to be your legal name."
         ),
     )
+
+    def clean_name(self) -> str:
+        name = str(self.cleaned_data["name"]).strip()
+        if looks_like_email(name):
+            raise forms.ValidationError(
+                _("Enter a display name, not an email address.")
+            )
+        return name
 
     @property
     def user_data(self) -> UserData:
@@ -73,15 +108,7 @@ class PartyNameForm(forms.Form):
     name = forms.CharField(label=_("Party name"), max_length=255)
 
 
-class PartyEnrollsTogetherForm(forms.Form):
-    enrolls_together = forms.TypedChoiceField(
-        choices=[("True", "True"), ("False", "False")],
-        coerce=lambda value: value == "True",
-        widget=forms.HiddenInput(),
-    )
-
-
-class PartyCreateForm(PartyEnrollsTogetherForm, PartyNameForm):
+class PartyCreateForm(PartyNameForm):
     pass
 
 

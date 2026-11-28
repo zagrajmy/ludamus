@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, get_args
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 from django.conf import settings
@@ -83,6 +85,7 @@ from ludamus.pacts.user import (
     PROFILE_DISCORD_USERNAME_MAX_LENGTH,
     AgeBand,
     UserType,
+    public_display_name,
 )
 
 if TYPE_CHECKING:
@@ -236,7 +239,9 @@ class User(AbstractBaseUser, PermissionsMixin):
         return f"{self.name} <{self.email}>"
 
     def get_full_name(self) -> str:
-        return self.name or DEFAULT_NAME
+        # Never surface a raw email as the public label — Auth0 password
+        # signup often copies the address into `name`.
+        return public_display_name(name=self.name, email=self.email) or DEFAULT_NAME
 
     @property
     def full_name(self) -> str:
@@ -639,8 +644,7 @@ class ParleyReport(models.Model):
 
 
 class Party(models.Model):
-    # A group that plays together, and that also enrolls together while
-    # `enrolls_together` is on. See RFC 0001.
+    # A group that plays and enrolls together. See RFC 0001.
     name = models.CharField(max_length=255, blank=True, default="")
     leader = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="led_parties"
@@ -649,7 +653,6 @@ class Party(models.Model):
     invite_token = models.CharField(
         max_length=64, default=token_urlsafe, db_index=True, unique=True
     )
-    enrolls_together = models.BooleanField(default=True)
 
     class Meta:
         db_table = "party"
@@ -2968,3 +2971,56 @@ class CaseEmail(models.Model):
 
     def __str__(self) -> str:
         return f"{case_reference(self.case_id)} {self.direction} {self.message_id}"
+
+
+# SAFETY: these values are written into the Content-Security-Policy header of
+# the tool page. A `;` would start a new directive, and browsers drop an IPv6
+# literal from a source list.
+FRAME_HOST_PATTERN = re.compile(r"[a-zA-Z0-9.-]+(?::\d+)?")
+
+
+def validate_tool_address(value: str) -> None:
+    message = _("Enter an https address with a plain domain name.")
+    try:
+        address = urlsplit(value)
+    except ValueError as error:
+        raise ValidationError(message) from error
+    if address.scheme != "https" or not FRAME_HOST_PATTERN.fullmatch(address.netloc):
+        raise ValidationError(message)
+
+
+def validate_frame_domains(value: str) -> None:
+    if any(not FRAME_HOST_PATTERN.fullmatch(domain) for domain in value.split()):
+        raise ValidationError(
+            _("Enter domain names only, one per line, like cdn.example.org.")
+        )
+
+
+class ExternalTool(models.Model):
+    name = models.CharField(max_length=255)
+    slug = models.SlugField(unique=True)
+    url = models.URLField(
+        verbose_name=_("address"),
+        validators=[validate_tool_address],
+        help_text=_("The https page that the frame opens."),
+    )
+    allowed_domains = models.TextField(
+        blank=True,
+        validators=[validate_frame_domains],
+        help_text=_(
+            "Other domains the tool moves the frame to, such as its login "
+            "page. One per line. The domain of the address is always allowed."
+        ),
+    )
+    is_active = models.BooleanField(
+        default=True, help_text=_("An inactive tool is not found on any sphere.")
+    )
+    creation_time = models.DateTimeField(auto_now_add=True)
+    modification_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "external_tool"
+        ordering: ClassVar = ["name"]
+
+    def __str__(self) -> str:
+        return self.name

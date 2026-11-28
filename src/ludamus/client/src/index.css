@@ -156,7 +156,10 @@
 html,
 body {
   height: 100%;
-  -webkit-overflow-scrolling: touch;
+  /* NOTE: no -webkit-overflow-scrolling: touch here or on .app-scroll. It is
+     inherited, and iOS Safari gives every scroller carrying it its own
+     stacking context, which traps the page (the cookie card among it) under
+     the fixed chat button. iOS 13+ scrolls with momentum without it. */
 }
 
 /* Every page wears the shell (base.html and the self-contained 500), so the
@@ -188,7 +191,6 @@ body {
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   scroll-padding-bottom: var(--toolbar-cover);
-  -webkit-overflow-scrolling: touch;
 }
 
 /* Hold the page's last box off the bar from inside it, so the strip is painted

@@ -20,7 +20,7 @@ from ludamus.pacts.propose import (
 )
 from ludamus.pacts.sessions import SessionData, SessionStatus
 from ludamus.pacts.slugs import unique_slug
-from ludamus.pacts.user import PROFILE_DISCORD_USERNAME_MAX_LENGTH
+from ludamus.pacts.user import PROFILE_DISCORD_USERNAME_MAX_LENGTH, public_display_name
 from ludamus.specs.proposal import (
     PROPOSAL_RATE_LIMIT_SECONDS,
     REUSABLE_SESSIONS_LIMIT,
@@ -217,11 +217,20 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
             if user_id is not None and user_slug is not None
             else None
         )
-        default_facilitator_name = current_user.name if current_user else ""
+        default_facilitator_name = (
+            public_display_name(name=current_user.name, email=current_user.email)
+            if current_user
+            else ""
+        )
         presenter_id = current_user.pk if current_user else None
 
-        facilitator_name = str(
+        raw_facilitator_name = str(
             session_data.get(FACILITATOR_NAME_FIELD, default_facilitator_name)
+        )
+        # Stored host labels must not be raw emails either — a pasted or
+        # Auth0-seeded address becomes the public card name otherwise.
+        facilitator_name = (
+            public_display_name(name=raw_facilitator_name) or raw_facilitator_name
         )
         slug = unique_slug(
             title,

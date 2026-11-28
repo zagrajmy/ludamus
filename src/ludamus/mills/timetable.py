@@ -32,6 +32,7 @@ from ludamus.pacts.timetable import (
     OfferedTimeViolationDTO,
     PlacementRejectedError,
     PlacementRejection,
+    RoomBookingConflict,
     ScheduleChangeAction,
     ScheduleChangeLogData,
     SessionPlacement,
@@ -545,6 +546,12 @@ class TimetableService(TimetableServiceProtocol):
         event_pk: int,
         user_pk: int | None = None,
     ) -> None:
+        """Place or move a session.
+
+        A room another session already holds is a ``RoomBookingConflict``
+        (supported, not advised). The space lock still serialises the write.
+        The session is still placed.
+        """
         self._require_aware(placement.start_time, placement.end_time)
         with self._transaction.atomic():
             require_session_in_event(
@@ -843,7 +850,7 @@ class ConflictDetectionService(ConflictDetectionServiceProtocol):
     ) -> list[ConflictDTO]:
         return [
             ConflictDTO(
-                type=ConflictType.SPACE_OVERLAP,
+                type=RoomBookingConflict.KIND,
                 severity=ConflictSeverity.ERROR,
                 subject_session_title=item.session_title,
                 subject_session_pk=item.session_id,

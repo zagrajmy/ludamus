@@ -75,6 +75,7 @@ from ludamus.mills.event import (
 from ludamus.mills.event_deletion import EventDeletionService
 from ludamus.mills.event_schedule import EventScheduleService
 from ludamus.mills.event_settings import EventSettingsService
+from ludamus.mills.external_tools import ExternalToolService
 from ludamus.mills.guild import GuildService
 from ludamus.mills.integrations import (
     EventIntegrationsService,
@@ -104,6 +105,7 @@ from ludamus.mills.parley_mentions import ParleyMentionMailService
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
+from ludamus.mills.proposal_acceptance import ProposalAcceptanceService
 from ludamus.mills.proposal_categories import ProposalCategoriesService
 from ludamus.mills.propose.field_layout import ImportFieldLayoutService
 from ludamus.mills.propose.import_log import ImportLogService
@@ -120,7 +122,6 @@ from ludamus.mills.propose.wizard import ProposeSessionService
 from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.session_modal import SessionModalService
 from ludamus.mills.sessions import (
-    ProposalAcceptanceService,
     ProposalStatusService,
     SessionConfirmationService,
     SessionContentEditService,
@@ -743,6 +744,10 @@ class Services:
     @cached_property
     def bookmarks(self) -> BookmarkService:
         return BookmarkService(self._transaction, self._repos.bookmarks)
+
+    @cached_property
+    def external_tools(self) -> ExternalToolService:
+        return ExternalToolService(self._repos.external_tools)
 
     @cached_property
     def discounts(self) -> DiscountsService:

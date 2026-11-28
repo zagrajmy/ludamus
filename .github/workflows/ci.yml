@@ -285,16 +285,21 @@ jobs:
           path: .coverage.e2e.${{ matrix.name }}
           include-hidden-files: true
           retention-days: 7
-      # Codecov merges same-flag uploads for a commit, so each shard sends its
-      # own slice; separate flags keep the Python gate a Python gate.
-      - name: Upload client coverage to Codecov
+      # NOTE: Codecov posts codecov/patch as soon as the first upload for a
+      # commit is processed, and that status is what stays. A shard's lcov is
+      # one slice, so uploading it here reports a coverage drop while the
+      # other shards and the Python report are still running. The aggregator
+      # uploads one client report after every shard has finished.
+      - name: Name this shard's client coverage
         if: ${{ hashFiles('coverage-client/lcov.info') != '' }}
-        uses: codecov/codecov-action@v7
+        run: mv coverage-client/lcov.info "coverage-client/lcov.${{ matrix.name }}.info"
+      - uses: actions/upload-artifact@v7
+        if: ${{ hashFiles(format('coverage-client/lcov.{0}.info', matrix.name)) != '' }}
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage-client/lcov.info
-          flags: client
-          disable_search: true
+          name: client-coverage-${{ matrix.name }}
+          path: coverage-client/lcov.${{ matrix.name }}.info
+          if-no-files-found: error
+          retention-days: 7
 
       - uses: actions/upload-artifact@v7
         if: always() && !cancelled()
@@ -363,6 +368,46 @@ jobs:
         with:
           pattern: coverage-*
           merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: client-coverage-*
+          path: coverage-client
+          merge-multiple: true
+      - name: Require every coverage artifact
+        id: client-coverage
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -eu
+          missing=0
+          require() {
+            if [ ! -f "$1" ]; then
+              echo "missing $1" >&2
+              missing=1
+            fi
+          }
+          require .coverage.postgres
+          require .coverage.unit.1
+          require .coverage.unit.2
+          require .coverage.unit.3
+          for name in chromium-1 chromium-2 chromium-3 rest-1 rest-2; do
+            require ".coverage.e2e.${name}"
+            require "coverage-client/lcov.${name}.info"
+          done
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            require .coverage.e2e.firefox-1
+            require .coverage.e2e.firefox-2
+          fi
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+          files="$(find coverage-client -type f -name 'lcov.*.info' | sort | tr '\n' ',' | sed 's/,$//')"
+          if [ -z "$files" ]; then
+            echo "no client coverage" >&2
+            exit 1
+          fi
+          echo "files=${files}" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$files" | tr ',' '\n'
       - run: mise run coverage:combine
       - name: Upload Python coverage to Codecov
         uses: codecov/codecov-action@v7
@@ -371,6 +416,21 @@ jobs:
           files: coverage.xml
           flags: python
           disable_search: true
+          fail_ci_if_error: true
+      - name: Upload client coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ steps.client-coverage.outputs.files }}
+          flags: client
+          disable_search: true
+          fail_ci_if_error: true
+      - name: Publish Codecov statuses
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          run_command: send-notifications
+          fail_ci_if_error: true
 
   # Bend proofs and known findings under formal/; check.sh pins and verifies
   # the Bend release itself.

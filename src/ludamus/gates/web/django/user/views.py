@@ -13,7 +13,6 @@ from django.views.generic.base import View
 from ludamus.gates.web.django.user.forms import (
     PartyCompanionForm,
     PartyCreateForm,
-    PartyEnrollsTogetherForm,
     PartyInviteForm,
     PartyNameForm,
 )
@@ -27,7 +26,6 @@ from ludamus.pacts.party import (
     InviteOutcome,
     PartyConsentMode,
     PartyMembershipStatus,
-    SetEnrollsTogetherOutcome,
 )
 
 if TYPE_CHECKING:
@@ -66,7 +64,6 @@ class PartyCreateActionView(LoginRequiredMixin, View):
             party_pk = request.services.parties.create(
                 leader_pk=request.context.current_user_id,
                 name=form.cleaned_data["name"],
-                enrolls_together=form.cleaned_data["enrolls_together"],
             )
             messages.success(request, _("Party created."))
             return redirect("web:crowd:party-detail", pk=party_pk)
@@ -297,39 +294,13 @@ class PartyConsentActionView(LoginRequiredMixin, View):
             user_pk=request.context.current_user_id, party_pk=pk, mode=mode
         ):
             if mode == PartyConsentMode.ACCEPT_BY_DEFAULT:
-                messages.success(request, _("The leader can now enroll you directly."))
+                messages.success(
+                    request, _("The leader can now sign you up without asking.")
+                )
             else:
-                messages.success(request, _("Enrollments now wait for your approval."))
+                messages.success(request, _("We ask before each signup again."))
         else:
             messages.error(request, _("Could not change this setting."))
-        return redirect("web:crowd:party-detail", pk=pk)
-
-
-class PartyEnrollsTogetherActionView(LoginRequiredMixin, View):
-    request: AuthenticatedRootRequest
-
-    @staticmethod
-    def post(request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
-        form = PartyEnrollsTogetherForm(request.POST)
-        if not form.is_valid():
-            messages.error(request, _("Could not change this setting."))
-            return redirect("web:crowd:party-detail", pk=pk)
-        enrolls_together = form.cleaned_data["enrolls_together"]
-        match request.services.parties.set_enrolls_together(
-            leader_pk=request.context.current_user_id,
-            party_pk=pk,
-            enrolls_together=enrolls_together,
-        ):
-            case SetEnrollsTogetherOutcome.UPDATED if enrolls_together:
-                messages.success(request, _("This party can now enroll together."))
-            case SetEnrollsTogetherOutcome.UPDATED:
-                messages.success(request, _("This party no longer enrolls together."))
-            case SetEnrollsTogetherOutcome.LOCKED:
-                messages.error(
-                    request, _("A party that has enrolled keeps enrolling together.")
-                )
-            case SetEnrollsTogetherOutcome.NOT_FOUND:
-                messages.error(request, _("Could not change this setting."))
         return redirect("web:crowd:party-detail", pk=pk)
 
 

@@ -7,7 +7,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0203_listing_party")]
+    dependencies = [("db_main", "0207_external_tool")]
 
     operations = [
         migrations.CreateModel(

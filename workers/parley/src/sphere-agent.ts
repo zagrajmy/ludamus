@@ -8,9 +8,8 @@ import {
 } from "agents";
 
 import { canSeeRoom, inSphere, roomFromId } from "./access";
-import { capabilityFromRequest } from "./auth";
 import { retentionCutoff } from "./limits";
-import { closeRevokedIn, passOf, sendWhere } from "./passes";
+import { admittedPass, closeRevokedIn, passOf, sendWhere } from "./passes";
 import {
   PASS_REVOKED,
   type Capability,
@@ -73,8 +72,13 @@ export class ParleySphereAgent extends Agent<Env> {
     connection: Connection<ConnectionState>,
     context: ConnectionContext,
   ): Promise<void> {
-    const capability = await capabilityFromRequest(context.request, this.workerEnv);
-    if (!inSphere(capability, this.name)) throw new Error("Forbidden feed");
+    const capability = await admittedPass({
+      connection,
+      env: this.workerEnv,
+      reaches: (pass) => inSphere(pass, this.name),
+      request: context.request,
+    });
+    if (capability === null) return;
     if (this.isRevoked(capability)) {
       connection.close(PASS_REVOKED, "Access revoked");
       return;

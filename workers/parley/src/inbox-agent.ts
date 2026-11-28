@@ -2,7 +2,6 @@ import { Agent, callable, getCurrentAgent, type Connection, type ConnectionConte
 
 import type { Env } from "./room-agent";
 
-import { capabilityFromRequest } from "./auth";
 import { retentionCutoff } from "./limits";
 import {
   askToMail,
@@ -13,9 +12,8 @@ import {
   snippet,
   type UnreadMention,
 } from "./mention-mail";
-import { passOf, sendWhere } from "./passes";
+import { admittedPass, passOf, sendWhere } from "./passes";
 import {
-  PASS_REVOKED,
   type Capability,
   type ConnectionState,
   type RoomActivity,
@@ -65,11 +63,13 @@ export class ParleyInboxAgent extends Agent<Env> {
     connection: Connection<ConnectionState>,
     context: ConnectionContext,
   ): Promise<void> {
-    const capability = await capabilityFromRequest(context.request, this.env);
-    if (capability.sub !== this.name) {
-      connection.close(PASS_REVOKED, "Not this person's inbox");
-      return;
-    }
+    const capability = await admittedPass({
+      connection,
+      env: this.env,
+      reaches: (pass) => pass.sub === this.name,
+      request: context.request,
+    });
+    if (capability === null) return;
     connection.setState({ admitted: true, capability });
   }
 

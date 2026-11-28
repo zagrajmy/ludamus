@@ -500,10 +500,6 @@ class ProposalAcceptedNotifierProtocol(Protocol):
     ) -> None: ...
 
 
-class SpaceTimeConflictError(Exception):
-    """Another session already occupies that space during the chosen slot."""
-
-
 class ProposalAcceptDeniedError(Exception):
     """Only sphere managers and superusers may accept proposals."""
 

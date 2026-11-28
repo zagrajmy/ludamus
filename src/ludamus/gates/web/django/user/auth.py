@@ -36,6 +36,8 @@ from ludamus.pacts.user import (
     AgeBand,
     ClaimOutcome,
     UserData,
+    looks_like_email,
+    public_display_name,
 )
 
 if TYPE_CHECKING:
@@ -143,15 +145,24 @@ class Auth0UserInfo(BaseModel):
 
     @property
     def display_name(self) -> str | None:
+        # Auth0 password signup often sets `name` to the email address.
+        # Never return that as a public display name — prefer other claims,
+        # then the email local-part as an editable soft default.
+        candidates: list[str] = []
         if self.name.strip():
-            return self.name.strip()
+            candidates.append(self.name.strip())
         parts = [p.strip() for p in (self.given_name, self.family_name) if p.strip()]
         if parts:
-            return " ".join(parts)
+            candidates.append(" ".join(parts))
         if self.nickname.strip():
-            return self.nickname.strip()
+            candidates.append(self.nickname.strip())
         if self.preferred_username.strip():
-            return self.preferred_username.strip()
+            candidates.append(self.preferred_username.strip())
+        for candidate in candidates:
+            if not looks_like_email(candidate):
+                return candidate
+        if soft := public_display_name(name="", email=self.email):
+            return soft
         return None
 
     @property
@@ -443,10 +454,20 @@ class Auth0SignupAgePageView(View):
         request.session[PENDING_SIGNUP_SESSION_KEY] = pending.model_copy(
             update={"confirmation_token": token}
         ).model_dump(mode="json")
+        # Soft default: Auth0 display_name already strips a raw email down to
+        # the local-part. The field stays editable so they can pick a nickname
+        # before any public surface sees them.
         return TemplateResponse(
             request,
             "user/signup_age.html",
-            {"form": SignupAgeForm(initial={"confirmation_token": token})},
+            {
+                "form": SignupAgeForm(
+                    initial={
+                        "confirmation_token": token,
+                        "name": pending.userinfo.display_name or "",
+                    }
+                )
+            },
         )
 
     @staticmethod
@@ -471,9 +492,22 @@ class Auth0SignupAgePageView(View):
             logger.info("Independent signup declined: below minimum age")
             return sign_out_to_guardian_page(request)
         logger.info("Signup age range confirmed")
+        # Pin the chosen display name onto the Auth0 claim so provision and
+        # sync both write it — clearing other name claims stops a later
+        # email-shaped Auth0 `name` from winning through display_name.
+        chosen_name = form.cleaned_data["name"]
+        userinfo = pending.userinfo.model_copy(
+            update={
+                "name": chosen_name,
+                "nickname": "",
+                "preferred_username": "",
+                "given_name": "",
+                "family_name": "",
+            }
+        )
         destination = _finish_login(
             request,
-            userinfo=pending.userinfo,
+            userinfo=userinfo,
             redirect_to=pending.redirect_to,
             age_band=age_band,
             claim_token=pending.claim_token,
