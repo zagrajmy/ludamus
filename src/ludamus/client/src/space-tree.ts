@@ -1,23 +1,237 @@
+// The venue tree: every sibling list is one sortable list built on UI SDK's
+// `createReorder`, which supplies the pointer drag (touch included), the
+// Space-to-pick-up keyboard model, the screen-reader announcements and focus
+// that stays on the moved row. This file adds what is ours: saving, the
+// "move to top level" shortcut and the fold toggle.
+
+import {
+  createChange,
+  createReorder,
+  definePrimitive,
+  type ReorderDraft,
+  type ReorderMessage,
+  reorderMessage,
+} from "@ui-sdk/core";
+import { createParts, wrappedButton } from "@ui-sdk/web";
+
 import { postJson } from "./post-json";
 
-const root = document.getElementById("space-root-list");
-const rootDropTarget = document.getElementById("space-root-drop-target");
+const FOCUS_AFTER_RELOAD = "space-tree-focus";
 
-const directChildren = (list: HTMLElement): HTMLElement[] =>
-  [...list.children].filter(
-    (el): el is HTMLElement => el instanceof HTMLElement && Object.hasOwn(el.dataset, "spaceNode"),
+type SpaceListOptions = {
+  defaultValue?: string[];
+  nested?: boolean;
+  onLift?: (key: string) => void;
+  onValueChange?: (value: string[]) => void;
+};
+
+type SpaceListState = { moving: ReorderDraft | null; value: string[] };
+
+const rootList = (): HTMLElement | null => document.getElementById("space-root-list");
+const rootDropTarget = (): HTMLElement | null => document.getElementById("space-root-drop-target");
+
+const translated = (message: ReorderMessage): string => {
+  const template =
+    rootList()?.dataset[`message${message.type[0].toUpperCase()}${message.type.slice(1)}`];
+  if (!template) return reorderMessage(message);
+  const tokens: Record<string, string> = {
+    label: message.label,
+    position: String(message.position),
+    total: String(message.total),
+  };
+  return template.replaceAll(/\{(label|position|total)\}/g, (_, token: string) => tokens[token]);
+};
+
+const isOver = (target: HTMLElement, event: PointerEvent): boolean => {
+  const box = target.getBoundingClientRect();
+  return (
+    event.clientX >= box.left &&
+    event.clientX <= box.right &&
+    event.clientY >= box.top &&
+    event.clientY <= box.bottom
   );
+};
 
-const saveOrder = async (list: HTMLElement): Promise<void> => {
+const forPointer =
+  (pointerId: number, handler: (event: PointerEvent) => void) =>
+  (event: PointerEvent): void => {
+    if (event.pointerId === pointerId) handler(event);
+  };
+
+// NOTE: the reorder captures the pointer on the row, so the browser hands
+// the press's `click` to the row, not to the handle that was pressed. Keep
+// the handle, and whether the press turned into a drag, for the click.
+let press: { dragged: boolean; handle: HTMLElement } | null = null;
+
+const rowsByKey = (list: Element): Map<string, HTMLElement> => {
+  const rows = new Map<string, HTMLElement>();
+  for (const child of list.children) {
+    const key = child.getAttribute("value");
+    if (key !== null && child instanceof HTMLElement) rows.set(key, child);
+  }
+  return rows;
+};
+
+const arrangeAround = ({
+  anchor,
+  list,
+  rows,
+}: {
+  anchor: HTMLElement | undefined;
+  list: Element;
+  rows: HTMLElement[];
+}): void => {
+  let passedAnchor = anchor === undefined;
+  for (const row of rows) {
+    if (row === anchor) passedAnchor = true;
+    else if (passedAnchor) list.append(row);
+    else anchor?.before(row);
+  }
+};
+
+const spaceList = definePrimitive({
+  api: (context) => {
+    const change = createChange(context);
+    context.onDestroy(
+      context.store.subscribe(() => {
+        if (press && context.store.get().moving?.pointer) press.dragged = true;
+      }),
+    );
+    const reorder = createReorder(context, {
+      draft: "moving",
+      key: "value",
+      label: (key) => context.props<{ label?: string }>("item", key)?.label,
+      message: translated,
+      set: (value, details) => change("value", value, details),
+      slot: "item",
+    });
+
+    // A nested row dragged onto the box above the tree leaves its list for
+    // the top level. NOTE: registered before the reorder's own pointer
+    // listeners, so the drop is claimed before it can land as a reorder.
+    const watchRootDrop = (key: string, pointerId: number): void => {
+      const target = rootDropTarget();
+      // A second press while a row is moving belongs to no drag of its own.
+      if (!target || !context.options().nested || context.store.get().moving) return;
+      const dragging = (): boolean => {
+        const { moving } = context.store.get();
+        return moving?.pointer === true && moving.key === key;
+      };
+      const stop = (): void => {
+        globalThis.removeEventListener("pointermove", move);
+        globalThis.removeEventListener("pointerup", up, true);
+        globalThis.removeEventListener("pointercancel", cancel, true);
+        delete target.dataset.armed;
+        delete target.dataset.over;
+      };
+      // Another finger on the screen neither moves nor drops this row.
+      const cancel = forPointer(pointerId, stop);
+      const move = forPointer(pointerId, (event) => {
+        target.toggleAttribute("data-armed", dragging());
+        target.toggleAttribute("data-over", dragging() && isOver(target, event));
+      });
+      const up = forPointer(pointerId, (event) => {
+        const lifted = dragging() && isOver(target, event);
+        stop();
+        if (!lifted) return;
+        reorder.cancel();
+        context.options().onLift?.(key);
+      });
+      globalThis.addEventListener("pointermove", move);
+      globalThis.addEventListener("pointerup", up, true);
+      globalThis.addEventListener("pointercancel", cancel, true);
+      context.onDestroy(stop);
+    };
+
+    return {
+      lift: (key: string) => context.options().onLift?.(key),
+      nested: () => context.options().nested === true,
+      reorder,
+      watchRootDrop,
+    };
+  },
+  name: "space-list",
+  options: {
+    defaultValue: "list",
+    nested: "boolean",
+    onLift: "callback",
+    onValueChange: "callback",
+  },
+  slots: (slot) => ({
+    handle: slot<{ value: string }>({
+      on: {
+        keydown: (event, { api, key, store }) => {
+          const moving = store.get().moving !== null;
+          // Enter stays the handle's own click, which folds a branch.
+          if (event.key === "Enter" && !moving) return;
+          if (event.key === "ArrowLeft" && !moving && api.nested()) {
+            event.preventDefault();
+            api.lift(key);
+            return;
+          }
+          api.reorder.keydown(event, key);
+        },
+        pointerdown: (event, { api, el, key }) => {
+          press = el ? { dragged: false, handle: el } : null;
+          api.watchRootDrop(key, event.pointerId);
+          api.reorder.pointerdown(event, key);
+        },
+      },
+      props: { value: { from: "item", kind: "key", required: true } },
+    }),
+    item: slot<{ label?: string; value: string }>({
+      attrs: (state, { api, key }) => ({
+        "data-dragging": api.reorder.dragging(state, key) ? "" : undefined,
+        "data-grabbed": api.reorder.moving(state, key) ? "" : undefined,
+      }),
+      bind: (el, part) => part.api.reorder.bind(el, part),
+      props: { label: "string", value: "key" },
+    }),
+    root: slot({
+      // The rows are server-rendered, so nothing re-renders them: put the
+      // elements in the order the reorder reports, draft included.
+      // SAFETY: a row that is moved in the DOM loses focus and pointer
+      // capture, which would end the very move in progress. So the row being
+      // moved (else the focused one) stays put and the others go around it.
+      bind: (el, part) =>
+        part.store.subscribe(() => {
+          const state = part.store.get();
+          const order = part.api.reorder.order(state);
+          const rows = rowsByKey(el);
+          if ([...rows.keys()].join(",") === order.join(",")) return;
+          const anchorKey =
+            state.moving?.key ??
+            order.find((key) => rows.get(key)?.contains(document.activeElement));
+          arrangeAround({
+            anchor: anchorKey === undefined ? undefined : rows.get(anchorKey),
+            list: el,
+            rows: order.flatMap((key) => rows.get(key) ?? []),
+          });
+        }),
+    }),
+  }),
+  state: (options: SpaceListOptions): SpaceListState => ({
+    moving: null,
+    value: options.defaultValue ?? [],
+  }),
+});
+
+createParts(spaceList, {
+  handle: { display: "contents", tag: "space-list-handle", target: wrappedButton },
+  item: { tag: "space-list-item" },
+  root: { tag: "space-list" },
+});
+
+const saveOrder = async (list: HTMLElement, order: string[]): Promise<void> => {
+  const root = rootList();
   if (!root) return;
   const parentPk = list.dataset.parentPk ?? "";
-  const spaceIds = directChildren(list).map((li) => Number.parseInt(li.dataset.spaceId ?? "", 10));
   // NOTE: a refused save leaves the dragged order on screen; the next move
   // posts the whole sibling list again, so it lands then.
   await postJson({
     body: {
       parent_pk: parentPk === "" ? null : Number.parseInt(parentPk, 10),
-      space_ids: spaceIds,
+      space_ids: order.map((pk) => Number.parseInt(pk, 10)),
     },
     csrfFrom: root,
     failure: root.dataset.reorderError ?? "",
@@ -25,32 +239,29 @@ const saveOrder = async (list: HTMLElement): Promise<void> => {
   });
 };
 
-const moveToRoot = async (li: HTMLElement): Promise<void> => {
-  if (!root || li.parentElement === root) return;
+const rememberFocus = (spaceId: string): void => {
+  try {
+    sessionStorage.setItem(FOCUS_AFTER_RELOAD, spaceId);
+  } catch (error) {
+    console.warn("Space tree: focus will not follow the moved space.", error);
+  }
+};
+
+const moveToRoot = async (spaceId: string): Promise<void> => {
+  const root = rootList();
+  if (!root) return;
   const moved = await postJson({
-    body: { space_id: Number.parseInt(li.dataset.spaceId ?? "", 10) },
+    body: { space_id: Number.parseInt(spaceId, 10) },
     csrfFrom: root,
     failure: root.dataset.moveError ?? "",
     url: root.dataset.moveToRootUrl ?? "",
   });
-  // The tree is server-rendered; a moved branch reloads into its new place.
-  if (moved) globalThis.location.reload();
+  if (!moved) return;
+  // The tree is server-rendered; a moved branch reloads into its new place,
+  // and focus follows it there when storage lets it.
+  rememberFocus(spaceId);
+  globalThis.location.reload();
 };
-
-// Move a node one slot within its own sibling list, then persist.
-const moveNode = (li: HTMLElement, direction: -1 | 1): void => {
-  const list = li.parentElement;
-  if (!(list instanceof HTMLElement)) return;
-  const siblings = directChildren(list);
-  const target = siblings[siblings.indexOf(li) + direction];
-  if (!target) return;
-  if (direction === -1) target.before(li);
-  else target.after(li);
-  void saveOrder(list);
-};
-
-let dragged: HTMLElement | null = null;
-let suppressDisclosureClick = false;
 
 const toggleChildren = (disclosure: HTMLButtonElement): void => {
   const children = document.getElementById(disclosure.getAttribute("aria-controls") ?? "");
@@ -59,99 +270,75 @@ const toggleChildren = (disclosure: HTMLButtonElement): void => {
   disclosure.setAttribute("aria-expanded", String(!children.hidden));
 };
 
-const wireDrag = (list: HTMLElement): void => {
-  list.addEventListener("dragstart", (event) => {
-    const li = (event.target as HTMLElement).closest<HTMLElement>("[data-space-node]");
-    if (li && directChildren(list).includes(li)) {
-      dragged = li;
-      suppressDisclosureClick = false;
-      li.style.opacity = "0.5";
-      if (rootDropTarget && list !== root) rootDropTarget.dataset.armed = "";
-    }
-  });
-  list.addEventListener("dragend", (event) => {
-    const li = (event.target as HTMLElement).closest<HTMLElement>("[data-space-node]");
-    if (li && dragged && directChildren(list).includes(dragged)) {
-      li.style.opacity = "1";
-      void saveOrder(list);
-    }
-    dragged = null;
-    suppressDisclosureClick = true;
-    globalThis.setTimeout(() => {
-      suppressDisclosureClick = false;
-    }, 0);
-  });
-  list.addEventListener("dragover", (event) => {
-    if (!dragged || !directChildren(list).includes(dragged)) return;
-    const target = (event.target as HTMLElement).closest<HTMLElement>("[data-space-node]");
-    if (!target || target === dragged || !directChildren(list).includes(target)) {
-      return;
-    }
-    event.preventDefault();
-    const rect = target.getBoundingClientRect();
-    const before = event.clientY < rect.top + rect.height / 2;
-    if (before) target.before(dragged);
-    else target.after(dragged);
-  });
+// The handle a press began on, when the row it sits in got the click.
+const pressedDisclosure = (
+  handle: HTMLElement | undefined,
+  target: Element,
+): HTMLButtonElement | null => {
+  if (!(handle instanceof HTMLButtonElement)) return null;
+  if (handle.closest("space-list-item") !== target) return null;
+  return Object.hasOwn(handle.dataset, "spaceDisclosure") ? handle : null;
 };
 
-if (root) {
-  for (const list of document.querySelectorAll<HTMLElement>("[data-space-list]")) {
-    wireDrag(list);
+// A branch's guide line: its first 16px fold the branch it belongs to.
+const branchDisclosureAt = (target: Element, event: Event): HTMLButtonElement | null => {
+  const branch = target.closest<HTMLElement>("[data-space-branch-disclosure]");
+  if (!branch || !(event instanceof MouseEvent)) return null;
+  const { left } = branch.getBoundingClientRect();
+  if (event.clientX < left || event.clientX > left + 16) return null;
+  return document.querySelector<HTMLButtonElement>(
+    `[data-space-disclosure][aria-controls="${branch.id}"]`,
+  );
+};
+
+// A keyboard click (detail 0) never belongs to a drag, even one the
+// browser cancelled without a click of its own.
+const endsDrag = (event: MouseEvent, pressed: typeof press): boolean =>
+  pressed?.dragged === true && event.detail !== 0;
+
+const clickedDisclosure = (
+  event: MouseEvent,
+  target: Element,
+  handle: HTMLElement | undefined,
+): HTMLButtonElement | null =>
+  target.closest<HTMLButtonElement>("[data-space-disclosure]") ??
+  pressedDisclosure(handle, target) ??
+  branchDisclosureAt(target, event);
+
+const takeFocusAfterReload = (): string | null => {
+  try {
+    const focusId = sessionStorage.getItem(FOCUS_AFTER_RELOAD);
+    sessionStorage.removeItem(FOCUS_AFTER_RELOAD);
+    return focusId;
+  } catch (error) {
+    console.warn("Space tree: could not restore focus after a move.", error);
+    return null;
   }
-  rootDropTarget?.addEventListener("dragover", (event) => {
-    if (!dragged || dragged.parentElement === root) return;
-    event.preventDefault();
-    rootDropTarget.classList.add("border-primary", "bg-primary/5", "text-primary");
-  });
-  rootDropTarget?.addEventListener("dragleave", () => {
-    rootDropTarget.classList.remove("border-primary", "bg-primary/5", "text-primary");
-  });
-  rootDropTarget?.addEventListener("drop", (event) => {
-    event.preventDefault();
-    rootDropTarget.classList.remove("border-primary", "bg-primary/5", "text-primary");
-    delete rootDropTarget.dataset.armed;
-    const moved = dragged;
-    dragged = null;
-    if (moved) {
-      moved.style.opacity = "1";
-      void moveToRoot(moved);
-    }
-  });
-  root.addEventListener("dragend", () => {
-    rootDropTarget?.classList.remove("border-primary", "bg-primary/5", "text-primary");
-    if (rootDropTarget) delete rootDropTarget.dataset.armed;
-  });
+};
+
+const root = rootList();
+if (root) {
+  for (const list of [root, ...root.querySelectorAll<HTMLElement>("space-list")]) {
+    list.addEventListener("valuechange", (event) => {
+      void saveOrder(list, (event as CustomEvent<{ value: string[] }>).detail.value);
+    });
+    list.addEventListener("lift", (event) => {
+      void moveToRoot((event as CustomEvent<{ value: string }>).detail.value);
+    });
+  }
   root.addEventListener("click", (event) => {
     if (!(event.target instanceof Element)) return;
-    const disclosure = event.target.closest<HTMLButtonElement>("[data-space-disclosure]");
-    if (disclosure) {
-      if (suppressDisclosureClick) return;
-      toggleChildren(disclosure);
-      return;
-    }
-    const branch = event.target.closest<HTMLElement>("[data-space-branch-disclosure]");
-    if (!branch || !(event instanceof MouseEvent)) return;
-    const branchBounds = branch.getBoundingClientRect();
-    if (event.clientX < branchBounds.left || event.clientX > branchBounds.left + 16) return;
-    const branchDisclosure = document.querySelector<HTMLButtonElement>(
-      `[data-space-disclosure][aria-controls="${branch.id}"]`,
-    );
-    if (branchDisclosure) toggleChildren(branchDisclosure);
+    const pressed = press;
+    press = null;
+    if (endsDrag(event, pressed)) return;
+    const disclosure = clickedDisclosure(event, event.target, pressed?.handle);
+    if (disclosure) toggleChildren(disclosure);
   });
-  root.addEventListener("keydown", (event) => {
-    if (!["ArrowDown", "ArrowLeft", "ArrowUp"].includes(event.key)) return;
-    const handle = (event.target as HTMLElement).closest<HTMLElement>("[data-drag-handle]");
-    const li = handle?.closest<HTMLElement>("[data-space-node]");
-    if (!handle || !li) return;
-    if (event.key === "ArrowLeft") {
-      if (li.parentElement === root) return;
-      event.preventDefault();
-      void moveToRoot(li);
-      return;
-    }
-    event.preventDefault();
-    moveNode(li, event.key === "ArrowUp" ? -1 : 1);
-    handle.focus();
-  });
+
+  const focusId = takeFocusAfterReload();
+  if (focusId) {
+    root
+      .querySelector<HTMLElement>(`[data-space-id="${CSS.escape(focusId)}"] [data-drag-handle]`)
+      ?.focus();
+  }
 }

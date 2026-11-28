@@ -194,7 +194,7 @@
                                     {% endfor %}
                                 </label>
                                 <span class="shrink-0">
-                                    {% include "components/stepper-field.html" with name=form.guests.html_name id=form.guests.id_for_label value=form.guests.value|stringformat:"s" min=form.guests.field.min_value|stringformat:"s" max=form.guests.field.max_value|stringformat:"s" has_errors=form.guests.errors %}
+                                    {% include "components/stepper-field.html" with name=form.guests.html_name id=form.guests.id_for_label value=form.guests.value|stringformat:"s" min=form.guests.field.min_value|stringformat:"s" max=form.guests.field.max_value|stringformat:"s" has_errors=form.guests.errors label=form.guests.label %}
                                 </span>
                             </div>
                         {% endif %}

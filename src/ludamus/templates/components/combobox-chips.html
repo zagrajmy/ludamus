@@ -1,0 +1,73 @@
+{% load i18n %}
+{% load tessera %}
+{% load vite_tags %}
+{% vite_asset_once 'src/combobox-chips.ts' %}
+{# Multiple-choice combobox whose picks show as removable chips beside the #}
+{# input, built on UI SDK's Combobox: https://ui-sdk.dev/docs/components/combobox #}
+{# Rendered by {% tessera_combobox multiple=True chips=True %}. For a form #}
+{# field, where the picks have no other home on the page; a filter that #}
+{# mirrors its picks elsewhere keeps the plain combobox. #}
+{# Vars: attrs (safe string), id, name, placeholder, empty_text, extra_class, #}
+{# has_errors, described_by, disabled, required, options, items, slot. #}
+{# NOTE: default-value is a comma-separated list, so option values must not #}
+{# contain commas (primary keys and slugs don't). #}
+<ui-combobox multiple auto-highlight class="relative block" name="{{ name }}" default-value="{% for option in options.selected %}{{ option.value }}{% if not forloop.last %},{% endif %}{% endfor %}" {% if disabled %}disabled{% endif %} {% if required %}required{% endif %} data-combobox-chips data-results-label="{% translate "Results" %}" data-removed-label="{% translate "Removed: {label}" %}" data-remove-label="{% translate "Remove: {label}" %}">
+    {# Scriptless, the same options are a real multiple select; with scripting #}
+    {# on the parser keeps a noscript's content as text, so only one of the two #}
+    {# ever posts the field. #}
+    <noscript>
+        {% include "components/select.html" with attrs=attrs extra_class=extra_class has_errors=has_errors slot=slot only %}
+    </noscript>
+    {# Hidden until the elements are defined, so a scriptless page shows the #}
+    {# select alone, not a dead text box beside it. #}
+    <ui-combobox-chips class="flex w-full flex-wrap items-center gap-1.5 rounded-lg border {% if has_errors|default:False %}border-danger{% else %}border-border{% endif %} bg-bg-secondary px-2 py-1.5 has-[input:focus-visible]:border-border-focus has-[input:focus-visible]:shadow-[0_0_0_2px_var(--color-background),0_0_0_4px_var(--color-primary)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 [ui-combobox:not(:defined)_&]:hidden{% if extra_class|default:"" %} {{ extra_class }}{% endif %}">
+        <ui-combobox-input class="contents">
+            {# text-base keeps 16px on mobile so iOS Safari doesn't auto-zoom on focus. #}
+            {# shadow-none!: the ring is drawn on the chips box around it, and #}
+            {# the page-wide :focus-visible ring is unlayered CSS. #}
+            <input type="text"
+                   id="{{ id }}"
+                   placeholder="{{ placeholder }}"
+                   autocomplete="off"
+                   spellcheck="false"
+                   autocorrect="off"
+                   autocapitalize="none"
+                   {% if has_errors|default:False %}aria-invalid="true"{% endif %}
+                   {% if described_by %}aria-describedby="{{ described_by }}"{% endif %}
+                   class="min-w-24 grow border-0 bg-transparent px-1 py-0.5 text-base text-foreground placeholder:text-foreground-muted focus:ring-0 focus-visible:shadow-none! sm:text-sm">
+        </ui-combobox-input>
+    </ui-combobox-chips>
+    <ui-combobox-content hidden
+                         side-offset="4"
+                         class="z-40 w-(--anchor-width) overflow-hidden rounded-xl border border-border bg-bg-secondary shadow-xl">
+        {# Kept in the page as a live region; it is empty while options match. #}
+        <ui-combobox-empty class="block px-3 py-2 text-sm text-foreground-muted empty:hidden">
+            {{ empty_text }}
+        </ui-combobox-empty>
+        <ui-combobox-list class="block max-h-56 overflow-y-auto py-1">
+            {% for item in items %}
+                <ui-combobox-item value="{{ item.value }}"
+                                  label="{{ item.label }}"
+                                  {% if item.disabled %}disabled{% endif %}
+                                  class="group flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-foreground data-[highlighted]:bg-bg-tertiary data-[selected]:font-semibold data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50">
+                    <span class="grow truncate">{{ item.label }}</span>
+                    <ui-combobox-item-indicator keep-mounted class="opacity-0 data-[selected]:opacity-100">
+                        {% icon "check" variant="mini" class="size-4 text-primary" aria_hidden="true" %}
+                    </ui-combobox-item-indicator>
+                </ui-combobox-item>
+            {% endfor %}
+        </ui-combobox-list>
+    </ui-combobox-content>
+    {# The chip the element copies per pick, so the chip look stays here in #}
+    {# the template where Tailwind can see it. #}
+    <template>
+        <ui-combobox-chip class="inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-bg-tertiary py-0.5 pl-2 pr-1 text-sm text-foreground">
+            <ui-combobox-chip-remove class="contents">
+                <button type="button"
+                        class="grid size-5 shrink-0 place-items-center rounded text-foreground-muted hover:bg-bg-secondary hover:text-foreground">
+                    {% icon "x-mark" variant="mini" class="size-3.5" aria_hidden="true" %}
+                </button>
+            </ui-combobox-chip-remove>
+        </ui-combobox-chip>
+    </template>
+</ui-combobox>

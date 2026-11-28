@@ -1,21 +1,18 @@
-// − / + buttons for any `[data-stepper]` number field. One delegated listener
-// keeps every stepper declarative markup; the input stays a real number field,
-// so typing (and no-JS submits) work unchanged. stepDown/stepUp clamp to the
-// input's min/max natively. The synthetic change event bubbles so listeners
-// keyed on the surrounding form (e.g. the enroll seat projection) see button
-// presses exactly like keyboard edits.
+// The − / + stepper (`components/stepper-field.html`) is UI SDK's Number
+// Input: the custom elements wrap the server-rendered input and buttons, so
+// the field still types and submits without JS. Elements swapped in by htmx
+// upgrade on their own.
+import "@ui-sdk/web/number-input";
 
-document.addEventListener("click", (e) => {
-  const button = (e.target as Element | null)?.closest<HTMLElement>(
-    "[data-stepper-down], [data-stepper-up]",
-  );
-  if (!button) return;
-  const input = button
-    .closest<HTMLElement>("[data-stepper]")
-    ?.querySelector<HTMLInputElement>('input[type="number"]');
-  if (!input || input.disabled) return;
-  if (input.value === "") input.value = input.min || "0";
-  else if ("stepperUp" in button.dataset) input.stepUp();
-  else input.stepDown();
-  input.dispatchEvent(new Event("change", { bubbles: true }));
+// NOTE: the inner <input> keeps its `name` and submits its text, so the text
+// must stay a bare number — Polish grouping would post "12 345".
+const plain = (root: ParentNode): void => {
+  for (const stepper of root.querySelectorAll("ui-number-input")) {
+    stepper.format = { useGrouping: false };
+  }
+};
+
+plain(document);
+document.addEventListener("htmx:load", (event) => {
+  if (event.target instanceof Element) plain(event.target.parentNode ?? event.target);
 });

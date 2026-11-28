@@ -382,6 +382,29 @@ class TestCombobox:
         assert "<template" in html
         assert 'role="option"' in html
 
+    def test_scriptless_chips_select_names_the_same_error_as_the_input(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_combobox id="tags" name="tags" multiple=True chips=True'
+            ' described_by="tags-errors" %}'
+            '<option value="1">Mörk Borg</option>{% end_tessera_combobox %}'
+        )
+        html = tpl.render(Context())
+        select = re.search(r"<select[^>]*>", html)
+        text_input = re.search(r'<input type="text"[^>]*>', html)
+        assert select
+        assert text_input
+        assert 'aria-describedby="tags-errors"' in select.group()
+        assert 'aria-describedby="tags-errors"' in text_input.group()
+
+    def test_chips_without_a_description_point_nowhere(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_combobox id="tags" name="tags" multiple=True chips=True %}'
+            '<option value="1">Mörk Borg</option>{% end_tessera_combobox %}'
+        )
+        assert "aria-describedby" not in tpl.render(Context())
+
     def test_empty_state_is_visual_only(self) -> None:
         # The spoken copy goes to a live region combobox.ts keeps on the body:
         # one inside this popup would be display:none until it opened, and a

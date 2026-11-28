@@ -1292,7 +1292,7 @@ test.describe("Backoffice Panel", () => {
 
     // Top-level node ids from the root sibling list.
     const ids = await page
-      .locator("#space-root-list > li[data-space-node]")
+      .locator("#space-root-list > [data-space-node]")
       .evaluateAll((rows) => rows.map((r) => Number(r.getAttribute("data-space-id"))));
     expect(ids.length).toBeGreaterThanOrEqual(2);
     const reversed = [...ids].reverse();
@@ -1318,7 +1318,7 @@ test.describe("Backoffice Panel", () => {
 
     await page.reload();
     const newIds = await page
-      .locator("#space-root-list > li[data-space-node]")
+      .locator("#space-root-list > [data-space-node]")
       .evaluateAll((rows) => rows.map((r) => Number(r.getAttribute("data-space-id"))));
     expect(newIds).toEqual(reversed);
 
